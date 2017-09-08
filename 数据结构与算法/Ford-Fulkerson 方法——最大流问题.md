@@ -1,5 +1,7 @@
 # 最大流&&最小费用最大流&&最大二分匹配
 
+> Python 源码：https://github.com/edisonleolhl/DataStructure-Algorithm/blob/master/Graph/MaxFlow
+
 ## 最大流问题
 
 - 比喻：有一个自来水管道运输系统，起点是 s，终点是 t，途中经过的管道都有一个最大的容量，可以想象每条管道不能被水流“撑爆”。求从 s 到 t 的最大水流量是多少？
@@ -71,11 +73,11 @@
 
     - 假设没有上面伪代码中最后一步的操作，那么对于如下的流网络：
 
-        ![](http://hiphotos.baidu.com/scaneelingg/pic/item/41bd4fca9e4d1d36be09e6ca.jpg?_=3061893)
+        ![201798-maxflow1](http://ooy7h5h7x.bkt.clouddn.com/blog/image/201798-maxflow1.jpg)
 
     - 我们第一次找到了 1-2-3-4 这条增广路，这条路上的最小边剩余流量显然是 1。于是我们修改后得到了下面这个残留网络：
 
-        ![](http://hiphotos.baidu.com/scaneelingg/pic/item/60535f619638686debf8f8ca.jpg?_=3061893)
+        ![201798-maxflow2](http://ooy7h5h7x.bkt.clouddn.com/blog/image/201798-maxflow2.jpg)
 
     - 这时候 (1,2) 和 (3,4) 边上的流量都等于容量了，我们再也找不到其他的增广路了，当前的流量是 1。但这个答案明显不是最大流，因为我们可以同时走 1-2-4 和 1-3-4，这样可以得到流量为 2 的流。
 
@@ -83,11 +85,11 @@
 
     - 我们来看刚才的例子，在找到 1-2-3-4 这条增广路之后，把容量修改成如下:
 
-        ![](http://hiphotos.baidu.com/scaneelingg/pic/item/2f767e91a00f9ca4a977a4cb.jpg?_=3061893)
+        ![201798-maxflow3](http://ooy7h5h7x.bkt.clouddn.com/blog/image/201798-maxflow3.jpg)
 
     - 这时再找增广路的时候，就会找到 1-3-2-4 这条可增广量，即 delta 值为 1 的可增广路。将这条路增广之后，得到了最大流 2。
 
-        ![](http://hiphotos.baidu.com/scaneelingg/pic/item/6074478cf17bd63bb31bbacb.jpg?_=3061893)
+        ![201798-maxflow4](http://ooy7h5h7x.bkt.clouddn.com/blog/image/201798-maxflow4.jpg)![]
 
     - 解释：
 
@@ -108,6 +110,12 @@
   - 画出流的流向及带宽分配，使达到最大可能的带宽。
 
     ![201798-maxflow](http://ooy7h5h7x.bkt.clouddn.com/blog/image/201798-maxflow.png)
+
+  - 根据算法，最大流的值为23（定值），而下图是一种可能的流量走向：
+ 
+    ![201798-maxflowans](http://ooy7h5h7x.bkt.clouddn.com/blog/image/201798-maxflowans.png)
+
+  - 源码（直接运行即可得到答案 23）：https://github.com/edisonleolhl/DataStructure-Algorithm/blob/master/Graph/MaxFlow/maxflow.py
 
 ## 最小费用最大流
 
@@ -132,6 +140,8 @@
     ![201798-mincostmaxflow](http://ooy7h5h7x.bkt.clouddn.com/blog/image/201798-mincostmaxflow.png)
 
 ## 最大二分匹配
+
+> 转自：http://blog.csdn.net/smartxxyx/article/details/9672181
 
 - 最大匹配定义：给定一个无向图 G = (V, E)，一个匹配是指：E 的某个子集 M , 对于所有的结点 v ∈ V，子集 M 中最多有一条边与 v 相连，如果子集 M 中的某条边与 v 相连，那么称 v 由 M 匹配；否则 v 就是没有匹配的。最大匹配是指：对于所有任意匹配 M'，有 |M| ≥ |M'| 的匹配 M 。
 
