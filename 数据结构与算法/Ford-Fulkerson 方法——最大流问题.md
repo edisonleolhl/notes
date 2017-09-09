@@ -41,7 +41,7 @@
 
   - 开始，对于所有结点 u, v ∈ V， f(u, v) = 0，给出的初始流值为0。
 
-  - 在每一次迭代中，将 G 的流值增加，方法就是在残留网络　Gf 中寻找一条增广路径，然后在增广路径中的每条边都增加等量的流值，这个流值的大小就是增广路径上的最大残余流量。
+  - 在每一次迭代中，将 G 的流值增加，方法就是在残留网络　Gf 中寻找一条增广路径（一般用 BFS 算法遍历残留网络中各个结点，以此寻找增广路径），然后在增广路径中的每条边都增加等量的流值，这个流值的大小就是增广路径上的最大残余流量。
 
   - 虽然 Ford-Fulkerson 方法每次迭代都增加流值，但是对于某条特定边来说，其流量可能增加，也可能减小，这是必要的，详情见下文的“反向边”。
 
@@ -89,7 +89,7 @@
 
     - 这时再找增广路的时候，就会找到 1-3-2-4 这条可增广量，即 delta 值为 1 的可增广路。将这条路增广之后，得到了最大流 2。
 
-        ![201798-maxflow4](http://ooy7h5h7x.bkt.clouddn.com/blog/image/201798-maxflow4.jpg)![]
+        ![201798-maxflow4](http://ooy7h5h7x.bkt.clouddn.com/blog/image/201798-maxflow4.jpg)
 
     - 解释：
 
@@ -101,6 +101,8 @@
 
 - 如果使用广度优先来寻找增广路径，那么可以改善 FORD-FULKERSON 算法的效率，也就是说，每次选择的增广路径是一条从 s 到 t 的最短路径，其中每条边的权重为单位距离（即根据边的数量来计算最短路径），我们称如此实现的 FORD-FULKERSON 方法为 Edmonds-Karp 算法。其运行时间为 O(VE^2)。
 
+- 注意 E-K 算法适用于改善 F-F 算法的效率，边的权重仅仅还是容量限制，而下文的“最小费用最大流”中的每条边的权重有两个值：（容量限制，单位流量损耗）。
+
 ### 最大流实例：
 
 - 对于如下拓扑图，给出从S1到S6允许的流的方向和带宽限制：
@@ -111,11 +113,13 @@
 
     ![201798-maxflow](http://ooy7h5h7x.bkt.clouddn.com/blog/image/201798-maxflow.png)
 
-  - 根据算法，最大流的值为23（定值），而下图是一种可能的流量走向：
- 
-    ![201798-maxflowans](http://ooy7h5h7x.bkt.clouddn.com/blog/image/201798-maxflowans.png)
+- 根据算法，最大流的值为23（定值），而下图是一种可能的流量走向：
 
-  - 源码（直接运行即可得到答案 23）：https://github.com/edisonleolhl/DataStructure-Algorithm/blob/master/Graph/MaxFlow/maxflow.py
+  ![201798-maxflowans](http://ooy7h5h7x.bkt.clouddn.com/blog/image/201798-maxflowans.png)
+
+- 源码：https://github.com/edisonleolhl/DataStructure-Algorithm/blob/master/Graph/MaxFlow/maxflow.py
+
+- 在寻找增广路径时用到了 BFS 算法，以后有时间再写写 BFS、DFS 的文章，注意用到了 Python 中的标准库：deque，这是双端队列。
 
 ## 最小费用最大流
 
@@ -129,6 +133,8 @@
 
   - 另一条解决途径和前面介绍的最大流算法思路相类似，一般首先给出零流作为初始流。这个流的费用为零，当然是最小费用的。然后寻找一条源点至汇点的增流链，但要求这条增流链必须是所有增流链中费用最小的一条。如果能找出增流链，则在增流链上增流，得出新流。将这个流做为初始流看待，继续寻找增流链增流。这样迭代下去，直至找不出增流链，这时的流即为最小费用最大流。这一算法思路的特点是保持解的最优性（每次得到的新流都是费用最小的流），而逐渐向可行解靠近（直至最大流时才是一个可行解）。
 
+- 第二种办法与前文的 Ford-fulkerson 方法很像，所以选择它更方便，如何找到费用最小的增链流呢？可以用最短路径算法，这里是单源最短路径，所以选择 Dijkstra 算法找出最短路径即可，关于 Dijkstra 的介绍见：http://www.jianshu.com/p/8ba71199a65f，里面有 Python 实现的程序。
+
 ### 最小费用最大流实例：
 
 - 对于如下拓扑图，给出从S1到S6允许的流的方向和带宽限制，链路按带宽收费，以括号形式表示为（带宽容量，单位带宽费用）：
@@ -138,6 +144,20 @@
   - 写出对给出任意拓扑图的通用算法描述。
 
     ![201798-mincostmaxflow](http://ooy7h5h7x.bkt.clouddn.com/blog/image/201798-mincostmaxflow.png)
+
+- 源码：https://github.com/edisonleolhl/DataStructure-Algorithm/blob/master/Graph/MaxFlow/mincostmaxflow.py
+
+- 运行截图：
+
+  ![201799-run](http://ooy7h5h7x.bkt.clouddn.com/blog/image/201799-run.png)
+
+- 注意增广路径是回溯的，比如第一条增广路径，终点为5，path[5]=4，所以它的前驱是4，path[4]=2，所以4的前驱是2，2的前驱是1，1的前驱是0，所以这条路径是 0-1-2-4-5，也就是 s1-s2-s3-s5-s6。
+
+- 注意在寻找增广路径时用到了 Dijkstra 算法，至于为什么用 heapq （最小堆的实现），见介绍 Dijkstra 算法的文章。
+
+- 流量分布情况：
+
+  ![201799-mincostans](http://ooy7h5h7x.bkt.clouddn.com/blog/image/201799-mincostans.png)
 
 ## 最大二分匹配
 
@@ -151,7 +171,7 @@
 
 - 图：
 
-  ![](http://img.renfei.org/2013/08/1.png)![](http://img.renfei.org/2013/08/2.png)![](http://img.renfei.org/2013/08/3.png)![](http://img.renfei.org/2013/08/4.png)！![](http://img.renfei.org/2013/08/0.png)
+  ![](http://img.renfei.org/2013/08/1.png)![](http://img.renfei.org/2013/08/2.png)![](http://img.renfei.org/2013/08/3.png)![](http://img.renfei.org/2013/08/4.png)![](http://img.renfei.org/2013/08/0.png)
 
   图 1 是二分图，为了直观，一般画成 2 那样，3、4 中红色边即为匹配，4 是最大匹配，同时也是完美匹配（所有顶点都是匹配点），图 5 展示了男孩和女孩暗恋关系，有连线就说明这一对能成，求最大匹配就是求能成多少对。
 
