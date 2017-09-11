@@ -1,5 +1,12 @@
 # 数据结构与算法
 
+> 本文包括：
+1. 算法概念
+1. 时间复杂度
+1. 大 O 记法
+1. 数据结构概念
+1. Python 内置类型的效率
+
 ## 算法的概念
 
 - 算法是计算机处理信息的本质，因为计算机程序本质上是一个算法来告诉计算机确切的步骤来执行一个指定的任务。一般地，当算法在处理信息时，会从输入设备或数据的存储地址读取数据，把结果写入输出设备或某个存储地址供以后再调用。
@@ -124,3 +131,81 @@
   - 修改
   - 查找
   - 排序
+
+## Python 内置类型性能分析
+
+### timeit 模块
+
+- timeit 模块可以用来测试一小段 Python 代码的执行速度。
+
+      class timeit.Timer(stmt='pass', setup='pass', timer=<timer function>)
+
+  - Timer 是测量小段代码执行速度的类。
+
+  - stmt 参数是要测试的代码语句（statment）；
+
+  - setup 参数是运行代码时需要的设置；
+
+  - time r参数是一个定时器函数，与平台有关。
+
+- Timer 类中测试语句执行速度的对象方法。number 参数是测试代码时的测试次数，默认为 1000000 次。方法返回执行代码的平均耗时，一个 float 类型的秒数。
+
+      timeit.Timer.timeit(number=1000000)
+
+### list 性能测试
+
+- 代码
+
+      from timeit import Timer
+
+
+      def test1():
+          l = []
+          for i in range(1000):
+              l = l + [i]
+
+
+      def test2():
+          l = []
+          for i in range(1000):
+              l.append(i)
+
+
+      def test3():
+          l = [i for i in range(1000)]
+
+
+      def test4():
+          l = list(range(1000))
+
+
+      t1 = Timer("test1()", "from __main__ import test1")
+      print("concat ", t1.timeit(number=1000), "seconds")
+
+      t2 = Timer("test2()", "from __main__ import test2")
+      print("append ", t2.timeit(number=1000), "seconds")
+
+      t3 = Timer("test3()", "from __main__ import test3")
+      print("comprehension ", t3.timeit(number=1000), "seconds")
+
+      t4 = Timer("test4()", "from __main__ import test4")
+      print("list range ", t4.timeit(number=1000), "seconds")
+
+- 输出
+
+      concat  1.5475910836515439 seconds
+      append  0.08007548530159792 seconds
+      comprehension  0.03215566085239119 seconds
+      list range  0.01430455445519141 seconds
+
+- 结论
+
+  可以看到，花费时间从多到少，所以编程时尽量用 list(range(x)) 这种方法创建列表
+
+- list 各操作的效率：
+
+  ![2017911-list操作](http://ooy7h5h7x.bkt.clouddn.com/blog/image/2017911-list操作.png)
+
+- dict 各操作的效率：
+
+  ![2017911-dict操作](http://ooy7h5h7x.bkt.clouddn.com/blog/image/2017911-dict操作.png)
