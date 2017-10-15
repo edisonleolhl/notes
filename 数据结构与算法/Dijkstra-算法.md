@@ -8,6 +8,18 @@
 
 - 该算法使用了广度优先搜索解决带权有向图的单源最短路径问题，算法最终得到一个最短路径树。该算法常用于路由算法或者作为其他图算法的一个子模块。Dijkstra 算法无法解决负权重的问题，但所幸在本题中不考虑负权重。
 
+### 什么时候最短路径不存在？
+
+- 只要图中存在总权重为负的环路，则最短路径不存在。
+
+### 环路
+
+- 一条最短路径不能包含环路，无论正或负。
+
+- 反证法：假设包含环路，则删除这条环路，路径相同但权重更小的路径，所以这不是一条最短路径。
+
+- 同样地，若图中某条环路权重为 0，则计算最短路径时可以不断删除这些环路，直到最短路径中没有环路。
+
 ## 准备工作
 
 - 如何描述一幅图？
@@ -57,13 +69,12 @@
         for tail,head,cost in graph_edges:
             graph_dict[tail].append((head,cost))
 
-## 算法描述
+## Dijkstra 算法描述
 
-- 将图所有点的集合 S 分为两部分，V 和 U。
+- G=(V,E)
+- 在运行时维持的关键信息是一组结点集合 S，它记录了从源结点 s 到该集合中每个结点之间的最短路径。
 
-- V 集合是已经得到最短路径的点的集合，在初始情况下 V 中只有源点 s，U 是还未得到最短路径点的集合，初始情况下是除 s 的所有点。因为每次迭代需要指明当前正在迭代的 V 集合中的某点，所以将该点设为中间点。自然，首先应将 s 设为中间点 k，然后开始迭代。
-
-- 在每一次迭代过程中，取得 U 中距离 k 最短的点 k，将 k 加到 V 集合中，将 k 从 U 集合删除，再将 k 设为中间点 v。重复此过程直到 U 集合为空。
+- 算法重复从结点集 V-S 中选择最短路径估计最小的路径 u，将 u 加入到集合 S ，然后对所有从 u 发出的边进行松弛（relaxation）。
 
 ## Python 实现 Dijkstra 算法
 
@@ -105,29 +116,6 @@
 
             return cost,ret_path
 
-## 测试
-
-- 不失一般性，给定一个带权有向图：
-
-        graph_list = [
-        [0,30,15,M,M,M],
-        [5,0,M,M,20,30],
-        [M,10,0,M,M,15],
-        [M,M,M,0,M,M],
-        [M,M,M,10,0,M],
-        [M,M,M,30,10,0]
-        ]
-
-- 其表示的图如下：
-
-    ![graph](http://upload-images.jianshu.io/upload_images/2106579-793e70c5ec13c1d0.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
-- 测试一下 s1 到 s6 的最短路径：
-
-    ![test](http://upload-images.jianshu.io/upload_images/2106579-5a18ce0df92b54cb.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
-- 可以看到，dijkstra 函数得到了正确的最短路径以及 cost 值。
-
 ## 算法详解
 
 - 这里用到了堆排序的 heapq 模块，注意它的 heappop(q) 与heappush(q,item) 方法：
@@ -161,6 +149,29 @@
                     heappush(q, (cost+c, v2, path))
 
     - 把 k1、k2... push 进入 q 中，回到第 2 点
+
+## 测试
+
+- 不失一般性，给定一个带权有向图：
+
+        graph_list = [
+        [0,30,15,M,M,M],
+        [5,0,M,M,20,30],
+        [M,10,0,M,M,15],
+        [M,M,M,0,M,M],
+        [M,M,M,10,0,M],
+        [M,M,M,30,10,0]
+        ]
+
+- 其表示的图如下：
+
+    ![graph](http://upload-images.jianshu.io/upload_images/2106579-793e70c5ec13c1d0.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+- 测试一下 s1 到 s6 的最短路径：
+
+    ![test](http://upload-images.jianshu.io/upload_images/2106579-5a18ce0df92b54cb.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+- 可以看到，dijkstra 函数得到了正确的最短路径以及 cost 值。
 
 ## 利用 dijkstra 得到图中所有最短路径
 
