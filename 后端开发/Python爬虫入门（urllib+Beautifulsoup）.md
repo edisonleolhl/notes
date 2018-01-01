@@ -1,6 +1,18 @@
-# 爬虫是怎么实现的？
+# Python爬虫入门（urllib+Beautifulsoup）
 
-## 简单介绍
+> 本文包括：
+>
+> 1、爬虫简单介绍
+>
+> 2、爬虫架构三大模块
+>
+> 3、urllib
+>
+> 4、BeautifulSoup
+>
+> 5、实战演练：爬取百度百科1000个页面
+
+## 1、爬虫简单介绍
 
 - 爬虫：一段自动抓取互联网信息的程序
 - 从一个url出发，然后访问和这个url相关的各种url，并提取相关的价值数据。
@@ -11,7 +23,7 @@
   - 第二部分是存有该资源的主机IP地址（有时也包括端口号）；
   - 第三部分是主机资源的具体地址，如目录和文件名等。
 
-## 爬虫架构三大模块
+## 2、爬虫架构三大模块
 
 - URL 管理器
 
@@ -57,6 +69,20 @@
       4.URL自动跳转（HTTPRedirectHandler）
 
     - 4种方法下载网页的实例（基于 Python3.6）
+
+      见下一节：urllib库
+
+- 网络解析器
+
+    - 通过解析得到想要的内容，解析出新的 url 交给 URL 管理器，形成循环
+    - 正则表达式：模糊匹配
+    - beautifulsoup：第三方，可使用 html.parser 和 lxml 作为解析器，结构化解析（DOM 树）
+    - html.parser
+    - lxml
+
+## 3、urllib
+
+- 4种方法下载网页的实例（基于 Python3.6）
 
             import urllib.request
             import http.cookiejar
@@ -104,15 +130,7 @@
             ])
             urlopen(req, data=postData.encode('utf-8'))
 
-- 网络解析器
-
-    - 通过解析得到想要的内容，解析出新的 url 交给 URL 管理器，形成循环
-    - 正则表达式：模糊匹配
-    - beautifulsoup：第三方，可使用 html.parser 和 lxml 作为解析器，结构化解析（DOM 树）
-    - html.parser
-    - lxml
-
-### BeautifulSoup
+## 4、BeautifulSoup
 
 - 文档：https://www.crummy.com/software/BeautifulSoup/bs4/doc/
 
@@ -134,7 +152,7 @@
         # 查找所有标签为a的标签
         soup.find_all(‘a’)
         # 查找第一个标签为a的标签
-        soup.find_all(‘a’)
+        soup.find(‘a’)
         # 查找所有标签为a,链接符合'/view/123.html'形式的节点
         soup.find_all('a',href='/view/123.html')
         # 查找所有标签为div,class为abc，文字为python的节点
@@ -147,6 +165,7 @@
         # 最强大的是利用正则表达式
         import re
         soup.find('a', href=re.compile(r"view"))
+        soup.find_all("img", {"src":re.compile("xxx")})
 
         # 第三步：访问节点信息
         # 得到节点：<a href=‘1.html’>Python</a>
@@ -157,6 +176,57 @@
         print(node['href'])
         # 获取查找到的a节点的文本字符串
         print(node.get_text())
+
+    > findAll() 、find()函数详解：
+    > findAll(tag, attributes, recursive, text, limit, keywords)。
+    > find(tag, attributes, recursive, text, keywords)
+    >
+    > tag 可以传入一个标签的名称或多个标签名组成的Python列表做标签参数
+    >
+    > attributes是用一个Python字典封装一个标签的若干属性和对应的属性值
+    >
+    > recursive是布尔变量，默认为True，如果为False，findAll就只查找文档的一级标签
+    >
+    > text用标签的文本内容去匹配，而不是标签的属性
+    >
+    > limit 只能用于findAll，find其实就是findAll的limit=1的特殊情况
+    >
+    > keyword 有点冗余，不管了
+    >
+    > 95%的时间都只用到了tag、attributes。
+
+- 导航树
+
+  - 子标签children与后代标签descendants：
+
+        # 匹配标签的的下一级标签
+        bsobj.find("table", {"id":"giftlist"}).children
+
+        # 匹配标签的所有后代标签，包括一大堆乱七八糟的img，span等等
+        bsobj.find("table", {"id":"giftlist"}).descendants
+
+  - 兄弟标签next_siblings/previous_siblings：
+
+        # 匹配标签的后一个标签
+        bsobj.find("table", {"id":"giftlist"}).tr.next_siblings
+
+        # 匹配标签的前一个标签（如果同级标签的最后一个标签容易定位，那么就用这个）
+        bsobj.find("table", {"id":"giftlist"}).tr.previous_siblings
+
+  - 父标签parent、parents：
+
+        # 选取table标签本身（这个操作多此一举，只是为了举例层级关系）
+        bsobj.find("table", {"id":"giftlist"}).tr.parent
+
+- 获取属性
+
+  - 如果我们得到了一个标签对象，可以用下面的代码获得它的全部标签属性：
+
+        mytag.attrs
+
+  - 注意：这行代码返回的是一个字典对象，所以可以获取任意一个属性值，例如获取src属性值就这样写代码：
+
+        mytag.attrs["src"]
 
 - 编写可靠的代码（捕捉异常）
 
@@ -198,7 +268,7 @@
             else:
                 print(badContent)
 
-## 实战演练：爬取百度百科1000个页面
+## 5、实战演练：爬取百度百科1000个页面
 
 - 步骤
 
