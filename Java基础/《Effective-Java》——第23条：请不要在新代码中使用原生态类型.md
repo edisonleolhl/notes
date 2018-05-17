@@ -30,7 +30,7 @@
 ##2. 从一个原生态类型的示例引出泛型
 
 1. 在Java 1.5版本发行之前（即无泛型之前），假设有这样的集合声明：
-    
+  
         /**
          * My stamp collection. Contains only stamp instances.
          * /
@@ -41,7 +41,7 @@
         stamp.add(new Coin(...));
 
     直到从stamp集合中获取到这个coin时才会收到错误提示：
-    
+   
         for(Iterator i = stamps.iterator(); i.hasNext();){
             Stamp s = (Stamp) i.next(); // 抛出ClassCastException异常！！！
         }
@@ -88,7 +88,7 @@
         }
 
     编译后，没有error。这说明unsafeAdd方法已经被调用，并且检查后没出错误。
-    
+
     若把注释符号去掉，如下：
 
         import java.util.ArrayList;
@@ -107,6 +107,7 @@
         }
 
     
+
     编译后，控制台输出error：
 
         Exception in thread "main" java.lang.ClassCastException: java.lang.Integer cannot be cast to java.lang.String
@@ -121,7 +122,7 @@
         }
 
     在IDE中会直接报错：
-    
+
         The method unsafeAdd(List<Object>, Object) in the type Main is not applicable for the arguments (List<String>, Integer)
 
     **这说明**：用参数化类型更加安全。
@@ -129,7 +130,7 @@
 ##4. Set<?>：无限制的通配符类型（unbounded wildcard type）
 
 1. 在不确定或者不在乎集合中的元素类型的情况下，你有可能还是会继续使用原生态类型。例如，想要编写一个方法，它有两个集合（set），并从中返回它们共有的元素的数量。如果你对泛型不熟悉的话，可以参考以下方式来编写这种方法：
-    
+  
         // Use of raw type for unknown element type - don't do this!
         static int numElmentsInCommon(Set s1, Set s2){
             int result = 0;
