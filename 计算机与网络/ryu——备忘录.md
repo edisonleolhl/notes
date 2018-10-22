@@ -49,7 +49,7 @@
 
     在打开的 h1 终端上输入，可以清楚地看到有返回值，即 5 台交换机：
         
-      ![2018326-h1rest](http://ooy7h5h7x.bkt.clouddn.com/blog/image/2018326-h1rest.png)
+    ![2018326-h1rest](http://ooy7h5h7x.bkt.clouddn.com/blog/image/2018326-h1rest.png)
 
     IP 地址是 nat0 的 IP 地址，这里不能填 localhost ，也不能填 0.0.0.0，也不能填 127.0.0.0，也不能填本机 IP 地址 192.168.2.140。    
 
@@ -212,13 +212,12 @@
     {"10.0.0.1-10.0.0.3": [[1, 2, 5], [1, 3, 4, 5]], "10.0.0.1-10.0.0.2": [[1]]}
     ```
 
-  - 默认情况下，h1 到 h3 肯定是走 [1,2,5] 的路径，所以调用用户选路 API，走 [1,3,4,5] 的路径：
+- 默认情况下，h1 到 h3 肯定是走 [1,2,5] 的路径，所以调用用户选路 API，走 [1,3,4,5] 的路径：
 
     ```
-    
-    ```
+    curl -X PUT -d '{"dst_ip":"10.0.0.3", "path":"[1,3,4,5]"}' http://10.0.0.4:8080/network/choosepath
 
-    
+    ```
 
 - 于是开发出了用户查路 API 以及用户选路 API，放个缩写代码：
 
@@ -248,6 +247,8 @@
 ---
 
 用户选路的问题解决了，但是如何用 QOS 限流？ example 跑的结果符合预期，但是放在自己的 app 和 topo 中，一直没有体现出 example 里的效果，肯定是哪里没有理解对，需要小小的修改一些地方。
+
+ryu book: https://osrg.github.io/ryu-book/en/html/rest_qos.html
 
 ---
 4.4 开工，发现ping不通，查询，发现packet_in_handler根本没有输出，也就是说没有进入到packet_in_handler函数里面，mininet无论是自定拓扑（sw5h3.py），还是默认拓扑（sw1host2），都无法进入packet_in_handler函数，然而运行ryu的example是可以进入packet_in_handler的。
@@ -309,3 +310,21 @@ def get_shortest_simple_paths(self, src, dst):
 
 但是，pingall中h3被隔离了，似乎和之前的现象一样，后来解决了，过程如下：刚才重新安装ryu后，mininet并没有重启，发现pingall中h3被隔离后，重启了mininet，在启动network应用时加上了 --weight=hop 的参数，重新运行发现全都可以了！回到以前的工作进度了。
 
+---
+
+9.17返工
+
+刚开始又碰到了ping不通的问题，把所有模块重新启动后又可以了。
+查路、选路API均可用
+
+好了，又到了晚饭时间了，等会撸铁去，下次再干！
+
+---
+
+9.18返工
+
+network app 中若 verifying the setting 中的 REST API，则会报错，原因未知，跟着官方的例子跑跑试试看。
+
+照着example跑了一下，有点问题，5002端口竟然也是限速500kb/s以内，而不是期望的大于800kb/s。
+
+还注意到，此时跟着example中“verifying the setting”这节，调用curl命令返回的数据中竟然nw_dst为10.0.0.2？前面的步骤一模一样，特别是“Qos Setting”这节，仔细检查了，为10.0.0.1，真奇怪。
