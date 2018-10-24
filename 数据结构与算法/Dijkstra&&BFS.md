@@ -1,4 +1,184 @@
-# Dijkstra 算法
+# Single-Source Shortest Paths
+
+## MIT OCW NOTES
+
+- Paths in graphs: Consider a digraph G = (V, E) with edge-weight function w : E → R . The weight of path p = v 1 →
+  v 2 → ... → v k is defined to be 
+
+  w(p) = ∑w(vi, vi+1)
+
+- ***Shortest Path***: A shortest path from u to v is a path of
+  minimum weight from u to v. The shortest-
+  path weight from u to v is defined as 
+
+  δ(u, v) = min{w(p) : p is a path from u to v}.
+
+- Note: 
+
+  δ(u, v) = ∞ if no path from u to v exists.
+
+  There is no shortest paths from u to v  if there is a ***negative weight cycle***.
+
+  In this case, shortest paths are ***well defined***.
+
+### Optimal substructure
+
+- Theorem. A subpath of a shortest path is a
+  shortest path.
+- Proof. Cut and Paste!
+
+- [What is Cut and Paste?](http://ranger.uta.edu/~huang/teaching/CSE5311/CSE5311_Lecture16.pdf)
+  - The "cut and paste" technique is a way to prove that a problem has the property.
+    – In particular, you want to show that when you come up with an optimal solution to a problem, you have necessarily used optimal solutions to the constituent subproblems.
+  - The proof is by contradiction.
+    – Suppose you came up with an optimal solution to a problem by using suboptimal solutions to subproblems.
+    – Then, if you were to replace ("cut") those suboptimal subproblem solutions with optimal subproblem solutions (by "pasting" them in), you would improve your optimal solution.
+    – But, since your solution was optimal by assumption, you have a contradiction.
+
+### Triangle inequality
+- Theorem. For all u, v, x ∈ V, we have
+  δ(u, v) ≤ δ(u, x) + δ(x, v).
+
+### Single-source shortest paths
+
+- Problem. From a given source vertex s ∈ V, find
+  the shortest-path weights δ(s, v) for all v ∈ V.
+  If all edge weights w(u, v) are nonnegative, all
+  shortest-path weights must exist.
+
+- IDEA : ***Greedy***.
+
+  1. Maintain a set S of vertices whose shortest-
+     path distances from s are known.
+  2. At each step add to S the vertex v ∈ V – S
+     whose distance estimate from s is minimal.
+  3. Update the distance estimates of vertices
+     adjacent to v.
+
+- ***BFS*** is a shortest-paths algorithm that works on unweighted graphs!
+
+- The algorithm for the single-source problem can
+  solve many other problems, including the following variants.
+
+  - **Single-destination shortest-paths problem**: Find a shortest path to a given destination vertex t from each vertex v. By reversing the direction of each edge in the graph, we can reduce this problem to a single-source problem.
+  - **Single-pair shortest-path problem**: Find a shortest path from u to v for given vertices u and v. If we solve the single-source problem with source vertex u, we solve this problem also. Moreover, all known algorithms for this problem have the same worst-case asymptotic running time as the best single-source algorithms.
+
+  - **All-pairs shortest-paths problem**: Find a shortest path from u to v for every pair of vertices u and v. Although we can solve this problem by running a single-source algorithm once from each vertex, we usually can solve it faster. Additionally, its structure is interesting in its own right. Chapter 25 addresses the all-pairs problem in detail.
+
+- [***Shortest-paths tree***](https://en.wikipedia.org/wiki/Shortest-path_tree):  Given a connected, undirected graph G, a shortest-path tree rooted at vertex v is a spanning tree T of G, such that the path distance from root v to any other vertex u in T is the shortest path distance from v to u in G.
+
+### Relaxation（重难点）
+
+- The algorithms in this chapter use the technique of relaxation. For each vertex v∈ V , we maintain an attribute v.d, which is an upper bound on the weight of a shortest path from source s to v. We call v.d a shortest-path estimate. We initialize the shortest-path estimates and predecessors by the following O(V)-time procedure（v.π is the ***predecessor*** of v）:
+
+  ```
+  INITIALIZE SINGLE SOURCE(G,s)
+  1 for each vertex v ∈ G.V
+  2 	v.d = ∞
+  3 	v.π = ∞
+  4 s.d = 0
+  ```
+
+- The process of relaxing an edge (u, v) consists of testing whether we can improve the shortest path to found so far by going through u and, if so, updating v.d and v.π.
+
+- A relaxation step may decrease the value of the shortest-path estimate v.d and update v’s predecessor attribute v.π. The following code performs a relaxation step on edge (u, v) in O(1) time:
+
+  ```
+  RELAX(u, v, w)
+  1 if v.d > u.d + w(u, v)
+  2 	v.d = u.d + w(u, v)
+  3 	v.d = u
+  ```
+
+  > It may seem strange that the term “relaxation” is used for an operation that tightens an upper bound. 
+  >
+  > The outcome of a relaxation step can be viewed as a relaxation
+  > of the constraint v.d ≤ u.d + w(u, v), which, by the triangle inequality (Lemma 24.10), must be satisfied if u.d = δ(s, u) and v.d = δ(s, v). 
+  >
+  > That is, if v.d ≤ u.d + w(u, v), there is no “pressure” to satisfy this constraint, so the constraint is “relaxed.”
+
+- Each algorithm in this chapter calls INITIALIZE-SINGLE-SOURCE and then repeatedly relaxes edges. Moreover, relaxation is the only means by which shortest path estimates and predecessors change. 
+
+  The algorithms in this chapter differ in how many times they relax each edge and the order in which they relax edges. 
+
+  Dijkstra’s algorithm and the shortest-paths algorithm for directed acyclic graphs relax each edge exactly once. 
+
+  The Bellman-Ford algorithm relaxes each edge |V|-1 times.
+
+### Dijkstra's algorithm
+
+- IDEA: 
+
+  Dijkstra’s algorithm solves the single-source shortest-paths problem on a weighted, directed graph G = (V, E) for the case in which all edge weights are nonnegative. In this section, therefore, we assume that w(u, v)  ≥ 0 for each edge (u, v). 
+
+  As we shall see, with a good implementation, the running time of Dijkstra’s algorithm is lower than that of the Bellman-Ford algorithm.
+
+  Dijkstra’s algorithm maintains a set S of vertices whose final shortest-path weights from the source s have already been determined. The algorithm repeatedly selects the vertex u ∈ V-S with the minimum shortest-path estimate, adds u to S, and relaxes all edges leaving u. 
+
+  In the following implementation, we use a min-priority queue Q of vertices, keyed by their d values.
+
+- pseudocode
+
+  ```
+  d[s] ← 0
+  for each v ∈ V – {s}
+  	do d[v] ← ∞
+  S ← ∅
+  Q ← V 		// Q is a priority queue maintaining V – S
+  while Q ≠ ∅
+  	do u ← E XTRACT-MIN (Q)
+  		S ← S ∪ {u}
+  		for each v ∈ Adj[u]
+  			do if d[v] > d[u] + w(u, v)    // RELAXATION
+  				then d[v] ← d[u] + w(u, v)   // RELAXATION
+  ```
+
+- Analysis
+
+  ![Analysis of Dijkstra](http://ooy7h5h7x.bkt.clouddn.com/blog/181024/B3aBLdidki.png?imageslim)
+
+  ![Analysis of Dijkstra using different data structure](http://ooy7h5h7x.bkt.clouddn.com/blog/181024/DGk4FekG6F.png?imageslim)
+
+  Same as Prim's algorithm!
+
+### Breadth-First Search algorithm
+
+- IDEA: 
+
+  Given a graph G =(V, E) and a distinguished source vertex s, breadth-first
+  search systematically explores the edges of G to “discover” every vertex that is reachable from s. It computes the ***distance*** (smallest number of edges) from s to each reachable vertex. 
+
+  It also produces a “breadth-first tree” with root s that
+  contains all reachable vertices. For any vertex reachable from s, the simple path in the breadth-first tree from s to corresponds to a “shortest path” from s to in G, that is, a path containing the smallest number of edges. 
+
+  The algorithm works on both directed and undirected graphs.
+
+- Why call it Breadth-first?
+
+  Because it expands the frontier between discovered and undiscovered vertices uniformly across the breadth of the frontier. That is, the algorithm discovers all vertices at distance k from s before discovering any vertices at distance k + 1.
+
+Relationship between Dijkstra and BFS:
+
+- Suppose that w(u, v) = 1 for all (u, v) ∈ E. Can Dijkstra’s algorithm be improved?
+
+  Use a simple FIFO queue instead of a priority queue.
+
+- pseudocode
+
+  ```
+  while Q ≠ ∅
+  	do u ← DEQUEUE (Q)
+  		for each v ∈ Adj[u]
+  			do if d[v] = ∞
+  					then d[v] ← d[u] + 1
+  						E0NQUEUE (Q, v)
+  ```
+
+
+
+---
+
+> 以下是以前做的关于Dijkstra's algorithm的笔记
 
 ## 前言
 
@@ -63,7 +243,7 @@
             for j in nodes:
                 if i!=j and graph_list[nodes.index(i)][nodes.index(j)]!=M:
                     graph_edges.append((i,j,graph_list[nodes.index(i)][nodes.index(j)]))
-
+        
         # graph_edges->graph_dict
         graph_dict = defaultdict(list)
         for tail,head,cost in graph_edges:
@@ -96,13 +276,13 @@
                     for v2,c in graph_dict.get(v1, ()):
                         if v2 not in seen:
                             heappush(q, (cost+c, v2, path))
-
+        
             # Check the way to quit 'while' loop!!!
             if v1 != to_node:
                 print("There is no node: " + str(to_node))
                 cost = -1
                 ret_path=[]
-
+        
             # IF there is a path from from_node to to_node, THEN format the path!!!
             if len(path)>0:
                 left = path[0]
@@ -113,7 +293,7 @@
                     ret_path.append(left)
                     right = right[1]
                 ret_path.reverse()
-
+        
             return cost,ret_path
 
 ## 算法详解
@@ -198,7 +378,7 @@
                     if i != j:
                         cost,Shortest_path = dijkstra(graph_dict,i,j)
                         Shortest_path_dict[i][j] = Shortest_path
-
+        
             return Shortest_path_dict
 
 - 不失一般性，我们采用带权有向图测试我们的算法，图的描述与前文测试 dijkstra 算法时一致，在此直接调用 dijkstra_all函数，传入 graph_dict，得到的结果截图如下：
