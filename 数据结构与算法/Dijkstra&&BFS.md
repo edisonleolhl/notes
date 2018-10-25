@@ -161,7 +161,7 @@ Relationship between Dijkstra and BFS:
 
 - Suppose that w(u, v) = 1 for all (u, v) ∈ E. Can Dijkstra’s algorithm be improved?
 
-  Use a simple FIFO queue instead of a priority queue.
+  Use a simple ***FIFO*** queue instead of a ***priority*** queue.
 
 - pseudocode
 
@@ -174,7 +174,50 @@ Relationship between Dijkstra and BFS:
   						E0NQUEUE (Q, v)
   ```
 
+### CLRS Exercise
 
+- Exercises 22.2-3
+  - What is the running time of BFS if its input graph is represented by an adjacency matrix and the algorithm is modified to handle this form of input?
+
+  - Solution:
+
+    用邻接列表可以保证每条边仅访问一遍，即O(E)，而用邻接矩阵遍历所有的边的时间由O(E)变为O(V^2),因此总运行时间是O(V+V^2)
+
+- Exercises 22.2-7
+
+  - There are two types of professional wrestlers: ''babyfaces'' (''good guys'') and ''heels'' (''bad guys''). Between any pair of professional wrestlers, there may or may not be a rivalry. Suppose we have n professional wrestlers and we have a list of r pairs of wrestlers for which there are rivalries. Give an O(n+r)O(n+r)-time algorithm that determines whether it is possible to designate some of the wrestlers as babyfaces and the remainder as heels such that each rivalry is between a babyface and a heel. If it is possible to perform such a designation, your algorithm should produce it.
+
+  - [Solution](https://walkccc.github.io/CLRS/Chap22/22.2/#222-7):
+
+    题目要求我们自己指定（designate）谁是babyface谁是heel，所以并不需要根据给定图G来确定，联想到BFS算法的遍历过程，随意给定一个起点s，可以把到s的距离为偶数的点设为babyface，到s的距离为奇数的点设为heel，当运行完BFS算法后，也会得到一个BF Tree，根据BF Tree确定连接babyface和heel的边。运行BFS时间为O(n+r)，指定babyface/heel的时间为O(n)，检查BF Tree各边的时间为O(r)，于是总共的时间为O(n+r)。
+
+  - 联想与扩展
+
+    如果题目给定了一个图G，其中每个顶点都已经分配好了类型（babyface or heel），现在需要找出所有可能的配对情况，这种配对情况就是边，它连接babyface顶点和heel顶点。
+
+    这种问题应该属于图的二分匹配问题，可以用最大流算法（如Ford-Fulkerson方法）或匈牙利算法解决。
+
+- Exercises 22.2-8 * 
+
+  - The ***diameter*** of a tree T=(V,E) is defined as maxδ(u,v), that is, the largest of all shortest-path distances in the tree. Give an efficient algorithm to compute the diameter of a tree, and analyze the running time of your algorithm.
+
+  - |V| times BFS Solution:
+
+    For all node v in V, run BFS each, choose the longest shortest path.  Because there is no cycle in tree T, so one time BFS runs in O(V).
+
+    |V| times BFS running time = O(V^2)
+
+  - [Advanced BFS Solution](https://walkccc.github.io/CLRS/Chap22/22.2/#222-8-star):
+
+    Running BFS twice would figure out the two endpoints of T.
+
+    Twice BFS running time = O(V)
+
+  - Floyd algorithm Solution:
+
+    Use floyd algorithm to calculate all p-p shortest path.
+
+    Floyd running time = O(V^3)
 
 ---
 
