@@ -9,6 +9,7 @@
 - book: Introduction to Algorithms ( known as CLRS)
 - official exercises solution to CLRS: http://mitp-content-server.mit.edu:18180/books/content/sectbyfn?collid=books_pres_0&fn=Intro_to_Algo_Selected_Solutions.pdf&id=8030
 - inofficial exercises solution to CLRS(github): https://github.com/gzc/CLRS
+- inofficial solution(easy to read):https://walkccc.github.io/CLRS/
 
 ## 图的表示
 
