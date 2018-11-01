@@ -99,3 +99,33 @@ Recap the steps of DP:
 
 ![Pseudocode for Floyd-
 Warshall](http://ph166fnv2.bkt.clouddn.com/blog/181031/4afLkjDhdi.png?imageslim)
+
+### Johnson's algorithm
+
+- 思考过程：
+
+  - Dijkstra不能处理有负权重边的情况
+
+  - Bellman-Ford可以处理有负权重边的情况，并且可以检测图是否含有负权重环
+
+  - Johnson先构造一个虚拟的s，用权重为0的边连接s和原图G的各顶点
+
+    用Bellman-Ford计算每个顶点的𝛿(s, v)，然后再reweight，得到𝛅(s, v)，对于任意v，𝛅(s, v)≥0恒成立
+
+    最后再对|V|个顶点运行|V|次Dijkstra即可得到all-pairs shortest paths。
+
+- Graph reweighting
+
+  ![](https://ws1.sinaimg.cn/large/006tNbRwgy1fwsynzvhtbj319w0yak7h.jpg)
+
+- How to reweight?
+
+  ![](https://ws4.sinaimg.cn/large/006tNbRwgy1fwsypd93saj319w0yctlv.jpg)
+
+- pseudocode
+
+  ![](https://ws2.sinaimg.cn/large/006tNbRwgy1fwszmwn2raj315u0t47bp.jpg)
+
+- Analysis
+
+  ![](https://ws4.sinaimg.cn/large/006tNbRwgy1fwsyq1h2tgj319w0ya7le.jpg)
