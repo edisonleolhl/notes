@@ -1,3 +1,5 @@
+> 中文是2017年8月的笔记，英文是2018.11月的笔记
+
 # 最大流&&最小费用最大流&&最大二分匹配
 
 > Python 源码：https://github.com/edisonleolhl/DataStructure-Algorithm/blob/master/Graph/MaxFlow
@@ -10,19 +12,76 @@
 
 - 流网络（Flow Networks）：指的是一个有向图 G = (V, E)，其中每条边 (u, v) ∈ E 均有一非负容量 c(u, v) ≥ 0。如果 (u, v) ∉ E 则可以规定 c(u, v) = 0。流网络中有两个特殊的顶点：源点 s （source）和汇点 t（sink）。为方便起见，假定每个顶点均处于从源点到汇点的某条路径上，就是说，对每个顶点 v ∈ E，存在一条路径 s --> v --> t。
 
-- 容量限制：对于所有的结点 u, v ∈ V，要求 0 ≤ f(u, v) ≤ c(u, v)
+- 容量限制(Capacity constraint)：对于所有的结点 u, v ∈ V，要求 0 ≤ f(u, v) ≤ c(u, v)
 
-- 流量限制：对于所有的结点 u ∈ V - {s, t}，要求 Σf(v, u) = Σf(u, v)
+- 流量限制/流量守恒(Flow conservation)：对于所有的结点 u ∈ V - {s, t}，要求 Σf(v, u) = Σf(u, v)
+
+  > We call this property "flow conservation", and it is equivalent to Kirchhoff's current law when the material is electrical current.
+  >
+  > Flow in equals flow out.
 
 - 当(u, v) ∉ E时，从结点 u 到结点 v 之间没有流，因此f(u, v) = 0。我们称非负数值f(u, v)为从结点 u 到结点 v 的流，定义如下： |f| = Σf(s, v) - Σf(v, s)，也就是说，流 f 的值是从源结点流出的总流量减去流入源结点的总流量。（有点类似电路中的基尔霍夫定律）
+
+  > Here, the |*|notation denotes flow value, not absolute value or cardinality.
 
 ### 具有多个源结点和多个汇点的网络
 
 - 一个最大流问题可能会包含几个源结点和几个汇点，比如{s1, s2, ..., sm} 以及 {t1, t2, ..., tm}，而不仅仅只有一个源结点和汇点，其解决方法并不比普通的最大流问题难。
-
 - 加入一个超级源结点 s，并对于多个源结点，加入有向边 (s, si) 和容量 c(s, si) = ∞，同时创建一个超级汇点 t，并对于多个汇点，加入有向边 (ti, t) 和容量 c(ti, t) = ∞。
-
 - 这样单源结点能够给原来的多个源结点 si 提供所需要的流量，而单汇点 t 则可以消费原来所有汇点 ti 所消费的流量。
+
+### Modeling problems with antiparallel edges
+
+- Our original assumption: if an edge (v1, v2) ∈ E, then (v2, v1) ∉ E.
+- What if we violate this assumption? Thus, we have (v2, v1) ∈ E. We call the two edges (v1, v2) and (v2, v1) ***antiparallel***.
+- How to solve this problem? We could ***convert*** a graph ***with*** antiparallel edges into a graph ***wihout*** antiparallel edges: 
+  - Split (v1, v2) by adding a new vertex v' and replacing edge (v1, v2) with the pair of edge (v1, v') and (v', v2).
+  - Set the capacity of both new edges to the capacity of the original edge.
+  - Thus, the resulting network satisfies the property that if an edge is in the network, the reverse is not.
+
+### CLRS Exercies
+
+26.1-5
+
+- State the maximum-flow problem as a linear-programming problem.
+
+- Solution:
+
+  max ∑f(s, v) - ∑f(v,s)
+
+  s.t. 0 ≤ f(u, v) ≤ c(u, v)
+
+  ​      ∑f(v, u) - ∑f(u, v) = 0
+
+26.1-6
+
+- Professor Adam has two children who, unfortunately, dislike each other. The problem is so severe that not only do they refuse to walk to school together, but in fact each one refuses to walk on any block that the other child has stepped on that day. The children have no problem with their paths crossing at a corner. Fortunately both the professor's house and the school are on corners, but beyond that he is not sure if it is going to be possible to send both of his children to the same school. The professor has a map of his town. Show how to formulate the problem of determining whether both his children can go to the same school as a maximum-flow problem.
+
+- Solution:
+
+  Create a vertex for each corner, and if there is a street between corners u and v, create directed edges (u,v) and (v,u). 
+
+  Set the capacity of each edge to 1. Let the source be corner on which the professor's house sits, and let the sink be the corner on which the school is located. 
+
+  We wish to find a flow of value 22 that also has the property that f(u,v) is an integer for all vertices u and v. 
+
+  Such a flow represents two edge-disjoint paths from the house to the school.
+
+26.1-7
+
+- Suppose that, in addition to edge capacities, a flow network has **vertex capacities**. That is each vertex vv has a limit l(v) on how much flow can pass though vv. Show how to transform a flow network G=(V,E) with vertex capacities into an equivalent flow network G′=(V′,E′) without vertex capacities, such that a maximum flow in G′ has the same value as a maximum flow in G. How many vertices and edges does G′ have?
+
+- Solution:
+
+  We will construct G′ by splitting each vertex v of G into two vertices v1, v2, joined by an edge of capacity l(v). All incoming edges of vv are now incoming edges to v1. All outgoing edges from vv are now outgoing edges from v2.
+
+  More formally, construct G′=(V′,E′) with capacity function c′ as follows. For every v∈V, create two vertices v1, v2 in V′. Add an edge (v1,v2) in E′ with c′(v1,v2)=l(v). For every edge (u,v)∈E, create an edge (u2,v1) in E′ with capacity c′(u2,v1)=c(u,v). Make s1 and t2 as the new source and target vertices in G′. Clearly, |V′|=2|V| and |E′|=|E|+|V|.
+
+
+
+  I draw a picture to vividly illustrate the idea.
+
+  ![Vertex capacity solution](https://ws1.sinaimg.cn/large/006tNbRwgy1fwt0nrg4y8j30zo0i03zs.jpg)
 
 ### Ford-Fulkerson 方法
 
@@ -50,21 +109,21 @@
   - 伪代码：
 
         FORD-FULKERSON（G，t，s）
-
+    
         1 for each edge(u,v) 属于 E（G）
-
+    
         2     do f[u,v]=0
-
+    
         3          f[v,u]=0
-
+    
         4 while there exists a path p from s to t in the residual network Gf // 根据最大流最小切割定理，当不再有增广路径时，流 f 就是最大流
-
+    
         5       do cf(p)=min{cf(u,v):(u,v)is in p}  // cf(p)为该路径的残余容量
-
+    
         6        for each edge (u,v) in p
-
+    
         7              do f[u,v]=f[u,v]+cf(p)  //为该路径中的每条边中注入刚才找到到的残余容量
-
+    
         8                    f[v,u]=-f[u,v]   //反向边注入反向流量
 
   - 反向边是什么？
