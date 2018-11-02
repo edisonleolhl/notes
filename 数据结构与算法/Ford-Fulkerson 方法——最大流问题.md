@@ -85,12 +85,16 @@
 
 ### Ford-Fulkerson 方法
 
+> We call it a “method” rather than an “algorithm” because it encompasses
+> several implementations with differing running times.
+
 - 几个重要的概念
 
   - 残留网络(residual capacity)：容量网络 - 流量网络 = 残留网络
-    > 1. 具体说来，就是假定一个网络 G =（V，E），其源点 s，汇点 t。设 f 为 G 中的一个流，对应顶点 u 到顶点 v 的流。在不超过 C（u，v）的条件下（C 代表边容量），从 u 到 v 之间可以压入的额外网络流量，就是边（u，v）的残余容量（residual capacity）。
-    > 1. 残余网络 Gf 还可能包含 G 中不存在的边，算法对流量进行操作的目的是增加总流量，为此，算法可能对特定边上的流量进行缩减。为了表示对一个正流量 f(u ,v) 的缩减，我们将边 (u, v) 加入到 Gf中，并将其残余容量设置为 cf(v, u) = f(u ,v)。也就是说，一条边所能允许的反向流量最多能将其正向流量抵消。
-    > 1. 残存网络中的这些反向边允许算法将已经发送出来的流量发送回去。而将流量从同一边发送回去等同于缩减该边的流量，这种操作在很多算法中都是必需的。
+    - 具体说来，就是假定一个网络 G =（V，E），其源点 s，汇点 t。设 f 为 G 中的一个流，对应顶点 u 到顶点 v 的流。在不超过 C（u，v）的条件下（C 代表边容量），从 u 到 v 之间可以压入的额外网络流量，就是边（u，v）的残余容量（residual capacity）。
+    - 残余网络 Gf 还可能包含 G 中不存在的边，算法对流量进行操作的目的是增加总流量，为此，算法可能对特定边上的流量进行缩减。为了表示对一个正流量 f(u ,v) 的缩减，我们将边 (u, v) 加入到 Gf中，并将其残余容量设置为 cf(v, u) = f(u ,v)。也就是说，一条边所能允许的反向流量最多能将其正向流量抵消。
+
+    - 残存网络中的这些反向边允许算法将已经发送出来的流量发送回去。而将流量从同一边发送回去等同于缩减该边的流量，这种操作在很多算法中都是必需的。
 
   - 增广路径(augmenting path): 这是一条不超过各边容量的从 s 到 t 的简单路径，向这个路径注入流量，可以增加整个网络的流量。我们称在一条增广路径上能够为每条边增加的流量的最大值为路径的残余容量，cf(p) = min{cf(u,v) : (u,v)∈路径p}
 
@@ -104,26 +108,26 @@
 
   - 虽然 Ford-Fulkerson 方法每次迭代都增加流值，但是对于某条特定边来说，其流量可能增加，也可能减小，这是必要的，详情见下文的“反向边”。
 
-  - 重复这一过程，直到残余网络中不再存在增广路径为止。最大流最小切割定理将说明在算法终结时，改算法获得一个最大流。
+  - 重复这一过程，直到残余网络中不再存在增广路径为止。最大流最小切割定理将说明在算法终结时，该算法获得一个最大流。
 
   - 伪代码：
 
         FORD-FULKERSON（G，t，s）
-    
+        
         1 for each edge(u,v) 属于 E（G）
-    
+        
         2     do f[u,v]=0
-    
+        
         3          f[v,u]=0
-    
+        
         4 while there exists a path p from s to t in the residual network Gf // 根据最大流最小切割定理，当不再有增广路径时，流 f 就是最大流
-    
+        
         5       do cf(p)=min{cf(u,v):(u,v)is in p}  // cf(p)为该路径的残余容量
-    
+        
         6        for each edge (u,v) in p
-    
+        
         7              do f[u,v]=f[u,v]+cf(p)  //为该路径中的每条边中注入刚才找到到的残余容量
-    
+        
         8                    f[v,u]=-f[u,v]   //反向边注入反向流量
 
   - 反向边是什么？
@@ -155,6 +159,49 @@
       事实上，当我们第二次的增广路走 3-2 这条反向边的时候，就相当于把 2-3 这条正向边已经是用了的流量给” 退” 了回去，不走 2-3 这条路，而改走从 2 点出发的其他的路也就是 2-4。（有人问如果这里没有 2-4 怎么办，这时假如没有 2-4 这条路的话，最终这条增广路也不会存在，因为他根本不能走到汇点）同时本来在 3-4 上的流量由 1-3-4 这条路来” 接管”。而最终 2-3 这条路正向流量 1，反向流量 1，等于没有流量。
 
     - 这就是这个算法的精华部分，利用反向边，使程序有了一个后悔和改正的机会。
+
+    > The intuition behind this definition follows the definition of the residual network.
+    > We increase the flow on (u, v) by f'(u, v) but decrease it by f'(u, v) because pushing flow on the reverse edge in the residual network signifies decreasing the flow in the original network. 
+    >
+    > Pushing flow on the reverse edge in the residual network is also known as ***cancellation***.
+
+### Cuts of flow networks
+
+- The Ford-Fulkerson method repeatedly augments the flow along augmenting paths until it has found a maximum flow. 
+
+  How do we know that when the algorithm terminates, we have actually found a maximum flow? 
+
+  The max-flow min-cut theorem, which we shall prove shortly, tells us that a flow is maximum if and only if its residual network contains no augmenting path. 
+
+  To prove this theorem, though, we must first explore the notion of a cut of a flow network.
+
+- You can overview ***cut*** theory in my preview note of minimum spanning tree.
+
+- Definition:
+
+  -  If f is a flow, then the ***net flow*** f(S, T) across the cut (S, T) is defined to be
+
+    f(S, T) = Σu∈SΣv∈T f(u, v) - Σu∈SΣv∈T f(v, u)
+
+  - The ***capacity*** of the cut (S, T) is
+
+    c(S, T) = Σu∈SΣv∈T c(u, v)
+
+  - A ***minimum cut*** of a network is a cut whose capacity is minimum over all cuts of the network.
+
+  - Let f be a flow in a flow network G with source s and sink t, and let (S, T) be any cut of G. Then the ***net flow*** across (S, T) is 
+
+    f(S, T) = |f|
+
+  - The value of any flow f in a flow network G is ***bounded*** from above by the capacity of any cut of G
+
+- Theorem 26.6 (Max-flow min-cut theorem)
+  If f is a flow in a flow network G(V, E) with source s and sink t, then the
+  following conditions are equivalent:
+
+  1. f is a maximum flow in G.
+  2. The residual network Gf contains no augmenting paths.
+  3. |f| = c(S, T) for some cut (S, T) of G.
 
 ### 算法的效率及其优化—— Edmonds-Karp 算法
 
