@@ -205,9 +205,17 @@
 
 ### 算法的效率及其优化—— Edmonds-Karp 算法
 
-- 如果使用广度优先来寻找增广路径，那么可以改善 FORD-FULKERSON 算法的效率，也就是说，每次选择的增广路径是一条从 s 到 t 的最短路径，其中每条边的权重为单位距离（即根据边的数量来计算最短路径），我们称如此实现的 FORD-FULKERSON 方法为 Edmonds-Karp 算法。其运行时间为 O(VE^2)。
-
+- 如果使用广度优先搜索（BFS）来寻找增广路径，那么可以改善 FORD-FULKERSON 算法的效率，也就是说，每次选择的增广路径是一条从 s 到 t 的最短路径，其中每条边的权重为单位距离（即根据边的数量来计算最短路径），我们称如此实现的 FORD-FULKERSON 方法为 Edmonds-Karp 算法。其运行时间为 O(VE^2)。
+- Because we can implement each iteration of FORD -FULKERSON in O(E) time when we find the augmenting path by breadth-first search, the total running time of the Edmonds-Karp algorithm is O(VE^2) /. Weshall see that push-relabel algorithms can yield even better bounds. The algorithm of Section 26.4 gives a method for achieving an O(V^2E) running time, which forms the basis for the O(V^3) time algorithm of Section 26.5.
 - 注意 E-K 算法适用于改善 F-F 算法的效率，边的权重仅仅还是容量限制，而下文的“最小费用最大流”中的每条边的权重有两个值：（容量限制，单位流量损耗）。
+
+![mark](http://ph166fnv2.bkt.clouddn.com/blog/181103/emFIBDlAC4.png?imageslim)
+
+### Push Relabel algorithm
+
+https://blog.csdn.net/Mr_KkTian/article/details/53574134
+
+Fix maximum-flow problem in O(V^2E) time.
 
 ### 最大流实例：
 
@@ -281,14 +289,28 @@
 
   图 1 是二分图，为了直观，一般画成 2 那样，3、4 中红色边即为匹配，4 是最大匹配，同时也是完美匹配（所有顶点都是匹配点），图 5 展示了男孩和女孩暗恋关系，有连线就说明这一对能成，求最大匹配就是求能成多少对。
 
-- FORD-FULKERSON 方法解决最大二分匹配
+- Maximum Bipartite Matching
 
-  - 给定如下的二分图（忽略颜色）：
-  
-    ![](http://img.blog.csdn.net/20130708210210515?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvc21hcnR4eHl4/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center)
+  Given a bipartite graph G = (A ∪ B,E), find an S ⊆ A × B that is
+  a matching and is as large as possible.
 
-  - 把已有的边设为单向边（方向 L -> R），且各边容量设为 ∞ ；增加源结点 s 与汇点 t，将 s 与集合 L 中各个结点之间构造单向边，且各边容量设为 1；同样的，将集合 R 中各个结点与 t 之间构造单向边，且各边容量设为1。这时得到一个流网络 G'，如下：
+- Notes:
+  - We’re given A and B so we don’t have to find them.
+  - S is a perfect matching if every vertex is matched.
+  - Maximum is not the same as maximal: greedy will get to maximal. 
 
-    ![](http://img.blog.csdn.net/20130708210236843?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvc21hcnR4eHl4/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/Center)
+- Using Net Flow to Solve Bipartite Matching
 
-  - 这时，最大匹配数值就等于流网络 G' 中最大流的值。
+  To Recap:
+
+  1. Given bipartite graph G = (A ∪ B,E), direct the edges from A to B.
+  2. Add new vertices s and t.
+  3. Add an edge from s to every vertex in A.
+  4. Add an edge from every vertex in B to t.
+  5. Make all the capacities 1.
+  6. Solve maximum network flow problem on this new graph G'.
+
+  The edges used in the maximum network flow will
+  correspond to the largest possible matching!
+
+  ![Max Matching as Max Flow](http://ph166fnv2.bkt.clouddn.com/blog/181103/b7lkfG8dKG.png?imageslim)
