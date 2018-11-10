@@ -42,13 +42,13 @@
     ![2018326-natip](http://ooy7h5h7x.bkt.clouddn.com/blog/image/2018326-natip.png)
 
     终端上输入：
-        
+    ​    
     ```
     mininet> xterm h1
     ```
 
     在打开的 h1 终端上输入，可以清楚地看到有返回值，即 5 台交换机：
-        
+    ​    
     ![2018326-h1rest](http://ooy7h5h7x.bkt.clouddn.com/blog/image/2018326-h1rest.png)
 
     IP 地址是 nat0 的 IP 地址，这里不能填 localhost ，也不能填 0.0.0.0，也不能填 127.0.0.0，也不能填本机 IP 地址 192.168.2.140。    
@@ -328,3 +328,106 @@ network app 中若 verifying the setting 中的 REST API，则会报错，原因
 照着example跑了一下，有点问题，5002端口竟然也是限速500kb/s以内，而不是期望的大于800kb/s。
 
 还注意到，此时跟着example中“verifying the setting”这节，调用curl命令返回的数据中竟然nw_dst为10.0.0.2？前面的步骤一模一样，特别是“Qos Setting”这节，仔细检查了，为10.0.0.1，真奇怪。
+
+---
+
+11.8返工
+
+先运行一下官方example试试：
+
+```
+lhl@ubuntu:~/ryu/ryu/app$ ryu-manager ryu.app.rest_qos ryu.app.qos_simple_switch_13 ryu.app.rest_conf_switch
+```
+
+在verifying the setting这节，输出与预期的一样。
+
+在Measuring the bandwidth这节，输出与预期一样！一个的带宽最大值限制在500Kb/s，一个的带宽最小值限制在800Kb/s。因为在xterm上iperf测量TCP带宽为500Mb/s，所以上述两次测量同时进行好像也没什么影响。
+
+接下来运行自己的app：
+
+```
+lhl@ubuntu:~/Desktop/network$ ryu-manager network.py rest_qos.py rest_conf_switch.py ofctl_rest.py --observe-links --weight=hop
+```
+
+在verifying the setting这节，报错：
+
+```
+(14441) accepted ('127.0.0.1', 42964)
+awareness: Exception occurred during handler processing. Backtrace from offending handler [_flow_stats_reply_handler] servicing event [EventOFPFlowStatsReply] follows.
+Traceback (most recent call last):
+  File "/usr/local/lib/python2.7/dist-packages/ryu/base/app_manager.py", line 290, in _event_loop
+    handler(ev)
+  File "/home/lhl/Desktop/network/network.py", line 312, in _flow_stats_reply_handler
+    self.stats['flow'][dpid] = body
+KeyError: 'flow'
+Traceback (most recent call last):
+...
+127.0.0.1 - - [07/Nov/2018 22:26:54] "GET /qos/rules/0000000000000001 HTTP/1.1" 500 1663 0.148330
+
+```
+
+看上去好像 self.stats的flow属性没有定义？查看了一下network app，这个属性定义有个前提条件，那就是在路由规则为bandwidth，运行时是用hop的，改一下路由规则试试。
+
+没想到一进入就报错了，在verifying the setting这节也是报错了，但是flow没有报错，两者都是在in_port报错的：
+
+``` 
+(15062) accepted ('127.0.0.1', 43048)
+awareness: Exception occurred during handler processing. Backtrace from offending handler [_flow_stats_reply_handler] servicing event [EventOFPFlowStatsReply] follows.
+Traceback (most recent call last):
+  File "/usr/local/lib/python2.7/dist-packages/ryu/base/app_manager.py", line 290, in _event_loop
+    handler(ev)
+  File "/home/lhl/Desktop/network/network.py", line 318, in _flow_stats_reply_handler
+    key = (stat.match['in_port'], stat.match['ipv4_dst'],
+  File "/usr/local/lib/python2.7/dist-packages/ryu/ofproto/ofproto_v1_3_parser.py", line 902, in __getitem__
+    return dict(self._fields2)[key]
+KeyError: 'in_port'
+Traceback (most recent call last):
+
+```
+
+试试不用rest qos的app，换回毕设的app，发现in_port那还是一样的报错，试试看print这个stat结构：
+
+``` 
+OFPFlowStats(byte_count=2546208,cookie=1,duration_nsec=583000000,duration_sec=8239,flags=0,hard_timeout=0,idle_timeout=0,instructions=[OFPInstructionActions(actions=[OFPActionSetQueue(len=8,queue_id=1,type=21)],len=16,type=4), OFPInstructionGotoTable(len=8,table_id=1,type=1)],length=104,match=OFPMatch(oxm_fields={'ip_proto': 17, 'udp_dst': 5002, 'eth_type': 2048, 'ipv4_dst': '10.0.0.1'}),packet_count=1684,priority=1,table_id=0)
+
+```
+
+根本就没有in_port这个结构，我记得以前是肯定有的，muzixing那也是这样做的，肯定没问题，突然想到我现在mininet拓扑结构是默认的h1-s1-h2，会不会直接把端口给省略了？
+
+好，现在试试重启Mininet，然后发现ping不通了。
+
+如果发现ping不通的玄学问题，run一遍官方example即可！
+
+``` 
+lhl@ubuntu:~/ryu/ryu/app$ ryu-manager simple_switch_13.py --observe-links
+```
+
+好的，现在换回自己的app，启动默认mininet，发现现在报错的是ipv4_dst：
+
+``` 
+OFPFlowStats(byte_count=714,cookie=0,duration_nsec=514000000,duration_sec=272,flags=0,hard_timeout=0,idle_timeout=0,instructions=[OFPInstructionActions(actions=[OFPActionOutput(len=16,max_len=65509,port=2,type=0)],len=24,type=4)],length=104,match=OFPMatch(oxm_fields={'eth_src': '00:00:00:00:00:01', 'eth_dst': '00:00:00:00:00:02', 'in_port': 1}),packet_count=9,priority=1,table_id=0)
+awareness: Exception occurred during handler processing. Backtrace from offending handler [_flow_stats_reply_handler] servicing event [EventOFPFlowStatsReply] follows.
+Traceback (most recent call last):
+  File "/usr/local/lib/python2.7/dist-packages/ryu/base/app_manager.py", line 290, in _event_loop
+    handler(ev)
+  File "/home/lhl/Desktop/network/network.py", line 319, in _flow_stats_reply_handler
+    key = (stat.match['in_port'], stat.match['ipv4_dst'],
+  File "/usr/local/lib/python2.7/dist-packages/ryu/ofproto/ofproto_v1_3_parser.py", line 902, in __getitem__
+    return dict(self._fields2)[key]
+KeyError: 'ipv4_dst'
+
+```
+
+可以看到OFPFlowStats数据结构中有in_port而没有ipv4_dst！！！
+
+查了一下4.2的git记录，diff，现在的代码和上次提交的代码是有不同，但是不同之处应该对这个报错没有影响，现在重启ubuntu试试...
+
+没有in_port or ipv4_dst报错！
+
+**现在尝试用自己的app，默认的mininet，测试一下能否限流！**
+
+还是出现了找不到in_port...
+
+现在路由规则转回hop，不会出现in_port or ipv4_dst的错误了，但是不会初始化stats，所以在"Verifying the Setting"时会在[EventOFPFlowStatsReply] 报错，但问题是为何会执行这个函数？
+
+好吧， 暂时不执行verifying the setting了，看能否跳过这个步骤，看看能不能限流，发现自己的app+sw5host3拓扑没法限流。。
