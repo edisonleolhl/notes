@@ -431,3 +431,87 @@ KeyError: 'ipv4_dst'
 现在路由规则转回hop，不会出现in_port or ipv4_dst的错误了，但是不会初始化stats，所以在"Verifying the Setting"时会在[EventOFPFlowStatsReply] 报错，但问题是为何会执行这个函数？
 
 好吧， 暂时不执行verifying the setting了，看能否跳过这个步骤，看看能不能限流，发现自己的app+sw5host3拓扑没法限流。。
+
+---
+
+11.13返工
+
+11.8中的"Verifying the Setting"这节的报错，全文如下：
+
+```
+(9515) accepted ('127.0.0.1', 44326)
+awareness: Exception occurred during handler processing. Backtrace from offending handler [_flow_stats_reply_handler] servicing event [EventOFPFlowStatsReply] follows.
+Traceback (most recent call last):
+  File "/usr/local/lib/python2.7/dist-packages/ryu/base/app_manager.py", line 290, in _event_loop
+    handler(ev)
+  File "/home/lhl/Desktop/network/network.py", line 312, in _flow_stats_reply_handler
+    self.stats['flow'][dpid] = body
+KeyError: 'flow'
+Traceback (most recent call last):
+  File "/usr/lib/python2.7/dist-packages/eventlet/wsgi.py", line 481, in handle_one_response
+    result = self.application(self.environ, start_response)
+  File "/usr/local/lib/python2.7/dist-packages/ryu/app/wsgi.py", line 236, in __call__
+    return super(wsgify_hack, self).__call__(environ, start_response)
+  File "/usr/lib/python2.7/dist-packages/webob/dec.py", line 130, in __call__
+    resp = self.call_func(req, *args, **self.kwargs)
+  File "/usr/lib/python2.7/dist-packages/webob/dec.py", line 195, in call_func
+    return self.func(req, *args, **kwargs)
+  File "/usr/local/lib/python2.7/dist-packages/ryu/app/wsgi.py", line 290, in __call__
+    return controller(req)
+  File "/usr/local/lib/python2.7/dist-packages/ryu/app/wsgi.py", line 160, in __call__
+    return getattr(self, action)(req, **kwargs)
+  File "/home/lhl/Desktop/network/rest_qos.py", line 459, in get_qos
+    'get_qos', self.waiters)
+  File "/home/lhl/Desktop/network/rest_qos.py", line 527, in _access_switch
+    msg = function(rest, vid, waiters)
+  File "/home/lhl/Desktop/network/rest_qos.py", line 650, in _rest_command
+    key, value = func(*args, **kwargs)
+  File "/home/lhl/Desktop/network/rest_qos.py", line 814, in get_qos
+    rule = self._to_rest_rule(flow_stat)
+  File "/home/lhl/Desktop/network/rest_qos.py", line 954, in _to_rest_rule
+    rule.update(Match.to_rest(flow))
+  File "/home/lhl/Desktop/network/rest_qos.py", line 1112, in to_rest
+    match.setdefault(key, conv[value])
+KeyError: 35020
+```
+
+谷歌查询“KeyError： 35020”时，有[惊喜](https://sourceforge.net/p/ryu/mailman/message/35802930/)！
+
+``` 
+The cause is that rest_pos.py does not support LLDP(ether_type: 88cc).
+The quick fix is making rest_qos.py to support LLDP, so:
+
+diff --git a/ryu/app/rest_qos.py b/ryu/app/rest_qos.py
+index 9fe72ed..6e750e6 100644
+--- a/ryu/app/rest_qos.py
++++ b/ryu/app/rest_qos.py
+@@ -211,6 +211,7 @@ REST_DL_TYPE = 'dl_type'
+  REST_DL_TYPE_ARP = 'ARP'
+  REST_DL_TYPE_IPV4 = 'IPv4'
+  REST_DL_TYPE_IPV6 = 'IPv6'
++REST_DL_TYPE_LLDP = 'lldp'
+  REST_DL_VLAN = 'dl_vlan'
+  REST_SRC_IP = 'nw_src'
+  REST_DST_IP = 'nw_dst'
+@@ -946,7 +947,8 @@ class Match(object):
+      _CONVERT = {REST_DL_TYPE:
+                  {REST_DL_TYPE_ARP: ether.ETH_TYPE_ARP,
+                   REST_DL_TYPE_IPV4: ether.ETH_TYPE_IP,
+-                 REST_DL_TYPE_IPV6: ether.ETH_TYPE_IPV6},
++                 REST_DL_TYPE_IPV6: ether.ETH_TYPE_IPV6,
++                 REST_DL_TYPE_LLDP: ether.ETH_TYPE_LLDP},
+                  REST_NW_PROTO:
+                  {REST_NW_PROTO_TCP: inet.IPPROTO_TCP,
+                   REST_NW_PROTO_UDP: inet.IPPROTO_UDP,
+
+```
+
+先吃个中饭，等会再来解决问题！
+
+照着大神的操作，加入了lldp的支持，运行成功，“Verifying the Setting”通过，但是注意返回的body中还有lldp的信息。
+
+![mark](http://ph166fnv2.bkt.clouddn.com/blog/181113/H6gcfLGhg2.png?imageslim)
+
+但是flow那里还是报错了，先不管了，试试能不能限流，发现用network app + sw5host3拓扑无法限流，但是用network app+默认mininet拓扑可以限流（即使有flow报错），如下：
+
+![mark](http://ph166fnv2.bkt.clouddn.com/blog/181113/bB9CAa34a9.png?imageslim)
