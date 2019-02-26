@@ -298,7 +298,11 @@ def get_shortest_simple_paths(self, src, dst):
 
 ---
 4.11 
-因为研究 qos 无进展，打算重启虚拟机试试，又出现了之前的 packet_in 都无法执行的问题了，这下学聪明了，先运行以下 ryu/app/simple_switch_13.py ，连接 mininet 后，有很多的 packet in 消息，关闭后再打开 network.py，一切正常。继续干 qos
+因为研究 qos 无进展，打算重启虚拟机试试，又出现了之前的 packet_in 都无法执行的问题了，这下学聪明了，先运行 ryu/app/simple_switch_13.py ，即
+
+    ryu-manager ryu.app.rest_qos ryu.app.qos_simple_switch_13 ryu.app.rest_conf_switch
+
+连接 mininet 后，有很多的 packet in 消息，关闭后再打开 network.py，一切正常。继续干 qos
 
 ---
 
@@ -515,3 +519,51 @@ index 9fe72ed..6e750e6 100644
 但是flow那里还是报错了，先不管了，试试能不能限流，发现用network app + sw5host3拓扑无法限流，但是用network app+默认mininet拓扑可以限流（即使有flow报错），如下：
 
 ![mark](http://ph166fnv2.bkt.clouddn.com/blog/181113/bB9CAa34a9.png?imageslim)
+
+
+---
+
+2.24返工
+
+尝试把sw5host拓扑中的五个switch xterm终端都打开，分别输入[教程中的指令](http://osrg.github.io/ryu-book/en/html/rest_qos.html#example-of-the-operation-of-the-per-flow-qos)。顺序严格按照教程中的来，先打开mininet，再打开五个终端，再分别输入命令，最后再开启ryu应用。
+
+ > 运行.sh文件，可以在终端键入:
+ > 
+ > sh xx.sh
+
+有很多命令需要在c0终端输入，所以创建了几个sh文件供c0终端执行，最后的结果：verifying the setting通过，但是ryu应用终端还是在flow那里报错了，最后也没法限流，两个端口的流量都是1Mbit/s，很奇怪，因为这个是execute setting of queue那节中给s1-eth1的最大速率，那也就是说，queue实现了基础的最大速率限制，但没有queue0和queue1的QoS保障？
+
+查看rest_qos.py，发现有许多地方都牵涉到了REST_DL_TYPE，而mailing list中给的解决方案并没有在所有REST_DL_TYPE的地方添加lldp变量，难道flow仍然报错是因为这个原因吗？退一万步讲，如果我不做时延检测了，那也就不需要修改lldp了，是否可以不报错而成功实现QoS限流呢？不急，教程中还有其他两个QoS实现手段：[using-diffserv](http://osrg.github.io/ryu-book/en/html/rest_qos.html#example-of-the-operation-of-qos-by-using-diffserv)、[using-meter-table](http://osrg.github.io/ryu-book/en/html/rest_qos.html#example-of-the-operation-of-qos-by-using-meter-table)，而且example中有多个switch，正好与sw5host拓扑类似。
+
+---
+
+2.25返工
+尝试using-diffserv，先模仿官方example跑一遍，它是基于qos_rest_router.py的应用，修改源码太过麻烦，就不用这种方法了。
+运行ryu应用以及执行curl指令直接在ubuntu终端进行，example中都是在xterm c0中执行的，有点麻烦了。成功地把using-diffserv跑了一遍了。
+看了一下using-meter-table，它是基于qos_simple_switch_13.py的应用，拓扑倒是有点弄得花里胡哨，晚点再看
+
+---
+
+2.26返工
+
+复现原来的场景：network app + sw5host3，发现h1-h2ping不通，但h1-h3能ping通，估计又是玄学bug，总结一下解决流程：
+    
+  - 关闭mininet，清除缓存
+
+        root@ubuntu:/home/lhl/Desktop/network# mn -c
+
+  - 删除所有qos设置
+
+        lhl@ubuntu:~/Desktop/network$ sudo ./remove_qos.sh 
+
+  - 运行官方example（不带qos也可）
+
+        ryu-manager ryu.app.rest_qos ryu.app.qos_simple_switch_13 ryu.app.rest_conf_switch
+
+为了让开发脉络更加清晰，从现在开始用git同步，rest_qos.py重新导入，提交init版本，这样修改源码时就有底气了。
+
+回到11.13返工的进度，当时按照惊喜对rest_qos.py添加了两处lldp代码，network app + sw5host3 无法限流，报flow错，network app + 默认拓扑（sw1host2且带nat参数）:
+
+    sudo mn --controller=remote --mac --switch ovs,protocols=OpenFlow13 --link tc --nat
+
+ 即使报flow错也可以限流.
