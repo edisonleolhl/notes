@@ -2205,19 +2205,68 @@ LVM：Logical Volume Manager
 
   - 标准的命令用法：
 
-  		grep root /etc/passwd
+     grep root /etc/passwd
 
   - 重定向：
 
-  		grep root < /etc/passwd
+     grep root < /etc/passwd
 
   - 管道：
 
-  		cat /etc/passwd | grep root
+     cat /etc/passwd | grep root
 
   - 三种原理不一样，但结果一样
 
-##12、Linux 安装与管理软件
+### 挑战：历史命令
+
+在 Linux 中，对于文本的处理和分析是极为重要的，现在有一个文件叫做 data1，可以使用下面的命令下载：
+
+```
+$ cd /home/shiyanlou
+$ wget http://labfile.oss.aliyuncs.com/courses/1/data1
+```
+
+data1 文件里记录是一些命令的操作记录，现在需要你从里面找出出现频率次数前 3 的命令并保存在 `/home/shiyanlou/result`。
+
+目标
+
+1. 处理文本文件 `/home/shiyanlou/data1`
+2. 将结果写入 `/home/shiyanlou/result`
+3. 结果包含三行内容，每行内容都是出现的次数和命令名称，如 “100 ls”
+
+提示
+
+1. cut 截取 (参数可以使用 `-c 8-`，使用 man cut 可以查看含义)
+2. `uniq -dc` 去重
+3. sort 的参数选择 `-k1 -n -r`
+4. 操作过程使用管道，例如：
+
+```
+$ cd /home/shiyanlou
+$ cat data1 |....|....|....   >  /home/shiyanlou/result
+```
+
+来源：2016 年百度校招面试题
+
+我的答案
+
+```
+shiyanlou:~/ $ cut data1 -c 8- | cut -d ' ' -f 1 | sort | uniq -dc | sort -rn | head -n 3
+```
+
+思考
+
+- 题目要求统计整条命令的频次，而我只截取了命令名称计数，按题目的意思 `cd .` 与 `cd ..` 是两条命令，而在我的方法下会认为是同一条命令
+- 文件中有些命令占据两行，无论是我的答案还是参考答案都没考虑这个
+
+参考答案
+
+```
+cat data1 |cut -c 8-|sort|uniq -dc|sort -rn -k1 |head -3 > /home/shiyanlou/result
+```
+
+## 12、Linux 安装与管理软件
+
 - RPM：redhat package manager
 	- redhat 提出
 	- 将源码先编程完RPM软件包，类似于Windows中的setup文件
