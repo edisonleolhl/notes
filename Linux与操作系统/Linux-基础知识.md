@@ -2750,7 +2750,7 @@ grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data
 
   这几种安装方式各有优劣，而大多数软件包会采用多种方式发布软件，所以我们常常需要全部掌握这几种软件安装方式，以便适应各种环境。下面将介绍前三种安装方式，从源码编译安装你将在 Linux 程序设计中学习到。
 
-### 在线安装软件的方式
+### 在线安装软件的方式——apt
 
 - 在学习这种安装方式之前有一点需要说明的是，在不同的 linux 发行版上面在线安装方式会有一些差异包括使用的命令及它们的包管理工具，因为我们的开发环境是基于 ubuntu 的，所以这里我们涉及的在线安装方式将只适用于 ubuntu 发行版，或其它基于 ubuntu 的发行版如国内的 ubuntukylin (优麒麟)，ubuntu 又是基于 debian 的发行版，它使用的是 debian 的包管理工具 dpkg，所以一些操作也适用与 debian。而在一些采用其它包管理工具的发行版如 redhat，centos，fedora 等将不适用 (redhat 和 centos 使用 rpm)。
 
@@ -2766,58 +2766,251 @@ grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data
 
   **注意**: 如果你在安装一个软件之后，无法立即使用 `Tab` 键补全这个命令，你可以尝试先执行 `source ~/.zshrc`，然后你就可以使用补全操作。
 
+- apt 工具是什么？
+
+  > APT 是 Advance Packaging Tool（高级包装工具）的缩写，是 Debian 及其派生发行版的软件包管理器，APT 可以自动下载，配置，安装二进制或者源代码格式的软件包，因此简化了 Unix 系统上管理软件的过程。APT 最早被设计成 dpkg 的前端，用来处理 deb 格式的软件包。现在经过 APT-RPM 组织修改，APT 已经可以安装在支持 RPM 的系统管理 RPM 包。这个包管理器包含以 `apt-` 开头的多个工具，如 `apt-get` `apt-cache` `apt-cdrom` 等，在 Debian 系列的发行版中使用。
+
+  当你在执行安装操作时，首先 `apt-get` 工具会在**本地**的一个数据库中搜索关于 `w3m` 软件的相关信息，并根据这些信息在相关的服务器上下载软件安装，这里大家可能会一个疑问：既然是在线安装软件，为啥会在本地的数据库中搜索？要解释这个问题就得提到几个名词了：
+
+  - **软件源镜像服务器**
+  - **软件源**
+
+  我们需要定期从服务器上下载一个软件包列表，使用 `sudo apt-get update` 命令来保持本地的软件包列表是最新的（有时你也需要手动执行这个操作，比如更换了软件源），而这个表里会有**软件依赖**信息的记录，对于软件依赖，我举个例子：我们安装 `w3m` 软件的时候，而这个软件需要 `libgc1c2`这个软件包才能正常工作，这个时候 `apt-get` 在安装软件的时候会一并替我们安装了，以保证 `w3m` 能正常的工作。
+
+- `apt-get`——软件安装卸载
+
+  `apt-get` 是用于处理 `apt` 包的公用程序集，我们可以用它来在线安装、卸载和升级软件包等，下面列出一些 `apt-get`包含的常用的一些工具：
+
+  | 工具           | 说明                                                         |
+  | -------------- | ------------------------------------------------------------ |
+  | `install`      | 其后加上软件包名，用于安装一个软件包                         |
+  | `update`       | 从软件源镜像服务器上下载 / 更新用于更新本地软件源的软件包列表 |
+  | `upgrade`      | 升级本地可更新的全部软件包，但存在依赖问题时将不会升级，通常会在更新之前执行一次 `update` |
+  | `dist-upgrade` | 解决依赖关系并升级 (存在一定危险性)                          |
+  | `remove`       | 移除已安装的软件包，包括与被移除软件包有依赖关系的软件包，但不包含软件包的配置文件 |
+  | `autoremove`   | 移除之前被其他软件包依赖，但现在不再被使用的软件包           |
+  | `purge`        | 与 remove 相同，但会完全移除软件包，包含其配置文件           |
+  | `clean`        | 移除下载到本地的已经安装的软件包，默认保存在 /var/cache/apt/archives/ |
+  | `autoclean`    | 移除已安装的软件的旧版本软件包                               |
+
+  下面是一些 `apt-get` 常用的参数：
+
+  | 参数                 | 说明                                                         |
+  | -------------------- | ------------------------------------------------------------ |
+  | `-y`                 | 自动回应是否安装软件包的选项，在一些自动化安装脚本中使用这个参数将十分有用 |
+  | `-s`                 | 模拟安装                                                     |
+  | `-q`                 | 静默安装方式，指定多个 `q` 或者 `-q=#`,# 表示数字，用于设定静默级别，这在你不想要在安装软件包时屏幕输出过多时很有用 |
+  | `-f`                 | 修复损坏的依赖关系                                           |
+  | `-d`                 | 只下载不安装                                                 |
+  | `--reinstall`        | 重新安装已经安装但可能存在问题的软件包                       |
+  | `--install-suggests` | 同时安装 APT 给出                                            |
+
+- 重新安装
+
+  很多时候我们需要重新安装一个软件包，比如你的系统被破坏，或者一些错误的配置导致软件无法正常工作。
+
+  你可以使用如下方式重新安装：
+
+  ```
+  $ sudo apt-get --reinstall install w3m
+  ```
+
+- 软件升级
+
+  ```
+  # 更新软件源
+  $ sudo apt-get update
+  # 升级没有依赖问题的软件包
+  $ sudo apt-get upgrade
+  # 升级并解决依赖关系
+  $ sudo apt-get dist-upgrade
+  ```
+
+- 卸载软件
+
+  如果你现在觉得 `w3m` 这个软件不合自己的胃口，或者是找到了更好的，你需要卸载它，那么简单！同样是一个命令加回车 `sudo apt-get remove w3m` ，系统会有一个确认的操作，之后这个软件便 “滚蛋了”。
+
+  执行了 `remove` 前，使用`whereis w3m`命令，发现：
+
+  ```
+  shiyanlou:~/ $ whereis w3m                           
+  w3m: /usr/bin/w3m /usr/lib/w3m /etc/w3m /usr/share/w3m /usr/share/man/man1/w3m.1.gz
+  
+  ```
+
+  执行了 `remove` 后，使用`whereis w3m`命令，发现：
+
+  ```
+  shiyanlou:~/ $ whereis w3m                           
+  w3m: /etc/w3m
+  ```
+
+  这时可以执行`purge`命令：
+
+  ```
+  # 不保留配置文件的移除
+  $ sudo apt-get purge w3m
+  ```
+
+  再执行`whereis w3m`命令，发现：
+
+  ```
+  shiyanlou:~/ $ whereis w3m                           
+  w3m:
+  ```
+
+  移除不需要的被依赖的软件包：
+
+  ```
+  # 移除不再需要的被依赖的软件包
+  $ sudo apt-get autoremove
+  ```
+
+- `apt-cache` ——软件搜索
+
+  当自己刚知道了一个软件，想下载使用，需要确认软件仓库里面有没有，就需要用到搜索功能了，命令如下：
+
+  ```
+  sudo apt-cache search softname1 softname2 softname3……
+  ```
+
+  `apt-cache` 命令则是针对本地数据进行相关操作的工具，`search` 顾名思义在本地的数据库中寻找有关 `softname1` `softname2` …… 相关软件的信息。现在我们试试搜索一下之前我们安装的软件 `w3m` ：
+
+  ```
+  shiyanlou:~/ $ sudo apt-cache search w3m             
+  w3m - WWW browsable pager with excellent tables/frames support
+  w3m-el - simple Emacs interface of w3m
+  w3m-el-snapshot - simple Emacs interface of w3m (development version)
+  w3m-img - inline image extension support utilities for w3m
+  ```
+
+  结果显示了 4 个 `w3m` 相关的软件，并且有相关软件的简介。
+
+  关于在线安装的的内容我们就介绍这么多，想了解更多关于 APT 的内容，你可以参考：
+
+  - [APT HowTo](http://www.debian.org/doc/manuals/apt-howto/index.zh-cn.html#contents)
+
+### 本地磁盘安装deb软件包——dpkg
+
+- dpkg 介绍
+
+  > dpkg 是 Debian 软件包管理器的基础，它被伊恩・默多克创建于 1993 年。dpkg 与 RPM 十分相似，同样被用于安装、卸载和供给和 .deb 软件包相关的信息。
+
+  > dpkg 本身是一个底层的工具。上层的工具，像是 APT，被用于从远程获取软件包以及处理复杂的软件包关系。"dpkg" 是 "Debian Package" 的简写。
+
+  我们经常可以在网络上见到以 `deb` 形式打包的软件包，就需要使用 `dpkg` 命令来安装。
+
+  `dpkg` 常用参数介绍：
+
+  | 参数 | 说明                                              |
+  | ---- | ------------------------------------------------- |
+  | `-i` | 安装指定 deb 包                                   |
+  | `-R` | 后面加上目录名，用于安装该目录下的所有 deb 安装包 |
+  | `-r` | remove，移除某个已安装的软件包                    |
+  | `-I` | 显示 `deb` 包文件的信息                           |
+  | `-s` | 显示已安装软件的信息                              |
+  | `-S` | 搜索已安装的软件包                                |
+  | `-L` | 显示已安装软件包的目录信息                        |
+
+- 使用 dpkg 安装 deb 软件包
+
+  我们先使用 `apt-get` 加上 `-d` 参数只下载不安装，下载 emacs 编辑器的 deb 包，下载完成后，我们可以查看 /var/cache/apt/archives/ 目录下的内容，如下图：
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tcytez1pj30kk0f4q5t.jpg)
+
+  然后我们将第一个 `deb` 拷贝到 /home/shiyanlou 目录下，并使用 `dpkg` 安装
+
+  ```
+  $ cp /var/cache/apt/archives/emacs24_24.5+1-6ubuntu1.1_amd64.deb ~
+  # 安装之前参看deb包的信息
+  $ sudo dpkg -I emacs24_24.5+1-6ubuntu1.1_amd64.deb
+  ```
+
+  如你所见，这个包还额外依赖了一些软件包，这意味着，如果主机目前没有这些被依赖的软件包，直接使用 dpkg 安装可能会存在一些问题，因为 `dpkg` 并不能为你解决依赖关系。
+
+  ```
+  # 使用dpkg安装
+  $ sudo dpkg -i emacs24_24.5+1-6ubuntu1.1_amd64.deb
+  ```
+
+  跟前面预料的一样，这里你可能出现了一些错误：
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tcz1c9zaj30ke0ge455.jpg)
+
+  我们将如何解决这个错误呢？这就要用到 `apt-get` 了，使用它的 `-f` 参数了，修复依赖关系的安装
+
+  ```
+  $ sudo apt-get update
+  $ sudo apt-get -f install
+  ```
+
+  没有任何错误，这样我们就安装成功了，然后你可以运行 emacs 程序了
+
+  ```
+  shiyanlou:~/ $ emacs24    
+  ```
+
+- 查看已安装软件包的安装目录，使用 `dpkg -L` 查看 `deb` 包目录信息
+
+  ```
+  $ sudo dpkg -L emacs24
+  ```
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0td15m9haj30kl0hu78q.jpg)
+
 - RPM：redhat package manager
-	- redhat 提出
-	- 将源码先编程完RPM软件包，类似于Windows中的setup文件
-	- 安装时，只需要解开软件包，复制到适当地址
-	- 容易管理
-	- 方便更新、移除
+
+  - redhat 提出
+  - 将源码先编程完RPM软件包，类似于Windows中的setup文件
+  - 安装时，只需要解开软件包，复制到适当地址
+  - 容易管理
+  - 方便更新、移除
 
 - RHEL 软件的命名原则：A-B-C.D.E
-	- A：软件名
-	- B：版本
-	- C：发行次数，RHEL习惯加上 el# 字样，#代表RHELv#
-	- D：搭配规格，有 noarch
-	- E：后缀，.rpm 或者 .src.rpm
+  - A：软件名
+  - B：版本
+  - C：发行次数，RHEL习惯加上 el# 字样，#代表RHELv#
+  - D：搭配规格，有 noarch
+  - E：后缀，.rpm 或者 .src.rpm
 
-	- 例如：
-		- 	gimp-2.6.9-4.el6_1.1.x86_64.rpm
-		- 	zsh-4.3.10-4.1.el6.x86_64.rpm
-		- 	apache-1.3.23-11.i386.rpm
+  - 例如：
+  	- 	gimp-2.6.9-4.el6_1.1.x86_64.rpm
+  	- 	zsh-4.3.10-4.1.el6.x86_64.rpm
+  	- 	apache-1.3.23-11.i386.rpm
 
 - RPM 软件包相依性
-	- 有些 RPM 软件包不能单独安装，必须先安装别的 RPM 软件包才能安装，称之为 RPM软件包相依性
+  - 有些 RPM 软件包不能单独安装，必须先安装别的 RPM 软件包才能安装，称之为 RPM软件包相依性
 
-	- 不是所有的都有相依性需求
+  - 不是所有的都有相依性需求
 
-	- rpm 命令安装时，不检查相依性问题
+  - rpm 命令安装时，不检查相依性问题
 
-	- yum 命令安装时，自动解决相依性问题
+  - yum 命令安装时，自动解决相依性问题
 
 - rpm 查询
 
-	rpm -qa ：查询所有
-	
-	rpm -q mysql ：查询软件包是否安装
-	
-	rpm -qi mysql ：查询软件包信息
-	
-	rpm -ql mysql ：查询软件包中的文件
-	
-	rpm -qf /etc/passwd ：查询该文件所属的软件包
-	
+  rpm -qa ：查询所有
+
+  rpm -q mysql ：查询软件包是否安装
+
+  rpm -qi mysql ：查询软件包信息
+
+  rpm -ql mysql ：查询软件包中的文件
+
+  rpm -qf /etc/passwd ：查询该文件所属的软件包
+
 - rpm 安装
 
-	rpm -i RPM包全路径 ：安装某个RPM包
+  rpm -i RPM包全路径 ：安装某个RPM包
 
-	rpm -ivh RPM包全路径 ：加上提示信息和进度条
+  rpm -ivh RPM包全路径 ：加上提示信息和进度条
 
 - rpm 删除
 
-	rpm -e jdk ：删除 jdk 的RPM包 
+  rpm -e jdk ：删除 jdk 的RPM包 
 
-	> 如果其他软件包依赖于 jdk ，则删除时会报错
+  > 如果其他软件包依赖于 jdk ，则删除时会报错
 
 - rpm 升级
-	
-	rpm -U RPM包全路径
+
+  rpm -U RPM包全路径
