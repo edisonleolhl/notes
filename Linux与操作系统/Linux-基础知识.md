@@ -2694,7 +2694,77 @@ cat data1 |cut -c 8-|sort|uniq -dc|sort -rn -k1 |head -3 > /home/shiyanlou/resul
   - [awk 简明教程](http://coolshell.cn/articles/9070.html)
   - [awk 用户指南](http://www.gnu.org/software/gawk/manual/gawk.html)
 
+### 挑战：数据提取
+
+介绍
+
+小明在做数据分析的时候需要提取文件中关于数字的部分，同时还要提取用户的邮箱部分，但是有的行不是数组也不是邮箱，现在需要你在 data2 这个文件中帮助他用正则表达式匹配出数字部分和邮箱部分。
+
+数据文件可以使用以下命令下载：
+
+```
+$ cd /home/shiyanlou
+$ wget http://labfile.oss.aliyuncs.com/courses/1/data2
+```
+
+下载后的数据文件路径为 `/home/shiyanlou/data2`。
+
+目标
+
+1. 在文件 `/home/shiyanlou/data2` 中匹配数字开头的行，将所有以数字开头的行都写入 `/home/shiyanlou/num` 文件。
+2. 在文件 `/home/shiyanlou/data2` 中匹配出正确格式的邮箱，将所有的邮箱写入 `/home/shiyanlou/mail` 文件，注意该文件中每行为一个邮箱。
+
+提示
+
+1. 邮箱的格式匹配
+2. 注意符号 `.` 的处理
+
+来源：2016 年 TapFun 校招面试题
+
+我的答案
+
+```
+shiyanlou:~/ $ cat data2 | grep '^[0-9]' > num
+shiyanlou:~/ $ cat data2 | grep -E '@.{1,}\.com' > mail
+shiyanlou:~/ $ cat data2 | grep -E '@.+\.com' > mail
+```
+
+​	思考：邮箱的匹配有点问题，`@`前一定要有东西，`.`hou的域名不一定非要是com
+
+参考答案
+
+```
+grep '^[0-9]' /home/shiyanlou/data2 > /home/shiyanlou/num
+
+grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data2 > /home/shiyanlou/mail
+```
+
 ## 13、Linux 安装与管理软件
+
+- 通常 Linux 上的软件安装主要有四种方式：
+
+  - 在线安装
+  - 从磁盘安装 deb 软件包
+  - 从二进制软件包安装
+  - 从源代码编译安装
+
+  这几种安装方式各有优劣，而大多数软件包会采用多种方式发布软件，所以我们常常需要全部掌握这几种软件安装方式，以便适应各种环境。下面将介绍前三种安装方式，从源码编译安装你将在 Linux 程序设计中学习到。
+
+### 在线安装软件的方式
+
+- 在学习这种安装方式之前有一点需要说明的是，在不同的 linux 发行版上面在线安装方式会有一些差异包括使用的命令及它们的包管理工具，因为我们的开发环境是基于 ubuntu 的，所以这里我们涉及的在线安装方式将只适用于 ubuntu 发行版，或其它基于 ubuntu 的发行版如国内的 ubuntukylin (优麒麟)，ubuntu 又是基于 debian 的发行版，它使用的是 debian 的包管理工具 dpkg，所以一些操作也适用与 debian。而在一些采用其它包管理工具的发行版如 redhat，centos，fedora 等将不适用 (redhat 和 centos 使用 rpm)。
+
+- 比如我们想安装一个软件，名字叫做 `w3m`(w3m 是一个命令行的简易网页浏览器)，那么输入如下命令：
+
+  ```
+  $ sudo apt-get install w3m
+  ```
+
+  ```
+  $ w3m www.shiyanlou.com/faq
+  ```
+
+  **注意**: 如果你在安装一个软件之后，无法立即使用 `Tab` 键补全这个命令，你可以尝试先执行 `source ~/.zshrc`，然后你就可以使用补全操作。
 
 - RPM：redhat package manager
 	- redhat 提出
