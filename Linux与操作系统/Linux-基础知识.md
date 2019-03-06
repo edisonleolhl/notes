@@ -1158,266 +1158,1181 @@ crontab -e 添加
 
 > 部分内容参考[鸟哥的 Linux 私房菜 - 例行性工作（crontab）](http://linux.vbird.org/linux_basic/0430cron.php)
 
-##6、Linux 文件系统管理
+## 6、Linux 命令执行顺序、管道、文本处理命令、I/O重定向
 
-1. 文件系统的概念：操作系统用于明确存储和组织计算机数据的方法，使得对数据的查找和访问变得更加容易。用户不需要关心文件位于d硬盘的数据块地址。
+### 命令执行顺序
 
-2. 存储在介质中数据的三个因素
+- 顺序执行
+
+  以下三条命令逐条输入：
+
+  ```
+  $ sudo apt-get update
+  # 等待——————————然后输入下面的命令
+  $ sudo apt-get install some-tool //这里some-tool是指具体的软件包，例如：banner
+  # 等待——————————然后输入下面的命令
+  $ some-tool
+  ```
+
+  这时你可能就会想：要是我可以一次性输入完，让它自己去依次执行各命令就好了，你可以使用 `;` 来完成，比如上述操作你可以：
+
+  ```
+  $ sudo apt-get update;sudo apt-get install some-tool;some-tool
+  # 让它自己运行
+  ```
+
+- 有选择的执行命令
+
+  关于上面的操作，如果我们在让它自动顺序执行命令时，前面的命令执行不成功，而后面的命令又依赖于上一条命令的结果，那么就会造成花了时间，最终却得到一个错误的结果，而且有时候直观的看你还无法判断结果是否正确。
+
+  我们需要能够有选择性的来执行命令，比如我们使用 `which` 来查找是否安装某个命令，如果找到就执行该命令，否则什么也不做：
+
+  ```
+  $ which cowsay>/dev/null && cowsay -f head-in ohch~
+  ```
+
+  你如果没有安装 `cowsay`，你可以先执行一次上述命令，你会发现什么也没发生，你再安装好之后你再执行一次上述命令，你也会发现一些惊喜。
+
+  上面的 `&&` 就是用来实现选择性执行的，它表示如果前面的命令执行结果（不是表示终端输出的内容，而是表示命令执行状态的结果）返回 0 则执行后面的，否则不执行，你可以从 `$?` 环境变量获取上一次命令的返回结果：
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rnci2gb5j30lq0hhwh6.jpg)
+
+  学习过 C 语言的用户应该知道在 C 语言里面 `&&` 表示逻辑与，而且还有一个 `||` 表示逻辑或，同样 Shell 也有一个 `||`，或的逻辑是：当前面不成功时，再判断（执行）后面，于是`||` 在这里就是与 `&&` 相反的控制效果，当上一条命令执行结果为≠0 ($?≠0) 时则执行它后面的命令：
+
+  ```
+  $ which cowsay>/dev/null || echo "cowsay has not been install, please run 'sudo apt-get install cowsay' to install"
+  ```
+
+  除了上述基本的使用之外，我们还可以结合着 `&&` 和 `||` 来实现一些操作，比如：
+
+  ```
+  $ which cowsay>/dev/null && echo "exist" || echo "not exist"
+  ```
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rncn0ib7j30jw0540up.jpg)
+
+  画个流程图来解释一下上面的流程：
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rncqvc0oj30660i9q34.jpg)
+
+### 管道（pipeline）
+
+- 管道是什么？管道是一种通信机制，通常用于进程间的通信（也可通过 socket 进行网络通信），它表现出来的形式就是将前面每一个进程的输出 (stdout) 直接作为下一个进程的输入 (stdin)。
+
+  管道又分为匿名管道和具名管道（这里将不会讨论在源程序中使用系统调用创建并使用管道的情况，它与命令行的管道在内核中实际都是采用相同的机制）。我们在使用一些过滤程序时经常会用到的就是匿名管道，在命令行中由 `|` 分隔符表示，`|` 在前面的内容中我们已经多次使用到了。具名管道简单的说就是有名字的管道，通常只会在源程序中用到具名管道。
+
+- 先试用一下管道，比如查看 `/etc` 目录下有哪些文件和目录，使用 `ls` 命令来查看：
+
+  ```
+  $ ls -al /etc
+  ```
+
+  有太多内容，屏幕不能完全显示，这时候可以使用滚动条或快捷键滚动窗口来查看。不过这时候可以使用管道：
+
+  ```
+  $ ls -al /etc | less
+  ```
+
+  通过管道将前一个命令 (`ls`) 的输出作为下一个命令 (`less`) 的输入，然后就可以一行一行地看。
+
+  接下来通过一些文本处理命令来熟悉管道的操作。
+
+### 文本处理命令：cut、grep、wc、sort、uniq、tr、col、join、paste
+
+- cut 命令，打印每一行的某一字段
+
+  cut 命令的 -d 参数传入分隔符，-f 参数传入要打印的第几个字段，比如打印 `/etc/passwd` 文件中以`:` 为分隔符的第 1 个字段和第 6 个字段分别表示用户名和其家目录：
+
+  ```
+  $ cut /etc/passwd -d ':' -f 1,6
+  ```
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rngve0a4j30k80nbwjb.jpg)
+
+  打印 `/etc/passwd` 文件中每一行的前 N 个字符：
+
+  ```
+  # 前五个（包含第五个）
+  $ cut /etc/passwd -c -5
+  # 前五个之后的（包含第五个）
+  $ cut /etc/passwd -c 5-
+  # 第五个
+  $ cut /etc/passwd -c 5
+  # 2到5之间的（包含第五个）
+  $ cut /etc/passwd -c 2-5
+  ```
+
+- grep 命令，在文本中或 stdin 中查找匹配字符串
+
+  `grep` 命令是很强大的，也是相当常用的一个命令，它结合正则表达式可以实现很复杂却很高效的匹配和查找
+
+  `grep` 命令的一般形式为：
+
+  ```
+  grep [命令选项]... 用于匹配的表达式 [文件]...
+  ```
+
+  还是先体验一下，我们搜索 `/home/shiyanlou` 目录下所有包含 "shiyanlou" 的文本文件，并显示出现在文本中的行号：
+
+  ```
+  $ grep -rnI "shiyanlou" ~
+  ```
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rniaxwayj30kb07qwi6.jpg)
+
+  `-r` 参数表示递归搜索子目录中的文件，`-n` 表示打印匹配项行号，`-I` 表示忽略二进制文件
+
+- wc 命令，简单小巧的计数工具
+
+  wc 命令用于统计并输出一个文件中行、单词和字节的数目，比如输出 `/etc/passwd` 文件的统计信息：
+
+  ```
+  $ wc /etc/passwd
+  ```
+
+  分别只输出行数、单词数、字节数、字符数和输入文本中最长一行的字节数：
+
+  ```
+  # 行数
+  $ wc -l /etc/passwd
+  # 单词数
+  $ wc -w /etc/passwd
+  # 字节数
+  $ wc -c /etc/passwd
+  # 字符数
+  $ wc -m /etc/passwd
+  # 最长行字节数
+  $ wc -L /etc/passwd
+  ```
+
+  **注意：对于西文字符来说，一个字符就是一个字节，但对于中文字符一个汉字是大于 2 个字节的，具体数目是由字符编码决定的**
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rnj4k0p0j30ka09en02.jpg)
+
+  再来结合管道来操作一下，下面统计 /etc 下面所有目录数：
+
+  ```
+  $ ls -dl /etc/*/ | wc -l
+  ```
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rnj8zo5lj30gc0243yb.jpg)
+
+- sort 排序命令
+
+  这个命令前面我们也是用过多次，功能很简单就是将输入按照一定方式排序，然后再输出，它支持的排序有按字典排序，数字排序，按月份排序，随机排序，反转排序，指定特定字段进行排序等等。
+
+  默认为字典排序：
+
+  ```
+  $ cat /etc/passwd | sort
+  ```
+
+  反转排序：
+
+  ```
+  $ cat /etc/passwd | sort -r
+  ```
+
+  按特定字段排序：
+
+  ```
+  $ cat /etc/passwd | sort -t':' -k 3
+  ```
+
+  上面的 `-t` 参数用于指定字段的分隔符，这里是以 ":" 作为分隔符；`-k 字段号`用于指定对哪一个字段进行排序。这里 `/etc/passwd` 文件的第三个字段为数字，默认情况下是以字典序排序的，如果要按照数字排序就要加上 `-n` 参数：
+
+  ```
+  $ cat /etc/passwd | sort -t':' -k 3 -n
+  ```
+
+  注意观察第二个冒号后的数字： 
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rnp30cktj30k70h8agk.jpg)
+
+- uniq 去重命令
+
+  `uniq` 命令可以用于过滤或者输出重复行。
+
+  - 过滤重复行
+
+  我们可以使用 `history` 命令查看最近执行过的命令（实际为读取 ${SHELL}_history 文件，如我们环境中的～/.zsh_history 文件），不过你可能只想查看使用了哪个命令而不需要知道具体干了什么，那么你可能就会要想去掉命令后面的参数然后去掉重复的命令：
+
+  ```
+  $ history | cut -c 8- | cut -d ' ' -f 1 | uniq
+  ```
+
+  然后经过层层过滤，你会发现确是只输出了执行的命令那一列，不过去重效果好像不明显，仔细看你会发现它确实去重了，只是不那么明显，之所以不明显是**因为 uniq 命令只能去连续重复的行，不是全文去重**，所以要达到预期效果，我们先排序：
+
+  ```
+  $ history | cut -c 8- | cut -d ' ' -f 1 | sort | uniq
+  # 或者$ history | cut -c 8- | cut -d ' ' -f 1 | sort -u
+  ```
+
+  这就是 Linux/UNIX 哲学吸引人的地方，大繁至简，一个命令只干一件事却能干到最好。
+
+  - 输出重复行
+
+  ```
+  # 输出重复过的行（重复的只输出一个）及重复次数
+  $ history | cut -c 8- | cut -d ' ' -f 1 | sort | uniq -dc
+  # 输出所有重复的行
+  $ history | cut -c 8- | cut -d ' ' -f 1 | sort | uniq -D
+  ```
+
+- tr 命令，删除
+
+  tr 命令可以用来删除一段文本信息中的某些文字。或者将其进行转换。
+
+  #### 使用方式：
+
+  ```
+  tr [option]...SET1 [SET2]
+  ```
+
+  #### 常用的选项有：
+
+  | 选项 | 说明                                                         |
+  | ---- | ------------------------------------------------------------ |
+  | `-d` | 删除和 set1 匹配的字符，注意不是全词匹配也不是按字符顺序匹配 |
+  | `-s` | 去除 set1 指定的在输入文本中连续并重复的字符                 |
+
+  #### 操作举例：
+
+  ```
+  # 删除 "hello shiyanlou" 中所有的'o','l','h'
+  $ echo 'hello shiyanlou' | tr -d 'olh'
+  # 将"hello" 中的ll,去重为一个l
+  $ echo 'hello' | tr -s 'l'
+  # 将输入文本，全部转换为大写或小写输出
+  $ echo 'input some text here' | tr '[:lower:]' '[:upper:]'
+  # 上面的'[:lower:]' '[:upper:]'你也可以简单的写作'[a-z]' '[A-Z]',当然反过来将大写变小写也是可以的
+  ```
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rnv2sdetj30k805umyv.jpg)
+
+- col 命令，转换 tab 与空格
+
+  col 命令可以将 `Tab` 换成对等数量的空格键，或反转这个操作。
+
+  #### 使用方式：
+
+  ```
+  col [option]
+  ```
+
+  #### 常用的选项有：
+
+  | 选项 | 说明                           |
+  | ---- | ------------------------------ |
+  | `-x` | 将 `Tab` 转换为空格            |
+  | `-h` | 将空格转换为 `Tab`（默认选项） |
+
+  #### 操作举例：
+
+  ```
+  # 查看 /etc/protocols 中的不可见字符，可以看到很多 ^I ，这其实就是 Tab 转义成可见字符的符号
+  $ cat -A /etc/protocols
+  # 使用 col -x 将 /etc/protocols 中的 Tab 转换为空格,然后再使用 cat 查看，你发现 ^I 不见了
+  $ cat /etc/protocols | col -x | cat -A
+  ```
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rnvruoy5j30kc07z0vy.jpg)
+
+- join 命令，将两个文件中包含相同内容的那一行合并在一起
+
+  学过数据库的用户对这个应该不会陌生，这个命令就是用于将两个文件中包含相同内容的那一行合并在一起。
+
+  #### 使用方式：
+
+  ```
+  join [option]... file1 file2
+  ```
+
+  #### 常用的选项有：
+
+  | 选项 | 说明                                                 |
+  | ---- | ---------------------------------------------------- |
+  | `-t` | 指定分隔符，默认为空格                               |
+  | `-i` | 忽略大小写的差异                                     |
+  | `-1` | 指明第一个文件要用哪个字段来对比，默认对比第一个字段 |
+  | `-2` | 指明第二个文件要用哪个字段来对比，默认对比第一个字段 |
+
+  #### 操作举例：
+
+  ```
+  $ cd /home/shiyanlou
+  # 创建两个文件，因为默认分隔符为空格，所以两个文件的第一行都有‘1’，故可以合并
+  $ echo '1 hello' > file1
+  $ echo '1 shiyanlou' > file2
+  $ join file1 file2
+  # 将/etc/passwd与/etc/shadow两个文件合并，指定以':'作为分隔符
+  $ sudo join -t':' /etc/passwd /etc/shadow
+  # 将/etc/passwd与/etc/group两个文件合并，指定以':'作为分隔符, 分别比对第4和第3个字段
+  $ sudo join -t':' -1 4 /etc/passwd -2 3 /etc/group
+  ```
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rnzjoumej30jq09mdjy.jpg)
+
+- paste 命令，不对比数据，简单将多个文件合并
+
+  `paste` 这个命令与 `join` 命令类似，它是在不对比数据的情况下，简单地将多个文件合并一起，以 `Tab` 隔开。
+
+  #### 使用方式：
+
+  ```
+  paste [option] file...
+  ```
+
+  #### 常用的选项有：
+
+  | 选项 | 说明                         |
+  | ---- | ---------------------------- |
+  | `-d` | 指定合并的分隔符，默认为 Tab |
+  | `-s` | 不合并到一行，每个文件为一行 |
+
+  #### 操作举例：
+
+  ```
+  $ echo hello > file1
+  $ echo shiyanlou > file2
+  $ echo www.shiyanlou.com > file3
+  $ paste -d ':' file1 file2 file3
+  $ paste -s file1 file2 file3
+  ```
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0ro8wwdoij30k606a763.jpg)
+
+- 字符转换
+
+  Windows/dos 与 Linux/UNIX 文本文件一些特殊字符`不一致`，如断行符 Windows 为 CR+LF (`\r\n`)，Linux/UNIX 为 LF (`\n`)。使用 `cat -A 文本` 可以看到文本中包含的不可见特殊字符。Linux 的 `\n` 表现出来就是一个 `$`，而 Windows/dos 的表现为 `^M$`，可以直接使用 `dos2unix` 和 `unix2dos` 工具在两种格式之间进行转换，使用 `file` 命令可以查看文件的具体类型。
+
+  > 回车”（Carriage Return）和 “换行”（Line Feed）这两个概念的来历和区别。
+  >        在计算机还没有出现之前，有一种叫做电传打字机（Teletype Model 33，Linux/Unix 下的 tty 概念也来自于此）的玩意，每秒钟可以打 10 个字符。但是它有一个问题，就是打完一行换行的时候，要用去 0.2 秒，正好可以打两个字符。要是在这 0.2 秒里面，又有新的字符传过来，那么这个字符将丢失。
+  >
+  > ​         于是，研制人员想了个办法解决这个问题，就是在每行后面加两个表示结束的字符。一个叫做 “回车”，告诉打字机把打印头定位在左边界；另一个叫做 “换行”，告诉打字机把纸向下移一行。这就是 “换行” 和 “回车” 的来历，从它们的英语名字上也可以看出一二。
+  >
+  > ​        后来，计算机发明了，这两个概念也就被般到了计算机上。那时，存储器很贵，一些科学家认为在每行结尾加两个字符太浪费了，加一个就可以。于是，就出现了分歧。
+  >
+  > ​        Unix 系统里，每行结尾只有 “<换行>”，即 "\n"；Windows 系统里面，每行结尾是 “< 换行 >< 回车 >”，即 “\n\r”；Mac 系统里，每行结尾是 “< 回车 >”，即 "\n"；。一个直接后果是，Unix/Mac 系统下的文件在 Windows 里打开的话，所有文字会变成一行；而 Windows 里的文件在 Unix/Mac 下打开的话，在每行的结尾可能会多出一个 ^M 符号。 
+
+  1. 利用 vim 编辑器
+
+     利用 Linux 下的 vim 编辑器，可以方便的在 dos 文件、unix 文件之间进行切换，且可以便利的去除恼人的 `^M` 
+
+     ```html
+     vim file
+     ```
+
+     然后，在 vim 中使用以下命令用于查看当前文件是 dos 格式还是 unix 格式
+
+     ```
+     :set ff?
+     ```
+
+     在 vim 中强制切换为 unix/dos 格式，然后保存即可：
+
+     ```
+     :set ff=unix #转换为unix格式
+     or
+     :set ff=dos #转换为dos格式
+     :wq #保存、退出
+     ```
+
+     ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rpd4z62bj30gh068757.jpg)
+
+  2. 调用dos2unix中的两个命令：dos2unix、unix2dos
+
+     格式：
+
+     ```
+     $ dos2unix [options] <files>
+     ```
+
+     - `-o <files>`：直接操作输入文件进行编码转换，此处的 `-o` 可以省略；
+     - `-n <input> <output>`：转换输入文件，将操作结果输出至新的输出文件；
+     - `-i <files>`：仅查看文件的格式信息，不对文件进行转换操作；
+     - `-f`、`--force`：强制转换二进制文件，默认为跳过二进制文件；
+     - `-k`、`--keep-date`：保持新文件的时间戳（修改时间）不变；
+
+     ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rqi8v3ptj30gh06ngms.jpg)
+
+  > Linux 提供了两种文本格式相互转化的命令：dos2unix 和 unix2dos，dos2unix 把 "\r\n" 转化成 "\n"，unix2dos 把 "\n" 转化成 "\r\n"。
+  >
+  > 注意下载时要下载 dos2unix 包：
+  >
+  > ```
+  > sudo apt-get install dos2unix
+  > ```
+
+  3. 利用 tr 命令
+
+     经过各种实践，利用 tr 命令去替换 `\r\n` 与 `\n` 或者去替换 `^M$` 与 `$`，会出现各种意想不到的结果，这里就不深究了，还是参考前两点吧。
+
+### 重定向
+
+- 前文已经多次见过 `>` 或 `>>` 操作了，分别是将标准输出导向一个文件或追加到一个文件中。这其实就是重定向，将原本输出到标准输出的数据重定向到一个文件中，因为标准输出 (`/dev/stdout`) 本身也是一个文件，我们将命令输出导向另一个文件自然也是没有任何问题的。
+
+- 在更多了解 Linux 的重定向之前，我们需要先知道一些基本的东西，前面我们已经提到过 Linux 默认提供了三个特殊设备，用于终端的显示和输出，分别为 `stdin`（标准输入，对应于你在终端的输入），`stdout`（标准输出，对应于终端的输出），`stderr`（标准错误输出，对应于终端的输出）。
+
+  | 文件描述符 | 设备文件      | 说明     |
+  | ---------- | ------------- | -------- |
+  | `0`        | `/dev/stdin`  | 标准输入 |
+  | `1`        | `/dev/stdout` | 标准输出 |
+  | `2`        | `/dev/stderr` | 标准错误 |
+
+  > 文件描述符：文件描述符在形式上是一个非负整数。实际上，它是一个索引值，指向内核为每一个进程所维护的该进程打开文件的记录表。当程序打开一个现有文件或者创建一个新文件时，内核向进程返回一个文件描述符。在程序设计中，一些涉及底层的程序编写往往会围绕着文件描述符展开。但是文件描述符这一概念往往只适用于 UNIX、Linux 这样的操作系统。
+
+  我们可以这样使用这些文件描述符：
+
+  默认使用终端的标准输入作为命令的输入和标准输出作为命令的输出
+
+  ```
+  $ cat 
+  （按Ctrl+C退出）
+  ```
+
+  将 cat 的连续输出（heredoc 方式）重定向到一个文件
+
+  ```
+  $ mkdir Documents
+  $ cat > Documents/test.c <<EOF
+  #include <stdio.h>
   
-	文件名：定位存储的位置
+  int main()
+  {
+      printf("hello world\n");
+      return 0;
+  }
   
-	数据：文件的具体内容
+  EOF
+  ```
+
+  将一个文件作为命令的输入，标准输出作为命令的输出
+
+  ```
+  $ cat Documents/test.c
+  ```
+
+  将 echo 命令通过**管道传过来的数据作为 cat 命令的输入**，将标准输出作为命令的输出
+
+  ```
+  $ echo 'hi' | cat
+  ```
+
+- 标准输出重定向
+
+  将 echo 命令的输出从默认的标准输出**重定向到一个普通文件**
+
+  ```
+  $ echo 'hello shiyanlou' > redirect
+  $ cat redirect
+  ```
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rrf5x44wj30hs0gowic.jpg)
+
+  初学者这里要注意不要将管道和重定向混淆，**管道默认是连接前一个命令的输出到下一个命令的输入**，而重定向通常是需要一个文件来建立两个命令的连接，你可以仔细体会一下上述第三个操作和最后两个操作的异同点。
+
+- 标准错误重定向
+
+  都被指向伪终端的屏幕显示，所以我们经常看到的一个命令的输出通常是同时包含了标准输出和标准错误的结果的。比如下面的操作：
+
+  ```
+  # 使用cat 命令同时读取两个文件，其中一个存在，另一个不存在
+  $ cat Documents/test.c hello.c
+  # 你可以看到除了正确输出了前一个文件的内容，还在末尾出现了一条错误信息，见下图
+  # 那如果我们将输出重定向到一个文件呢？见下图
+  $ cat Documents/test.c hello.c > somefile
+  ```
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0s0160cq0j30fd06fgmb.jpg)
+
+  遗憾的是，这里依然出现了那条错误信息，其实标准输出和标准错误虽然都指向终端屏幕，实际它们并不一样。
+
+  但有时我们就是要隐藏某些错误或者警告，那又该怎么做呢？这就需要用到我们前面讲的文件描述符了：
+
+  ```
+  # 将标准错误（2）重定向到标准输出（1），再将标准输出重定向到文件（somefile），注意要将重定向到文件写到前面，且必须在文件描述符（1）前加上 & ，否则 shell 会当做重定向到一个文件名为 1 的文件中
+  $ cat Documents/test.c hello.c >somefile  2>&1
+  # 或者只用bash提供的特殊的重定向符号"&"将标准错误和标准输出同时重定向到文件
+  $ cat Documents/test.c hello.c &>somefilehell
+  ```
+
+  效果如下：
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0s01a52iij30g90bzdfw.jpg)
+
+- 使用 tee 命令同时重定向到多个文件
+
+  你可能还有这样的需求，除了需要将输出重定向到文件，也需要将信息打印在终端。那么你可以使用 `tee` 命令来实现：
+
+  ```
+  $ echo 'hello shiyanlou' | tee hello
+  ```
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0s0akrj0tj30hy04fwfs.jpg)
+
+  tee 命令详解
+
+  - tee：将上一个命令的STDOUT通过T管道重定向到该文件，再发送到另一个命令的STDIN
+
+  - 举例：
+
+    ifconfig eth0 | grep pattern | tee /root/interface-info | cut -f2 -d: | cut -f1 -d" "
+
+  - 再举例：
+    使用tee的示意图：ls -l的输出被导向 tee，并且复制到档案　file.txt 以及下一个命令 less。tee 的名称来自于这个图示，它看起来像是大写的字母 T。
+
+  ![](https://upload.wikimedia.org/wikipedia/commons/2/24/Tee.svg)
+
+- 使用 exec 命令永久重定向
+
+  之前的例子中重定向都是临时性的，**如果我们想把标准输出永久重定向到某个文件（尤其是日志文件）中**，可以用 exec 命令
+
+  `exec`命令的作用是使用指定的命令替换当前的 Shell，即使用一个进程替换当前进程，或者指定新的重定向：
+
+  ```
+  # 先开启一个子 Shell
+  $ zsh
+  # 使用exec替换当前进程的重定向，将标准输出（1）重定向到一个文件
+  $ exec 1>somefile
+  # 后面你执行的命令的“输出”都将被重定向到名为‘somefile’的文件中,直到你退出当前子shell，或取消exec的重定向（如何取消见后续操作）
+  $ ls
+  $ exit
+  $ cat somefile
+  ```
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0s0ejs2xtj30cy07dwed.jpg)
+
+  可以看到，执行 ls 命令的输出并没有显示在终端上，查看 somefile 文件，可以看到其中的内容正是 ls 命令的输出
+
+- 创建输出文件描述符
+
+  在 Shell 中有 9 个文件描述符。上面我们使用了也是它默认提供的 0,1,2 号文件描述符。另外我们还可以使用 3-8 的文件描述符，只是它们默认没有打开而已。你可以使用下面命令查看当前 Shell 进程中打开的文件描述符：
+
+  ```
+  $ cd /dev/fd/;ls -Al
+  ```
+
+  同样使用 `exec` 命令可以创建新的文件描述符：
+
+  ```
+  $ zsh
+  $ exec 3>somefile
+  # 先进入目录，再查看，否则你可能不能得到正确的结果，然后再回到上一次的目录
+  $ cd /dev/fd/;ls -Al;cd -
+  # 把字符串重定向到文件描述符3，而3会重定向到somefile文件，注意下面的命令>与&之间不应该有空格
+  $ echo "this is test" >&3
+  $ cat somefile
+  $ exit
+  ```
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0s0j683p7j30k20bwdjv.jpg)
+
+- 关闭文件描述符
+
+  EASY，如上面我们打开的 3 号文件描述符，可以使用如下操作将它关闭：
+
+  ```
+  $ exec 3>&-
+  $ cd /dev/fd;ls -Al;cd -
+  ```
+
+- 完全屏蔽命令的输出
+
+  在 Linux 中有一个被称为 “黑洞” 的设备文件，所有导入它的数据都将被 “吞噬”。
+
+  > 在类 UNIX 系统中，/dev/null，或称空设备，是一个特殊的设备文件，它通常被用于丢弃不需要的输出流，或作为用于输入流的空文件，这些操作通常由重定向完成。读取它则会立即得到一个 EOF。
+
+  我们可以利用设个 `/dev/null` 屏蔽命令的输出：
+
+  ```
+  $ cat Documents/test.c nefile 1>/dev/null 2>&1
+  ```
+
+  上面这样的操作将使你得不到任何输出结果，也可以叫它“垃圾箱”
+
+- 重定向运算符号
+
+  - `>` ：将STDOUT重定向到文件
+
+    - 文件内容会被覆盖
+
+    - 举例：
+
+      ls -Ra /etc > root/backup/config-file-lists
+
+  - `>>` ：将STDOUT重定向到文件
+
+    - 文件内容会被添加
+
+    - 举例：
+
+      (date;who -l) >> /root/monitor/who-online
+
+  - `<` ：重定向STDIN
+
+    - 将键盘输入改由读入文件提供
+
+    - 举例：
+
+      mail -s "Warning" root < /root/mail/record/alert-notify
+
+  > Shell 输入 / 输出重定向：http://www.runoob.com/linux/linux-shell-io-redirections.html
+
+- 使用 xargs 命令分割参数列表
+
+  > xargs 是一条 UNIX 和类 UNIX 操作系统的常用命令。它的作用是将参数列表转换成小块分段传递给其他命令，以避免参数列表过长的问题。
+
+  这个命令在有些时候十分有用，特别是当用来处理产生大量输出结果的命令如 find，locate 和 grep 的结果，详细用法请参看 man 文档。
+
+  ```
+  $ cut -d: -f1 < /etc/passwd | sort | xargs echo
+  ```
+
+  上面这个命令用于将 `/etc/passwd` 文件按`:` 分割取第一个字段排序后，使用 `echo` 命令生成一个列表
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0s0s6rd7gj30gh02l0ta.jpg)
+
+- 比较
+
+  - 标准的命令用法：
+
+    grep root /etc/passwd
+
+  - 重定向：
+
+    grep root < /etc/passwd
+
+  - 管道：
+
+    cat /etc/passwd | grep root
+
+  - 三种原理不一样，但结果一样
+
+### 挑战：历史命令
+
+在 Linux 中，对于文本的处理和分析是极为重要的，现在有一个文件叫做 data1，可以使用下面的命令下载：
+
+```
+$ cd /home/shiyanlou
+$ wget http://labfile.oss.aliyuncs.com/courses/1/data1
+```
+
+data1 文件里记录是一些命令的操作记录，现在需要你从里面找出出现频率次数前 3 的命令并保存在 `/home/shiyanlou/result`。
+
+目标
+
+1. 处理文本文件 `/home/shiyanlou/data1`
+2. 将结果写入 `/home/shiyanlou/result`
+3. 结果包含三行内容，每行内容都是出现的次数和命令名称，如 “100 ls”
+
+提示
+
+1. cut 截取 (参数可以使用 `-c 8-`，使用 man cut 可以查看含义)
+2. `uniq -dc` 去重
+3. sort 的参数选择 `-k1 -n -r`
+4. 操作过程使用管道，例如：
+
+```
+$ cd /home/shiyanlou
+$ cat data1 |....|....|....   >  /home/shiyanlou/result
+```
+
+来源：2016 年百度校招面试题
+
+我的答案
+
+```
+shiyanlou:~/ $ cut data1 -c 8- | cut -d ' ' -f 1 | sort | uniq -dc | sort -rn | head -n 3
+```
+
+思考
+
+- 题目要求统计整条命令的频次，而我只截取了命令名称计数，按题目的意思 `cd .` 与 `cd ..` 是两条命令，而在我的方法下会认为是同一条命令
+- 文件中有些命令占据两行，无论是我的答案还是参考答案都没考虑这个
+
+参考答案
+
+```
+cat data1 |cut -c 8-|sort|uniq -dc|sort -rn -k1 |head -3 > /home/shiyanlou/result
+```
+
+## 7、Linux 三剑客——grep、sed、awk
+
+### 正则表达式
+
+- 什么是正则表达式呢？
+
+> **正则表达式**，又称正规表示式、正规表示法、正规表达式、规则表达式、常规表示法（英语：Regular Expression，在代码中常简写为 regex、regexp 或 RE），计算机科学的一个概念。正则表达式使用单个字符串来描述、匹配一系列符合某个句法规则的字符串。在很多文本编辑器里，正则表达式通常被用来检索、替换那些符合某个模式的文本。
+
+> 许多程序设计语言都支持利用正则表达式进行字符串操作。例如，在 Perl 中就内建了一个功能强大的正则表达式引擎。正则表达式这个概念最初是由 UNIX 中的工具软件（例如 `sed` 和 `grep`）普及开的。正则表达式通常缩写成 “regex”，单数有 regexp、regex，复数有 regexps、regexes、regexen。
+
+​	简单的说形式和功能上正则表达式和我们前面讲的通配符很像，不过它们之间又有很大差别，特别在于一些特殊的匹配字符的含义上
+
+- 一个正则表达式通常被称为一个模式（**pattern**），为用来描述或者匹配一系列符合某个句法规则的字符串。
+
+  #### 选择
+
+  `|` 竖直分隔符表示选择，例如 "boy|girl" 可以匹配 "boy" 或者 "girl"
+
+  #### 数量限定
+
+  数量限定除了我们举例用的 `*`, 还有 `+` 加号，`?` 问号，如果在一个模式中不加数量限定符则表示出现一次且仅出现一次：
+
+  - `+` 表示前面的字符必须出现至少一次 (1 次或多次)，例如，"goo+gle", 可以匹配 "gooogle","goooogle" 等；
+  - `?` 表示前面的字符最多出现一次 (0 次或 1 次)，例如，"colou?r", 可以匹配 "color" 或者 "colour";
+  - `*` 星号代表前面的字符可以不出现，也可以出现一次或者多次（0 次、或 1 次、或多次），例如，“0*42” 可以匹配 42、042、0042、00042 等。
+
+  #### 范围和优先级
+
+  `()` 圆括号可以用来定义模式字符串的范围和优先级，这可以简单的理解为是否将括号内的模式串作为一个整体。例如，"gr (a|e) y" 等价于 "gray|grey"，（这里体现了优先级，竖直分隔符用于选择 a 或者 e 而不是 gra 和 ey），"(grand)?father" 匹配 father 和 grandfather（这里体验了范围，`?` 将圆括号内容作为一个整体匹配）。
+
+  #### 语法（部分）
+
+  正则表达式有多种不同的风格，下面列举一些常用的作为 PCRE 子集的适用于 `perl` 和 `python` 编程语言及 `grep` 或 `egrep` 的正则表达式匹配规则：
+
+  > PCRE（Perl Compatible Regular Expressions 中文含义：perl 语言兼容正则表达式）是一个用 C 语言编写的正则表达式函数库，由菲利普。海泽 (Philip Hazel) 编写。PCRE 是一个轻量级的函数库，比 Boost 之类的正则表达式库小得多。PCRE 十分易用，同时功能也很强大，性能超过了 POSIX 正则表达式库和一些经典的正则表达式库。
+
+  | 字符      | 描述                                                         |
+  | --------- | ------------------------------------------------------------ |
+  | \         | **将下一个字符标记为一个特殊字符、或一个原义字符。**例如，“n” 匹配字符 “n”。“\n” 匹配一个换行符。序列 “\\” 匹配 “\” 而 “\(” 则匹配 “(”。 |
+  | ^         | **匹配输入字符串的开始位置。**                               |
+  | $         | **匹配输入字符串的结束位置。**                               |
+  | {n}       | n 是一个非负整数。**匹配确定的 n 次**。例如，“o {2}” 不能匹配 “Bob” 中的 “o”，但是能匹配 “food” 中的两个 o。 |
+  | {n,}      | n 是一个非负整数。**至少匹配 n 次**。例如，“o {2,}” 不能匹配 “Bob” 中的 “o”，但能匹配 “foooood” 中的所有 o。“o {1,}” 等价于 “o+”。“o {0,}” 则等价于 “o*”。 |
+  | {n,m}     | m 和 n 均为非负整数，其中 n<=m。**最少匹配 n 次且最多匹配 m 次。**例如，“o {1,3}” 将匹配 “fooooood” 中的前三个 o。“o {0,1}” 等价于 “o?”。请注意在逗号和两个数之间不能有空格。 |
+  | *         | **匹配前面的子表达式零次或多次**。例如，zo * 能匹配 “z”、“zo” 以及 “zoo”。* 等价于 {0,}。 |
+  | +         | **匹配前面的子表达式一次或多次**。例如，“zo+” 能匹配 “zo” 以及 “zoo”，但不能匹配 “z”。+ 等价于 {1,}。 |
+  | ?         | **匹配前面的子表达式零次或一次**。例如，“do (es)?” 可以匹配 “do” 或 “does” 中的 “do”。? 等价于 {0,1}。 |
+  | ?         | 当该字符紧跟在任何一个其他限制符（*,+,?，{n}，{n,}，{n,m}）后面时，匹配模式是非贪婪的。非贪婪模式尽可能少的匹配所搜索的字符串，而默认的贪婪模式则尽可能多的匹配所搜索的字符串。例如，对于字符串 “oooo”，“o+?” 将匹配单个 “o”，而 “o+” 将匹配所有 “o”。 |
+  | .         | **匹配除 “\n” 之外的任何单个字符**。要匹配包括 “\n” 在内的任何字符，请使用像 “(.\|\n)” 的模式。 |
+  | (pattern) | **匹配 pattern 并获取这一匹配的子字符串**。该子字符串用于向后引用。要匹配圆括号字符，请使用 “\(” 或 “\)”。 |
+  | x\|y      | **匹配 x 或 y**。例如，“z\|food” 能匹配 “z” 或 “food”。“(z\|f) ood” 则匹配 “zood” 或 “food”。 |
+  | [xyz]     | 字符集合（character class）。**匹配所包含的任意一个字符**。例如，“[abc]” 可以匹配 “plain” 中的 “a”。其中特殊字符仅有反斜线 \ 保持特殊含义，用于转义字符。其它特殊字符如星号、加号、各种括号等均作为普通字符。脱字符 ^ 如果出现在首位则表示负值字符集合；如果出现在字符串中间就仅作为普通字符。**连字符 -如果出现在字符串中间表示字符范围描述；如果出现在首位则仅作为普通字符。** |
+  | [^xyz]    | 排除型（negate）字符集合。**匹配未列出的任意字符。**例如，`[^abc]`可以匹配 “plain” 中的 “plin”。 |
+  | [a-z]     | 字符范围。**匹配指定范围内的任意字符。**例如，“[a-z]” 可以匹配 “a” 到 “z” 范围内的任意小写字母字符。 |
+  | [^a-z]    | 排除型的字符范围。**匹配任何不在指定范围内的任意字符**。例如，`[^a-z]`”可以匹配任何不在 “a” 到 “z” 范围内的任意字符。 |
+
+  #### 优先级
+
+  优先级为从上到下从左到右，依次降低：
+
+  | 运算符                    | 说明         |
+  | ------------------------- | ------------ |
+  | \                         | 转义符       |
+  | (), (?:), (?=), []        | 括号和中括号 |
+  | *、+、?、{n}、{n,}、{n,m} | 限定符       |
+  | ^、$、\ 任何元字符        | 定位点和序列 |
+  | \|                        | 选择         |
+
+  更多正则表达式的内容可以参考以下链接：
+
+  - [正则表达式 wiki](http://zh.wikipedia.org/wiki/%E6%AD%A3%E5%88%99%E8%A1%A8%E8%BE%BE%E5%BC%8F)
+  - [几种正则表达式引擎的语法差异](http://www.greenend.org.uk/rjk/tech/regexp.html)
+  - [各语言各平台对正则表达式的支持](http://en.wikipedia.org/wiki/Comparison_of_regular_expression_engines)
+
+  regex 的思导图：
+
+  ![img](https://doc.shiyanlou.com/linux_base/RegularExpression.png/wm)
+
+### grep 模式匹配命令
+
+- `grep` 命令用于打印输出文本中匹配的模式串，它使用正则表达式作为模式匹配的条件。`grep` 支持三种正则表达式引擎，分别用三个参数指定：
+
+  | 参数 | 说明                      |
+  | ---- | ------------------------- |
+  | `-E` | POSIX 扩展正则表达式，ERE |
+  | `-G` | POSIX 基本正则表达式，BRE |
+  | `-P` | Perl 正则表达式，PCRE     |
+
+  一般没学 perl 语言，只会用到 `ERE` 和 `BRE`, 所以不讨论 PCRE 中特有的一些正则表达式语法（它们之间大部分内容是存在交集的，所以你不用担心会遗漏多少重要内容）
+
+  在通过 `grep` 命令使用正则表达式之前，先介绍一下它的常用参数：
+
+  | 参数           | 说明                                                         |
+  | -------------- | ------------------------------------------------------------ |
+  | `-b`           | 将二进制文件作为文本来进行匹配                               |
+  | `-c`           | 统计以模式匹配的数目                                         |
+  | `-i`           | 忽略大小写                                                   |
+  | `-n`           | 显示匹配文本所在行的行号                                     |
+  | `-v`           | 反选，输出不匹配行的内容                                     |
+  | `-r`           | 递归匹配查找                                                 |
+  | `-A n`         | n 为正整数，表示 after 的意思，除了列出匹配行之外，还列出后面的 n 行 |
+  | `-B n`         | n 为正整数，表示 before 的意思，除了列出匹配行之外，还列出前面的 n 行 |
+  | `--color=auto` | 将输出中的匹配项设置为自动颜色显示                           |
+
+  > 注：在大多数发行版中是默认设置了 grep 的颜色的，你可以通过参数指定或修改 `GREP_COLOR` 环境变量。
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0t3nytohhj30jy0hb778.jpg)
+
+- #### 使用基本正则表达式，BRE
+
+  - 位置
+
+  查找 `/etc/group` 文件中以 "shiyanlou" 为开头的行
+
+  ```
+  $ grep 'shiyanlou' /etc/group
+  $ grep '^shiyanlou' /etc/group
+  ```
+
+  - 数量
+
+  ```
+  # 将匹配以'z'开头以'o'结尾的所有字符串
+  $ echo 'zero\nzo\nzoo' | grep 'z.*o'
+  # 将匹配以'z'开头以'o'结尾，中间包含一个任意字符的字符串
+  $ echo 'zero\nzo\nzoo' | grep 'z.o'
+  # 将匹配以'z'开头,以任意多个'o'结尾的字符串
+  $ echo 'zero\nzo\nzoo' | grep 'zo*'
+  ```
+
+  注意：其中 `\n` 为换行符
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0t46ow8w8j30k208bdhm.jpg)
+
+  - 选择
+
+  ```
+  # grep默认是区分大小写的，这里将匹配所有的小写字母
+  $ echo '1234\nabcd' | grep '[a-z]'
+  # 将匹配所有的数字
+  $ echo '1234\nabcd' | grep '[0-9]'
+  # 将匹配所有的数字
+  $ echo '1234\nabcd' | grep '[[:digit:]]'
+  # 将匹配所有的小写字母
+  $ echo '1234\nabcd' | grep '[[:lower:]]'
+  # 将匹配所有的大写字母
+  $ echo '1234\nabcd' | grep '[[:upper:]]'
+  # 将匹配所有的字母和数字，包括0-9,a-z,A-Z
+  $ echo '1234\nabcd' | grep '[[:alnum:]]'
+  # 将匹配所有的字母
+  $ echo '1234\nabcd' | grep '[[:alpha:]]'
+  ```
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0t46zccpbj30jv0da0wb.jpg)
+
+  下面包含完整的特殊符号及说明：
+
+  | 特殊符号     | 说明                                                         |
+  | ------------ | ------------------------------------------------------------ |
+  | `[:alnum:]`  | 代表英文大小写字母及数字，亦即 0-9, A-Z, a-z                 |
+  | `[:alpha:]`  | 代表任何英文大小写字母，亦即 A-Z, a-z                        |
+  | `[:blank:]`  | 代表空白键与 [Tab] 按键两者                                  |
+  | `[:cntrl:]`  | 代表键盘上面的控制按键，亦即包括 CR, LF, Tab, Del.. 等等     |
+  | `[:digit:]`  | 代表数字而已，亦即 0-9                                       |
+  | `[:graph:]`  | 除了空白字节 (空白键与 [Tab] 按键) 外的其他所有按键          |
+  | `[:lower:]`  | 代表小写字母，亦即 a-z                                       |
+  | `[:print:]`  | 代表任何可以被列印出来的字符                                 |
+  | `[:punct:]`  | 代表标点符号 (punctuation symbol)，亦即：" ' ? ! ; : # $...  |
+  | `[:upper:]`  | 代表大写字母，亦即 A-Z                                       |
+  | `[:space:]`  | 任何会产生空白的字符，包括空白键，[Tab], CR 等等             |
+  | `[:xdigit:]` | 代表 16 进位的数字类型，因此包括： 0-9, A-F, a-f 的数字与字节 |
+
+  > **注意**：之所以要使用特殊符号，是因为上面的 [a-z] 不是在所有情况下都管用，这还与主机当前的语系有关，即设置在 `LANG` 环境变量的值，zh_CN.UTF-8 的话 [a-z]，即为所有小写字母，其它语系可能是大小写交替的如，"a A b B...z Z"，[a-z] 中就可能包含大写字母。所以在使用 [a-z] 时请确保当前语系的影响，使用 [:lower:] 则不会有这个问题。
+
+  ```
+  # 排除字符
+  $ $ echo 'geek\ngood' | grep '[^o]'
+  ```
+
+  > **注意:** 当 `^` 放到中括号内为排除字符，否则表示行首。
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0t4l4fj0jj30jv05ymym.jpg)
+
+- **使用扩展正则表达式，ERE**
+
+  要通过 `grep` 使用扩展正则表达式需要加上 `-E` 参数，或使用 `egrep`。
+
+  - 数量
+
+  ```
+  # 只匹配"zo"
+  $ echo 'zero\nzo\nzoo' | grep -E 'zo{1}'
+  # 匹配以"zo"开头的所有单词
+  $ echo 'zero\nzo\nzoo' | grep -E 'zo{1,}'
+  ```
+
+  > **注意：**推荐掌握 `{n,m}` 即可，`+`,`?`,`*`，这几个不太直观，且容易弄混淆。
+
+  - 选择
+
+  ```
+  # 匹配"www.shiyanlou.com"和"www.google.com"
+  $ echo 'www.shiyanlou.com\nwww.baidu.com\nwww.google.com' | grep -E 'www\.(shiyanlou|google)\.com'
+  # 或者匹配不包含"baidu"的内容
+  $ echo 'www.shiyanlou.com\nwww.baidu.com\nwww.google.com' | grep -Ev 'www\.baidu\.com'
+  ```
+
+  > **注意：**因为`.` 号有特殊含义，所以需要转义。
+
+  ![此处输入图片的描述](https://doc.shiyanlou.com/document-uid735639labid354timestamp1532415579510.png/wm)
+
+### sed 流编辑器
+
+- `sed` 工具在 man 手册里面的全名为 "sed - stream editor for filtering and transforming text "，意即，用于过滤和转换文本的流编辑器。
+
+- 在 Linux/UNIX 的世界里敢称为编辑器的工具，大都非等闲之辈，比如前面的 "vi/vim (编辑器之神)","emacs (神的编辑器)","gedit" 这些个编辑器。`sed` 与上述的最大不同之处在于它是一个非交互式的编辑器，下面我们就开始介绍 `sed` 这个编辑器。
+
+- sed 命令基本格式：
+
+  ```
+  sed [参数]... [执行命令] [输入文件]...
+  # 形如：
+  $ sed -i 's/sad/happy/' test # 表示将test文件中的"sad"替换为"happy"
+  ```
+
+  | 参数          | 说明                                                         |
+  | ------------- | ------------------------------------------------------------ |
+  | `-n`          | 安静模式，只打印受影响的行，默认打印输入数据的全部内容       |
+  | `-e`          | 用于在脚本中添加多个执行命令一次执行，在命令行中执行多个命令通常不需要加该参数 |
+  | `-f filename` | 指定执行 filename 文件中的命令                               |
+  | `-r`          | 使用扩展正则表达式，默认为标准正则表达式                     |
+  | `-i`          | 将直接修改输入文件内容，而不是打印到标准输出设备             |
+
+- sed 执行命令格式：
+
+  ```
+  [n1][,n2]command
+  [n1][~step]command
+  # 其中一些命令可以在后面加上作用范围，形如：
+  $ sed -i 's/sad/happy/g' test # g表示全局范围
+  $ sed -i 's/sad/happy/4' test # 4表示指定行中的第四个匹配字符串
+  ```
+
+  其中 n1,n2 表示输入内容的行号，它们之间为 `,` 逗号则表示从 n1 到 n2 行，如果为`～`波浪号则表示从 n1 开始以 step 为步进的所有行；command 为执行动作，下面为一些常用动作指令：
+
+  | 命令 | 说明                                 |
+  | ---- | ------------------------------------ |
+  | `s`  | 行内替换                             |
+  | `c`  | 整行替换                             |
+  | `a`  | 插入到指定行的后面                   |
+  | `i`  | 插入到指定行的前面                   |
+  | `p`  | 打印指定行，通常与 `-n` 参数配合使用 |
+  | `d`  | 删除指定行                           |
+
+- sed 操作举例
+
+  我们先找一个用于练习的文本文件：
+
+  ```
+  $ cp /etc/passwd ~
+  ```
+
+  #### 打印指定行
+
+  ```
+  # 打印2-5行
+  $ nl passwd | sed -n '2,5p'
+  # 打印奇数行
+  $ nl passwd | sed -n '1~2p'
+  ```
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0t536sro0j30k10j2q9i.jpg)
+
+  #### 行内替换
+
+  ```
+  # 将输入文本中"shiyanlou" 全局替换为"hehe",并只打印替换的那一行，注意这里不能省略最后的"p"命令
+  $ sed -n 's/shiyanlou/hehe/gp' passwd
+  ```
+
+  > **注意：** 行内替换可以结合正则表达式使用。
+
+  #### 行间替换
+
+  ```
+  $ nl passwd | grep "shiyanlou"
+  # 删除第21行
+  $ sed -n '21c\www.shiyanlou.com' passwd
+  （这里我们只把要删的行打印出来了，并没有真正的删除，如果要删除的话，请使用-i参数）
+  ```
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0t545sw3lj30h303o3yf.jpg)
+
+  关于 sed 命令就介绍这么多，你如果希望了解更多 sed 的高级用法，你可以参看如下链接：
+
+  - [sed 简明教程](http://coolshell.cn/articles/9104.html)
+  - [sed 单行脚本快速参考](http://sed.sourceforge.net/sed1line_zh-CN.html)
+  - [sed 完全手册](http://www.gnu.org/software/sed/manual/sed.html)
+
+### awk 文本处理工具
+
+- `AWK` 是一种优良的文本处理工具，Linux 及 Unix 环境中现有的功能最强大的数据处理引擎之一。其名称得自于它的创始人 Alfred Aho（阿尔佛雷德・艾侯）、Peter Jay Weinberger（彼得・温伯格）和 Brian Wilson Kernighan（布莱恩・柯林汉) 姓氏的首个字母.AWK 程序设计语言，三位创建者已将它正式定义为 “样式扫描和处理语言”。它允许您创建简短的程序，这些程序读取输入文件、为数据排序、处理数据、对输入执行计算以及生成报表，还有无数其他的功能。最简单地说，AWK 是一种用于处理文本的编程语言工具。
+
+- 在大多数 linux 发行版上面，实际我们使用的是 gawk（GNU awk，awk 的 GNU 版本），在我们的环境中 ubuntu 上，默认提供的是 mawk，不过我们通常可以直接使用 awk 命令（awk 语言的解释器），因为系统已经为我们创建好了 awk 指向 mawk 的符号链接。
+
+  ```
+  $ ll /usr/bin/awk
+  ```
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0t5gzhklnj30jt04omyl.jpg)
+
+  > nawk： 在 20 世纪 80 年代中期，对 awk 语言进行了更新，并不同程度地使用一种称为 nawk (new awk) 的增强版本对其进行了替换。许多系统中仍然存在着旧的 awk 解释器，但通常将其安装为 oawk (old awk) 命令，而 nawk 解释器则安装为主要的 awk 命令，也可以使用 nawk 命令。Dr. Kernighan 仍然在对 nawk 进行维护，与 gawk 一样，它也是开放源代码的，并且可以免费获得； gawk： 是 GNU Project 的 awk 解释器的开放源代码实现。尽管早期的 GAWK 发行版是旧的 AWK 的替代程序，但不断地对其进行了更新，以包含 NAWK 的特性； mawk 也是 awk 编程语言的一种解释器，mawk 遵循 POSIX 1003.2 （草案 11.3）定义的 AWK 语言，包含了一些没有在 AWK 手册中提到的特色，同时 mawk 提供一小部分扩展，另外据说 mawk 是实现最快的 awk
+
+- awk 所有的操作都是基于 pattern (模式)—action (动作) 对来完成的，如下面的形式：
+
+  ```
+  $ pattern {action}
+  ```
+
+  你可以看到就如同很多编程语言一样，它将所有的动作操作用一对 `{}` 花括号包围起来。其中 pattern 通常是表示用于匹配输入的文本的 “关系式” 或 “正则表达式”，action 则是表示匹配后将执行的动作。在一个完整 awk 操作中，这两者可以只有其中一个，如果没有 pattern 则默认匹配输入的全部文本，如果没有 action 则默认为打印匹配内容到屏幕。
+
+  `awk` 处理文本的方式，是将文本分割成一些 “字段”，然后再对这些字段进行处理，默认情况下，awk 以空格作为一个字段的分割符，不过这不是固定的，你可以任意指定分隔符，下面将告诉你如何做到这一点。
+
+- awk 命令基本格式
+
+  ```
+  awk [-F fs] [-v var=value] [-f prog-file | 'program text'] [file...]
+  ```
+
+  其中 `-F` 参数用于预先指定前面提到的字段分隔符（还有其他指定字段的方式） ，`-v` 用于预先为 `awk` 程序指定变量，`-f`参数用于指定 `awk` 命令要执行的程序文件，或者在不加 `-f`参数的情况下直接将程序语句放在这里，最后为 `awk` 需要处理的文本输入，且可以同时输入多个文本文件。现在我们还是直接来具体体验一下吧。
+
+  先用 vim 新建一个文本文档
+
+  ```
+  $ vim test
+  ```
+
+  包含如下内容：
+
+  ```
+  I like linux
+  www.shiyanlou.com
+  ```
+
+  - 使用 awk 将文本内容打印到终端
+
+  ```
+  # "quote>" 不用输入
+  $ awk '{
+  > print
+  > }' test
+  # 或者写到一行
+  $ awk '{print}' test
+  ```
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0t5t926x1j30k3076dhh.jpg)
+
+  说明：在这个操作中我是省略了 `pattern`，所以 `awk` 会默认匹配输入文本的全部内容，然后在 "{}" 花括号中执行动作，即 `print` 打印所有匹配项，这里是全部文本内容
+
+  - 将 test 的第一行的每个字段单独显示为一行
+
+  ```
+  $ awk '{
+  > if(NR==1){
+  > print $1 "\n" $2 "\n" $3
+  > } else {
+  > print}
+  > }' test
   
-	元数据 meta-data：文件有关的信息。例如文件的权限、所有者、文件的修   改时间等。
+  # 或者
+  $ awk '{
+  > if(NR==1){
+  > OFS="\n"
+  > print $1, $2, $3
+  > } else {
+  > print}
+  > }' test
+  ```
 
-	Linux 支持的文件系统类型可查看 /etc/filesystems
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0t5tgsenmj30jw08gmyt.jpg)
 
-3. 文件系统的分类
+  说明：你首先应该注意的是，这里我使用了 `awk` 语言的分支选择语句 `if`, 它的使用和很多高级语言如 `C/C++` 语言基本一致，如果你有这些语言的基础，这里将很好理解。另一个你需要注意的是 `NR` 与 `OFS`，这两个是 `awk` 内建的变量，`NR` 表示当前读入的记录数，你可以简单的理解为当前处理的行数，`OFS` 表示输出时的字段分隔符，默认为 " " 空格，如上图所见，我们将字段分隔符设置为 `\n` 换行符，所以第一行原本以空格为字段分隔的内容就分别输出到单独一行了。然后是 `$N` 其中 N 为相应的字段号，这也是 `awk` 的内建变量，它表示引用相应的字段，因为我们这里第一行只有三个字段，所以只引用到了 `$3`。除此之外另一个这里没有出现的 `$0`，它表示引用当前记录（当前行）的全部内容。
 
-	- 根据是否有日志？
+  - 将 test 的第二行的以点为分段的字段换成以空格为分隔
 
-		- 传统型文件系统：写入文件内容的时候，先写数据，再写元数据，若写元数据前断电，则会造成文件不一致。典型的：ext2（Linux 默认的文件系统）
+  ```
+  $ awk -F'.' '{
+  > if(NR==2){
+  > print $1 "\t" $2 "\t" $3
+  > }}' test
   
-		- 日志型文件系统：写入文件内容的时候，先写日志记录文件（更安全）。典型的：ext3 = ext2 + 日志  ，ReiserFS （基于平衡树，搜索快，节约空间）
+  # 或者
+  $ awk '
+  > BEGIN{
+  > FS="."
+  > OFS="\t"  # 如果写为一行，两个动作语句之间应该以";"号分开  
+  > }{
+  > if(NR==2){
+  > print $1, $2, $3
+  > }}' test
+  ```
 
-	- 根据如何查找数据？
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0t5v7nqk7j30k307utac.jpg)
 
-		- 索引式文件系统：文件属性数据和实际内容放在不同的区块，例如 Linux 中默认的 ext2 文件系统中，文件属性数据存放在 inode（类似于指针），实际内容放在 block。ext2 一开始就规划好了 inode 与 block ，所以数量庞大，不容易管理，所以有分组
-  
-			![](http://upload-images.jianshu.io/upload_images/2106579-b71e3f2eb47dbf42.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+  说明：这里的 `-F` 参数，前面已经介绍过，它是用来预先指定待处理记录的字段分隔符。我们需要注意的是除了指定 `OFS` 我们还可以在 `print` 语句中直接打印特殊符号如这里的 `\t`，**print 打印的非变量内容都需要用 "" 一对引号包围起来**。上面另一个版本，展示了实现预先指定变量分隔符的另一种方式，即使用 `BEGIN`，就这个表达式指示了，其后的动作将在所有动作之前执行，这里是 `FS` 赋值了新的 "." 点号代替默认的 " " 空格
 
-		- 非索引式文件系统：只有 block，数据需要一个 block 接一个 block 读取（下一个 block 位置存放在上一个 block 中），效率低。 典型的：FAT（Windows 的文件系统）
+  **注意**: 首先说明一点，我们在学习和使用 awk 的时候应该尽可能将其作为一门程序语言来理解，这样将会使你学习起来更容易，所以初学阶段在练习 `awk` 时应该尽量按照我那样的方式分多行按照一般程序语言的换行和缩进来输入，而不是全部写到一行（当然这在你熟练了之后是没有任何问题的）。
 
-			![](http://upload-images.jianshu.io/upload_images/2106579-c0507b51e0e4840d.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+- awk 常用的内置变量
 
-			> 碎片整理：写入的数据的 block 太过分散，此时读取的效率会很低。磁盘整理的目的，就是将这些分散的 block 尽量的集中起来。
+  | 变量名     | 说明                                                         |
+  | ---------- | ------------------------------------------------------------ |
+  | `FILENAME` | 当前输入文件名，若有多个文件，则只表示第一个。如果输入是来自标准输入，则为空字符串 |
+  | `$0`       | 当前记录的内容                                               |
+  | `$N`       | N 表示字段号，最大值为 `NF` 变量的值                         |
+  | `FS`       | 字段分隔符，由正则表达式表示，默认为 " " 空格                |
+  | `RS`       | 输入记录分隔符，默认为 "\n"，即一行为一个记录                |
+  | `NF`       | 当前记录字段数                                               |
+  | `NR`       | 已经读入的记录数                                             |
+  | `FNR`      | 当前输入文件的记录数，请注意它与 NR 的区别                   |
+  | `OFS`      | 输出字段分隔符，默认为 " " 空格                              |
+  | `ORS`      | 输出记录分隔符，默认为 "\n"                                  |
 
-4. 配置文件系统分区
+  参看一下链接内容：
 
-	- 创建分区：fdisk + 设备名，输入完该命令之后，可以通过参数 m 查看按键操作说明，通过参数 p 可以得到本磁盘的相关信息，输入 n 命令可以新建一个分区。使用完 n 命令之后，新建分区的步骤如下：
-  
-		选择分区类型
-	
-		选择分区开始的磁柱
-	
-		决定分区的大小
-	
-		保存新建的分区 （w 命令）
-  
-		通过重启服务器或使用 partprobe 命令通知内核
+  - [awk 程序设计语言](http://awk.readthedocs.org/en/latest/chapter-one.html)
+  - [awk 简明教程](http://coolshell.cn/articles/9070.html)
+  - [awk 用户指南](http://www.gnu.org/software/gawk/manual/gawk.html)
 
-	- 创建文件系统：mkfs [参数] 设备名。-t 指定文件系统类型，如 ext3。  -b 指定 block 大小，单位 bytes，ext2 和 ext3 仅支持 1024/2048/4096 三种。
+### 挑战：数据提取
 
-	- 挂载文件系统：mount + 设备名 + 挂载点。挂载的过程就是将文件系统和目录树上的某一个目录结合。  -t  -b 同上。
+介绍
 
-			mount /dev/sda6/root/testmount
+小明在做数据分析的时候需要提取文件中关于数字的部分，同时还要提取用户的邮箱部分，但是有的行不是数组也不是邮箱，现在需要你在 data2 这个文件中帮助他用正则表达式匹配出数字部分和邮箱部分。
 
-5. 管理 Linux 文件系统
+数据文件可以使用以下命令下载：
 
-	- 查看分区使用情况：
+```
+$ cd /home/shiyanlou
+$ wget http://labfile.oss.aliyuncs.com/courses/1/data2
+```
 
-		- df：查看文件系统的磁盘空间占用情况，参数 –h 以容易理解的格式打印出文件系统大小，参数 –i 显示 inode 信息而非块使用量。
+下载后的数据文件路径为 `/home/shiyanlou/data2`。
 
-		- du：查看文件或目录的磁盘使用空间，参数 –a 显示目录下的每个文件所占的磁盘空间，参数 –s 只显示大小的总和，参数 -h 以容易理解的格式输出文件大小值，如多少 Mb
+目标
 
-	- 查看系统打开的文件：lsof
+1. 在文件 `/home/shiyanlou/data2` 中匹配数字开头的行，将所有以数字开头的行都写入 `/home/shiyanlou/num` 文件。
+2. 在文件 `/home/shiyanlou/data2` 中匹配出正确格式的邮箱，将所有的邮箱写入 `/home/shiyanlou/mail` 文件，注意该文件中每行为一个邮箱。
 
-		Isof filename 显示打开指定文件的所有进程
+提示
 
-		Isof –c string 显示以指定字符开头的进程所有打开的文件
+1. 邮箱的格式匹配
+2. 注意符号 `.` 的处理
 
-		Isof –u username 显示所属 username 相关进程打开的文件
+来源：2016 年 TapFun 校招面试题
 
-6. 修复文件系统：
-  
-	- fsck 参数 设备名：检查文件系统并尝试修复错误。执行 fsck 时，必须首先要将修复的设备进行umount 后，再执行 fsck 命令。
-  
-	- e2fsck：检查和修复 ext2 和 ext3 文件系统
+我的答案
 
-##7、Linux LVM 配置
-LVM：Logical Volume Manager
+```
+shiyanlou:~/ $ cat data2 | grep '^[0-9]' > num
+shiyanlou:~/ $ cat data2 | grep -E '@.{1,}\.com' > mail
+shiyanlou:~/ $ cat data2 | grep -E '@.+\.com' > mail
+```
 
-- 传统：文件系统构建在物理分区（PP：physical partition）之上，物理分区的大小直接决定了文件系统的容量。LVM：使文件系统的调节更简便，搭配 RAID 做容错
+​	思考：邮箱的匹配有点问题，`@`前一定要有东西，`.`hou的域名不一定非要是com
 
-- LVM 结构：
+参考答案
 
-	![](http://upload-images.jianshu.io/upload_images/2106579-2c5ca1a7e33f6cf9.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+```
+grep '^[0-9]' /home/shiyanlou/data2 > /home/shiyanlou/num
 
-	PP：physical partition 物理分区，LVM 最底层
-	
-	PV：physical volume 物理卷，一个 PP 对应一个 PV
-	
-	PE：physical extends 物理扩展单元，组成PV的最小单元，也是的最小区块，类似于文件系统的 block
-	
-	VG：volume group 卷组，可以看出由 LVM 组成的大磁盘
-	
-	LE：logical extends 逻辑扩展单元，组成LV的最小单元，对应一个PE
-	
-	LV：logical volume 逻辑卷， VG之上，文件系统之下，文件系统是基于逻辑卷的
+grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data2 > /home/shiyanlou/mail
+```
 
-- VG、LV 和 PE 的关系
+## 8、Linux 进程与任务管理
 
-	LV 通过交换 PE 来实现弹性改变文件系统大小的效果，LV 移除一些 PE，文件系统大小即减小，VG 把一些 PE 给LV，文件系统大小即增加
-
-	![](http://upload-images.jianshu.io/upload_images/2106579-2bc6a3b02784a97e.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240) 
-
-	最多65534个PE，PE的大小可以影响到VG的容量
-
-	LV与磁盘分区类似，能够格式化
-
-- LVM 的优点：
-
-	- 通过LVM，文件系统可以跨越多个磁盘
-	
-	- 动态地扩展文件系统的大小
-	
-	- 增加新磁盘到 LVM 的存储池中
-
-- LVM 使用要点：
-
-	- 按需分配文件系统大小
-
-	- 把不同的数据放在不同的卷组中
-
-- LVM 配置步骤，创建逻辑卷的步骤
-
-- 物理卷管理命令
-
-	- pvcreate 将普通的分区加上 PV 属性
-	- pvscan 查看物理卷信息
-	- pvdisplay 查看各个物理卷的详细参数
-	- pvremve
-
-- 卷组管理
-
-	- vgcreate vgname /dev/sdaN
-		- vgname：卷组名称
-		- /dev/sdaN：要加入卷组的物理卷
-	- vgscan
-	- vgdisplay
-	- vgreduce 缩小卷组，把物理卷从卷组中删除
-	- vgextend 扩展卷组，把某个物理卷添加到卷组中
-	- vgremove
-
-- 逻辑卷管理命令
-
-	- lvcreate -n lvname -L 2G vgname
-		- lvname：逻辑卷名称
-		- -L 2G:逻辑卷大小
-		- vgname：从卷组分配空间给逻辑卷
-	- lvscan
-	- lvdisplay
-	- lvextend
-	- lvreduce
-	- lvrmove
-
-- 扩展卷组
-	- 可在线扩展卷组
-	- 不一定可以所见卷组
-	- 命令：vgextend vgname /dev/sdaN
-		- 将物理卷 /dev/sdaN，加到vgname
-	- 必须要有未使用的物理卷
-		- 必须先有未使用的分区或硬盘
-
-- 管理文件系统的空间（增大或减小）
-
-	- 增大（ 卷组必须要有足够空间）
-
-		- 先卸载逻辑卷
-		- 然后通过vgextend、lvextend等命令增大LV的空间
-		
-			- lvextend -l +128 /dev/vgname/lvname
-				- 再加大128个LE
-			- lvextend -L +128M /dev/vgname/lvname
-				- 再加大128 Mb
-		- resize2fs -p /dev/vgname/lvname
-			- 再使用resize2fs将逻辑卷容量增加，扩展文件系统
-			- -p：显示操作期间的进度
-		- 最后将逻辑卷挂载到目录树
-
-	- 减小
-
-		- 先卸载逻辑卷
-		- resize2fs -p /dev/vgname/lvname 512M
-			- 再使用resize2fs将逻辑卷容量减小，文件系统调整为512MB
-		- lvreduce -L 512M /dev/vgname/lvname
-			- 再通过lvreduce将逻辑卷容量减小，逻辑卷减小到512MB
-		- 最后将逻辑卷挂载到目录树
-
-	> 注意 lvextend -l +128 与 lvextend -L +128M 的区别。一个是增加128个PE，一个是增加128MB
-
-##8、Linux 网络管理
-- ifconfig [接口]：查看IP地址，广播地址，网口掩码
-
-	> windowns 中用 ipconfig
-
-	- ifconfig 网口[参数]：设置网口的参数，如IP地址，广播地址，网口掩码等，重启网络或系统后失效
-
-			ifconfig eth3 192.168.100.128 broadcast 192.168.100.255 netmask 255.255.255.0
-
-	- 若想修改一直有效，则需要去修改配置文件：/etc/sysconfig/network/ifcfg-网口
-	
-		编辑配置文件：
-	
-			vi ifcfg-eth4
-	
-		使用ifup命令，启动网口:
-	
-			ifup ifcfg-eth4
-
-- route：查询本机路由表
-
-	Destination 目的地
-	Gateway 网管
-	Genmask
-	Flags 标记，为U：可用
-	Iface 该路由的网络出口
-
-- 新增路由：通过命令方式新建路由，会保存在内存中，重启无效，若想持久保存，通过配置文件 /etc/sysconfig/network/routes 静态保存路由信息，重启网络服务才能生效
-
-- 检测本地端口
-
-		netstat -tupln | grep:25
-
-	- 	t：TCP仅显示tcp相关选项
-	- 	u：UDP仅显示udp相关选项
-	- 	p：Procedure显示建立相关连接的程序名
-	- 	l：List仅列出正在Listen（监听）的服务
-	- 	n：拒绝显示别名，能显示数字的全部转化为数字
-
-- 检测远程服务
-
-	- nmap软件包
-	
-	- 可以单独检测服务器
-		- 如：nmap 192.168.0.101
-
-	- 可检测整个class C
-		- 如：nmap 192.168.0.0/24
-		- 不支持255.255.255.0的语法
-	- 如果没有防火墙干扰，结果应该与netstat一致
-
-- IP别名
-	- 在相同的网卡以及MAC地址之下，配置不同的IP地址
-	- 命名原则
-		- eth0
-		- eth0:0
-		- eth0:1 ...
-	- 哪些不支持IP别名
-		- DHCP不支持别名
-		- NetworkManager不支持别名
-			- NetworkManager也不支持网卡绑定
-			- service NetworkManager stop
-			- chkconfig NetworkManager Off
-- **ping -c 次数**
-
-- **traceroute 目的地址或主机名：追踪包源到目的所经过的路由**
-
-- 配置FTP服务，通过yast命令，yast界面可以修改网络信息
-
-- 配置Telnet服务，进入yast界面
-
-##9、Linux 进程与任务管理
 ### 程序、进程、线程傻傻分不清楚？
 
 - 程序（procedure）：文件中保存的一系列可执行的命令
@@ -1932,6 +2847,590 @@ LVM：Logical Volume Manager
   - nice ls：将 ls 的优先序加 10 并执行
   - renice +1 987 -u daemon root -p 32：将进程 id 为 987 及 32 的进程与进程拥有者为 daemon 及 root 的优先序号码加 1
 
+## 9、Linux 日志系统
+
+### 为什么日志重要？
+
+- 日志数据可以是有价值的信息宝库，也可以是毫无价值的数据泥潭。它可以记录下系统产生的所有行为，并按照某种规范表达出来。我们可以使用日志系统所记录的信息为系统进行排错，优化系统的性能，或者根据这些信息调整系统的行为。收集你想要的数据，分析出有价值的信息，可以提高系统、产品的安全性，还可以帮助开发完善代码，优化产品。日志会成为在事故发生后查明 “发生了什么” 的一个很好的 “取证” 信息来源。日志可以为审计进行审计跟踪。
+- 日志是一个系统管理员，一个运维人员，甚至是开发人员不可或缺的东西，系统用久了偶尔也会出现一些错误，我们需要日志来给系统排错，在一些网络应用服务不能正常工作的时候，我们需要用日志来做问题定位，日志还是过往时间的记录本，我们可以通过它知道我们是否被不明用户登录过等等。
+
+### 常见的日志
+
+- 在 Linux 中大部分的发行版都内置使用 syslog 系统日志，那么通过前期的课程我们了解到常见的日志一般存放在 `/var/log` 中，我们来看看其中有哪些日志
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tgq7g5lfj30s60ky78h.jpg)
+
+  根据图中所显示的日志，我们可以根据服务对象粗略的将日志分为两类
+
+  - 系统日志
+  - 应用日志
+
+  系统日志主要是存放系统内置程序或系统内核之类的日志信息如 `alternatives.log` 、`btmp` 等等，应用日志主要是我们装的第三方应用所产生的日志如 `tomcat7` 、`apache2` 等等。
+
+  接下来我们来看看常见的系统日志有哪些，他们都记录了怎样的信息
+
+  | 日志名称           | 记录信息                                                     |
+  | ------------------ | ------------------------------------------------------------ |
+  | alternatives.log   | 系统的一些更新替代信息记录                                   |
+  | apport.log         | 应用程序崩溃信息记录                                         |
+  | apt/history.log    | 使用 apt-get 安装卸载软件的信息记录                          |
+  | apt/term.log       | 使用 apt-get 时的具体操作，如 package 的下载、打开等         |
+  | auth.log           | 登录认证的信息记录                                           |
+  | boot.log           | 系统启动时的程序服务的日志信息                               |
+  | btmp               | 错误的信息记录                                               |
+  | Consolekit/history | 控制台的信息记录                                             |
+  | dist-upgrade       | dist-upgrade 这种更新方式的信息记录                          |
+  | dmesg              | 启动时，显示屏幕上内核缓冲信息，与硬件有关的信息             |
+  | dpkg.log           | dpkg 命令管理包的日志。                                      |
+  | faillog            | 用户登录失败详细信息记录                                     |
+  | fontconfig.log     | 与字体配置有关的信息记录                                     |
+  | kern.log           | 内核产生的信息记录，在自己修改内核时有很大帮助               |
+  | lastlog            | 用户的最近信息记录                                           |
+  | wtmp               | 登录信息的记录。wtmp 可以找出谁正在进入系统，谁使用命令显示这个文件或信息等 |
+  | syslog             | 系统信息记录                                                 |
+
+  而在本实验环境中没有 apport.log 是因为 apport 这个应用程序需要读取一些内核的信息来收集判断其他应用程序的信息，从而记录应用程序的崩溃信息。而在本实验环境中我们没有这个权限，所以将 apport 从内置应用值剔除，自然而然就没有它的日志信息了。
+
+- 只闻其名，不见其人，我们并不能明白这些日志记录的内容。首先我们来看 `alternatives.log` 中的信息，在本实验环境中没有任何日志输出是因为刚刚启动的系统中并没有任何的更新迭代。我可以看看从其他地方截取过来的内容
+
+  ```
+  update-alternatives 2016-07-02 13:36:16: run with --install /usr/bin/x-www-browser x-www-browser /usr/bin/google-chrome-stable 200
+  update-alternatives 2016-07-02 13:36:16: run with --install /usr/bin/gnome-www-browser gnome-www-browser /usr/bin/google-chrome-stable 200
+  update-alternatives 2016-07-02 13:36:16: run with --install /usr/bin/google-chrome google-chrome /usr/bin/google-chrome-stable 200
+  ```
+
+  我们可以从中得到的信息有程序作用，日期，命令，成功与否的返回码
+
+  我们用这样的命令来看看 `auth.log` 中的信息
+
+  ```
+  less auth.log
+  ```
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tgqf6rn2j30sg0lcn1e.jpg)
+
+  我们可以从中得到的信息有日期与 ip 地址的来源以及的用户与工具
+
+- 在 apt 文件夹中的日志信息，其中有两个日志文件 `history.log` 与 `term.log`，两个日志文件的区别在于 `history.log`主要记录了进行了哪个操作，相关的依赖有哪些，而 `term.log` 则是较为具体的一些操作，主要就是下载包，打开包，安装包等等的细节操作。
+
+  我们通过这样的例子就可以很明显的看出区别，在本实验环境中因为是刚启动的环境，所以两个日志中的信息都是空的
+
+  ```
+  less /var/log/apt/history.log
+  
+  less /var/log/apt/term.log
+  ```
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tgql8mkkj30sg0lc75a.jpg)
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tgqz5wk8j30sg0lcab2.jpg)
+
+  然后我们来安装 git 这个程序，因为本实验环境中本有预装 git ，所以这里真正执行的操作是一个更新的操作，但这并不影响
+
+  ```
+  sudo apt-get install git
+  ```
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tgr5vae7j30sg0lcten.jpg)
+
+  成功的执行之后我们再来查看两个日志的内容变化
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tgrr3f7cj30sg0lcdh8.jpg)
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tgrycp9vj30sg0lcacv.jpg)
+
+  其他的日志格式也都类似于之前我们所查看的日志，主要便是时间，操作。
+
+- 但要注意有两个比较特殊的日志，其查看的方式比较与众不同，因为这两个日志并不是 ASCII 文件而是被编码成了二进制文件，所以我们并不能直接使用 less、cat、more 这样的工具来查看，这两个日志文件是 wtmp，lastlog
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tgs85nx5j30sg0lcn0d.jpg)
+
+  我们查看的方法是使用 last 与 lastlog 工具来提取其中的信息
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tgsf5cetj30sg0lcwhu.jpg)
+
+### 配置的日志
+
+- 这些日志是如何产生的？通过上面的例子我们可以看出大部分的日志信息似乎格式都很类似，并且都出现在这个文件夹中。
+
+  这样的实现可以通过两种方式：
+
+  - 一种是由软件开发商自己来自定义日志格式然后指定输出日志位置；
+  - 一种方式就是 Linux 提供的日志服务程序，而我们这里系统日志是通过 syslog 来实现，提供日志管理服务。
+
+- syslog 是一个系统日志记录程序，在早期的大部分 Linux 发行版都是内置 syslog，让其作为系统的默认日志收集工具，虽然随着时代的进步与发展，syslog 已经年老体衰跟不上时代的需求，所以他被 rsyslog 所代替了，较新的 Ubuntu、Fedora 等等都是默认使用 rsyslog 作为系统的日志收集工具
+
+  rsyslog 的全称是 rocket-fast system for log，它提供了高性能，高安全功能和模块化设计。rsyslog 能够接受各种各样的来源，将其输入，输出的结果到不同的目的地。rsyslog 可以提供超过每秒一百万条消息给目标文件。
+
+  这样能实时收集日志信息的程序是有其守护进程的，如 rsyslog 的守护进程便是 rsyslogd。
+
+  我们可以手动开启这项服务，然后来查看
+
+  ```
+  sudo apt-get update
+  sudo apt-get install -y rsyslog
+  sudo service rsyslog start
+  ps aux | grep syslog
+  ```
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tgx063mlj30sg0lcjtu.jpg)
+
+  既然它是一个服务，那么它便是可以配置，首先我们来看 rsyslog 的配置文件是什么样子的，而 rsyslog 的配置文件有两个，
+
+  - 一个是 `/etc/rsyslog.conf`
+  - 一个是 `/etc/rsyslog.d/50-default.conf`。
+
+  第一个主要是配置的环境，也就是 rsyslog 加载什么模块，文件的所属者等；而第二个主要是配置的 Filter Conditions
+
+  ```
+  vim /etc/rsyslog.conf 
+  
+  vim /etc/rsyslog.d/50-default.conf
+  ```
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tgxi4wuej30sg0lcdj3.jpg)
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tgxlezavj30s60kydi4.jpg)
+
+  看上去有点复杂，我们还是来看看 rsyslog 的结构框架
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tgyqwww1j30sg0lcwf3.jpg)
+
+  （图片来源于 <http://www.rsyslog.com/doc/queues_analogy.html>）
+
+  Rsyslog 架构如图中所示，从图中我们可以很清楚的看见，rsyslog 还有一个核心的功能模块便是 Queue，也正是因为它才能做到如此高的并发。
+
+  第一个模块便是 Input，该模块的主要功能就是从各种各样的来源收集 messages，通过这些接口实现：
+
+  | 接口名    | 作用                                              |
+  | --------- | ------------------------------------------------- |
+  | im3195    | RFC3195 Input Module                              |
+  | imfile    | Text File Input Module                            |
+  | imgssapi  | GSSAPI Syslog Input Module                        |
+  | imjournal | Systemd Journal Input Module                      |
+  | imklog    | Kernel Log Input Module                           |
+  | imkmsg    | /dev/kmsg Log Input Module                        |
+  | impstats  | Generate Periodic Statistics of Internal Counters |
+  | imptcp    | Plain TCP Syslog                                  |
+  | imrelp    | RELP Input Module                                 |
+  | imsolaris | Solaris Input Module                              |
+  | imtcp     | TCP Syslog Input Module                           |
+  | imudp     | UDP Syslog Input Module                           |
+  | imuxsock  | Unix Socket Input                                 |
+
+  而 Output 中也有许多可用的接口，可以通过 man 或者官方的文档查看
+
+- 这些模块接口的使用需要通过 $ModLoad 指令来加载，那么返回上文的图中，配置生效的头两行可以看懂了，默认加载了 imklog、imuxsock 这两个模块。
+
+  在配置中 rsyslog 支持三种配置语法格式：
+
+  - sysklogd
+  - legacy rsyslog
+  - **RainerScript**
+
+  sysklogd 是老的简单格式，一些新的语法特性不支持。而 legacy rsyslog 是以 dollar 符 (`$`) 开头的语法，在 v6 及以上的版本还在支持，就如上文所说的 `​$ModLoad` 还有一些插件和特性只在此语法下支持。而以 `$` 开头的指令是全局指令，全局指令是 rsyslogd 守护进程的配置指令，每行只能有一个指令。 RainnerScript 是最新的语法。在官网上 rsyslog 大多推荐这个语法格式来配置.
+
+  老的语法格式（sysklogd & legacy rsyslog）是以行为单位;新的语法格式（RainnerScript）可以分割多行。
+
+  注释有两种语法:
+
+  - 井号 #
+  - C-style `/* .. */`
+
+  执行顺序：指令在 rsyslog.conf 文件中是从上到下的顺序执行的。
+
+- 模板是 rsyslog 一个重要的属性，它可以控制日志的格式，支持类似 template () 语句的基于 string 或 plugin 的模板，通过它我们可以自定义日志格式。
+
+  > legacy 格式使用 $template 的语法，不过这个在以后要移除，所以最好使用新格式 template ():，以免未来突然不工作了也不知道为什么
+
+  模板定义的形式有四种，适用于不同的输出模块，一般简单的格式，可以使用 string 的形式，复杂的格式，建议使用 list 的形式，使用 list 的形式，可以使用一些额外的属性字段（property statement）
+
+  如果不指定输出模板，rsyslog 会默认使用 RSYSLOG_DEFAULT。若想更深入的学习可以查看[官方文档](http://www.rsyslog.com/doc/v8-stable/configuration/index.html)
+
+- 了解了 rsyslog 环境的配置文件之后，我们看向 `/etc/rsyslog.d/50-default.conf` 这个配置文件，这个文件中主要是配置的 Filter Conditions，也就是我们在流程图中所看见的 `Parser & Filter Engine`, 它的名字叫 Selectors 是过滤 syslog 的传统方法，他主要由两部分组成，`facility` 与 `priority`，其配置格式如下
+
+  ```
+  facility.priority　　　　　log_location
+  ```
+
+  其中一个 priority 可以指定多个 facility，多个 facility 之间使用逗号 `,` 分割开
+
+  rsyslog 通过 Facility 的概念来定义日志消息的来源，以便对日志进行分类，Facility 的种类有：
+
+  | 类别     | 解释             |
+  | -------- | ---------------- |
+  | kern     | 内核消息         |
+  | user     | 用户信息         |
+  | mail     | 邮件系统消息     |
+  | daemon   | 系统服务消息     |
+  | auth     | 认证系统         |
+  | authpriv | 权限系统         |
+  | syslog   | 日志系统自身消息 |
+  | cron     | 计划安排         |
+  | news     | 新闻信息         |
+  | local0~7 | 由自定义程序使用 |
+
+- 而另外一部分 priority 也称之为 serverity level，除了日志的来源以外，对统一源产生日志消息还需要进行优先级的划分，而优先级的类别有以下几种：
+
+  | 类别          | 解释                           |
+  | ------------- | ------------------------------ |
+  | emergency     | 系统已经无法使用了             |
+  | alert         | 必须立即处理的问题             |
+  | critical      | 很严重了                       |
+  | error         | 错误                           |
+  | warning       | 警告信息                       |
+  | notice        | 系统正常，但是比较重要         |
+  | informational | 正常                           |
+  | debug         | debug 的调试信息               |
+  | panic         | 很严重但是已淘汰不常用         |
+  | none          | 没有优先级，不记录任何日志消息 |
+
+- 我们来看看系统中的配置
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0th2etnp3j30s60kydi4.jpg)
+
+  ```
+  auth,authpriv.*       /var/log/auth.log
+  ```
+
+  这里的意思是 auth 与 authpriv 的所有优先级的信息全都输出于 `/var/log/auth.log` 日志中
+
+  而其中有类似于这样的配置信息意思有细微的差别
+
+  ```
+  kern.*      -/var/log/kern.log
+  ```
+
+  `-` 代表异步写入，也就是日志写入时不需要等待系统缓存的同步，也就是日志还在内存中缓存也可以继续写入无需等待完全写入硬盘后再写入。通常用于写入数据比较大时使用。
+
+  到此我们对 rsyslog 的配置就有了一定的了解，若想更深入学习模板，队列的高级应用，大家可去查看[官网的文档](http://www.rsyslog.com/doc/v8-stable/index.html) , 需要注意的是 rsyslog 每个版本之间差异化比较大，学习之前先查看自己所使用的版本，再去查看相关的文档
+
+- 与日志相关的还有一个还有常用的命令 `logger`,logger 是一个 shell 命令接口，可以通过该接口使用 Syslog 的系统日志模块，还可以从命令行直接向系统日志文件写入信息。
+
+  ```
+  #首先将syslog启动起来
+  sudo service rsyslog start
+  
+  #向 syslog 写入数据
+  ping 127.0.0.1 | logger -it logger_test -p local3.notice &
+  
+  #查看是否有数据写入
+  sudo tail -f /var/log/syslog
+  ```
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0th2ine2dj30s60kytdk.jpg)
+
+  从图中我们可以看到我们成功的将 ping 的信息写入了 syslog 中，格式也就是使用的 rsyslog 的默认模板
+
+  我们可以通过 man 来查看 logger 的其他用法，
+
+  | 参数 | 内容                            |
+  | ---- | ------------------------------- |
+  | -i   | 在每行都记录进程 ID             |
+  | -t   | 添加 tag 标签                   |
+  | -p   | 设置日志的 facility 与 priority |
+
+### 转储的日志
+
+- 在本地的机器中每天都有成百上千条日志被写入文件中，更别说是我们的服务器，每天都会有数十兆甚至更多的日志信息被写入文件中，如果是这样的话，每天看着我们的日志文件不断的膨胀，那岂不是要占用许多的空间，所以有个叫 logrotate 的东西诞生了。
+
+- logrotate 程序是一个日志文件管理工具。用来把旧的日志文件删除，并创建新的日志文件。我们可以根据日志文件的大小，也可以根据其天数来切割日志、管理日志，这个过程又叫做 “转储”。
+
+  大多数 Linux 发行版使用 logrotate 或 newsyslog 对日志进行管理。logrotate 程序不但可以压缩日志文件，减少存储空间，还可以将日志发送到指定 E-mail，方便管理员及时查看日志。
+
+- 显而易见，logrotate 是基于 CRON 来运行的，其脚本是 /etc/cron.daily/logrotate；同时我们可以在 `/etc/logrotate`中找到其配置文件
+
+  ```
+  cat /etc/logrotate.conf
+  ```
+
+  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0th8091hyj30s60ky40c.jpg)
+
+  这其中的具体意思是什么呢？
+
+  ```
+  # see "man logrotate" for details  //可以查看帮助文档
+  # rotate log files weekly
+  weekly                             //设置每周转储一次(daily、weekly、monthly当然可以使用这些参数每天、星期，月 )
+  # keep 4 weeks worth of backlogs
+  rotate 4                           //最多转储4次
+  # create new (empty) log files after rotating old ones
+  create                             //当转储后文件不存在时创建它
+  # uncomment this if you want your log files compressed
+  compress                          //通过gzip压缩方式转储（nocompress可以不压缩）
+  # RPM packages drop log rotation information into this directory
+  include /etc/logrotate.d           //其他日志文件的转储方式配置文件，包含在该目录下
+  # no packages own wtmp -- we'll rotate them here
+  /var/log/wtmp {                    //设置/var/log/wtmp日志文件的转储参数
+      monthly                        //每月转储
+      create 0664 root utmp          //转储后文件不存在时创建它，文件所有者为root，所属组为utmp，对应的权限为0664
+      rotate 1                       //最多转储一次
+  }
+  ```
+
+  当然在 /etc/logrotate.d/ 中有各项应用的 logrotate 配置，还有更多的配置参数，可以参考 man 帮助文档
+
+##6、Linux 文件系统管理
+
+1. 文件系统的概念：操作系统用于明确存储和组织计算机数据的方法，使得对数据的查找和访问变得更加容易。用户不需要关心文件位于d硬盘的数据块地址。
+
+2. 存储在介质中数据的三个因素
+  
+	文件名：定位存储的位置
+  
+	数据：文件的具体内容
+  
+	元数据 meta-data：文件有关的信息。例如文件的权限、所有者、文件的修   改时间等。
+
+	Linux 支持的文件系统类型可查看 /etc/filesystems
+
+3. 文件系统的分类
+
+	- 根据是否有日志？
+
+		- 传统型文件系统：写入文件内容的时候，先写数据，再写元数据，若写元数据前断电，则会造成文件不一致。典型的：ext2（Linux 默认的文件系统）
+  
+		- 日志型文件系统：写入文件内容的时候，先写日志记录文件（更安全）。典型的：ext3 = ext2 + 日志  ，ReiserFS （基于平衡树，搜索快，节约空间）
+
+	- 根据如何查找数据？
+
+		- 索引式文件系统：文件属性数据和实际内容放在不同的区块，例如 Linux 中默认的 ext2 文件系统中，文件属性数据存放在 inode（类似于指针），实际内容放在 block。ext2 一开始就规划好了 inode 与 block ，所以数量庞大，不容易管理，所以有分组
+  
+			![](http://upload-images.jianshu.io/upload_images/2106579-b71e3f2eb47dbf42.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+		- 非索引式文件系统：只有 block，数据需要一个 block 接一个 block 读取（下一个 block 位置存放在上一个 block 中），效率低。 典型的：FAT（Windows 的文件系统）
+
+			![](http://upload-images.jianshu.io/upload_images/2106579-c0507b51e0e4840d.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+			> 碎片整理：写入的数据的 block 太过分散，此时读取的效率会很低。磁盘整理的目的，就是将这些分散的 block 尽量的集中起来。
+
+4. 配置文件系统分区
+
+	- 创建分区：fdisk + 设备名，输入完该命令之后，可以通过参数 m 查看按键操作说明，通过参数 p 可以得到本磁盘的相关信息，输入 n 命令可以新建一个分区。使用完 n 命令之后，新建分区的步骤如下：
+  
+		选择分区类型
+	
+		选择分区开始的磁柱
+	
+		决定分区的大小
+	
+		保存新建的分区 （w 命令）
+  
+		通过重启服务器或使用 partprobe 命令通知内核
+
+	- 创建文件系统：mkfs [参数] 设备名。-t 指定文件系统类型，如 ext3。  -b 指定 block 大小，单位 bytes，ext2 和 ext3 仅支持 1024/2048/4096 三种。
+
+	- 挂载文件系统：mount + 设备名 + 挂载点。挂载的过程就是将文件系统和目录树上的某一个目录结合。  -t  -b 同上。
+
+			mount /dev/sda6/root/testmount
+
+5. 管理 Linux 文件系统
+
+	- 查看分区使用情况：
+
+		- df：查看文件系统的磁盘空间占用情况，参数 –h 以容易理解的格式打印出文件系统大小，参数 –i 显示 inode 信息而非块使用量。
+
+		- du：查看文件或目录的磁盘使用空间，参数 –a 显示目录下的每个文件所占的磁盘空间，参数 –s 只显示大小的总和，参数 -h 以容易理解的格式输出文件大小值，如多少 Mb
+
+	- 查看系统打开的文件：lsof
+
+		Isof filename 显示打开指定文件的所有进程
+
+		Isof –c string 显示以指定字符开头的进程所有打开的文件
+
+		Isof –u username 显示所属 username 相关进程打开的文件
+
+6. 修复文件系统：
+  
+	- fsck 参数 设备名：检查文件系统并尝试修复错误。执行 fsck 时，必须首先要将修复的设备进行umount 后，再执行 fsck 命令。
+  
+	- e2fsck：检查和修复 ext2 和 ext3 文件系统
+
+##7、Linux LVM 配置
+LVM：Logical Volume Manager
+
+- 传统：文件系统构建在物理分区（PP：physical partition）之上，物理分区的大小直接决定了文件系统的容量。LVM：使文件系统的调节更简便，搭配 RAID 做容错
+
+- LVM 结构：
+
+	![](http://upload-images.jianshu.io/upload_images/2106579-2c5ca1a7e33f6cf9.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+	PP：physical partition 物理分区，LVM 最底层
+	
+	PV：physical volume 物理卷，一个 PP 对应一个 PV
+	
+	PE：physical extends 物理扩展单元，组成PV的最小单元，也是的最小区块，类似于文件系统的 block
+	
+	VG：volume group 卷组，可以看出由 LVM 组成的大磁盘
+	
+	LE：logical extends 逻辑扩展单元，组成LV的最小单元，对应一个PE
+	
+	LV：logical volume 逻辑卷， VG之上，文件系统之下，文件系统是基于逻辑卷的
+
+- VG、LV 和 PE 的关系
+
+	LV 通过交换 PE 来实现弹性改变文件系统大小的效果，LV 移除一些 PE，文件系统大小即减小，VG 把一些 PE 给LV，文件系统大小即增加
+
+	![](http://upload-images.jianshu.io/upload_images/2106579-2bc6a3b02784a97e.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240) 
+
+	最多65534个PE，PE的大小可以影响到VG的容量
+
+	LV与磁盘分区类似，能够格式化
+
+- LVM 的优点：
+
+	- 通过LVM，文件系统可以跨越多个磁盘
+	
+	- 动态地扩展文件系统的大小
+	
+	- 增加新磁盘到 LVM 的存储池中
+
+- LVM 使用要点：
+
+	- 按需分配文件系统大小
+
+	- 把不同的数据放在不同的卷组中
+
+- LVM 配置步骤，创建逻辑卷的步骤
+
+- 物理卷管理命令
+
+	- pvcreate 将普通的分区加上 PV 属性
+	- pvscan 查看物理卷信息
+	- pvdisplay 查看各个物理卷的详细参数
+	- pvremve
+
+- 卷组管理
+
+	- vgcreate vgname /dev/sdaN
+		- vgname：卷组名称
+		- /dev/sdaN：要加入卷组的物理卷
+	- vgscan
+	- vgdisplay
+	- vgreduce 缩小卷组，把物理卷从卷组中删除
+	- vgextend 扩展卷组，把某个物理卷添加到卷组中
+	- vgremove
+
+- 逻辑卷管理命令
+
+	- lvcreate -n lvname -L 2G vgname
+		- lvname：逻辑卷名称
+		- -L 2G:逻辑卷大小
+		- vgname：从卷组分配空间给逻辑卷
+	- lvscan
+	- lvdisplay
+	- lvextend
+	- lvreduce
+	- lvrmove
+
+- 扩展卷组
+	- 可在线扩展卷组
+	- 不一定可以所见卷组
+	- 命令：vgextend vgname /dev/sdaN
+		- 将物理卷 /dev/sdaN，加到vgname
+	- 必须要有未使用的物理卷
+		- 必须先有未使用的分区或硬盘
+
+- 管理文件系统的空间（增大或减小）
+
+	- 增大（ 卷组必须要有足够空间）
+
+		- 先卸载逻辑卷
+		- 然后通过vgextend、lvextend等命令增大LV的空间
+		
+			- lvextend -l +128 /dev/vgname/lvname
+				- 再加大128个LE
+			- lvextend -L +128M /dev/vgname/lvname
+				- 再加大128 Mb
+		- resize2fs -p /dev/vgname/lvname
+			- 再使用resize2fs将逻辑卷容量增加，扩展文件系统
+			- -p：显示操作期间的进度
+		- 最后将逻辑卷挂载到目录树
+
+	- 减小
+
+		- 先卸载逻辑卷
+		- resize2fs -p /dev/vgname/lvname 512M
+			- 再使用resize2fs将逻辑卷容量减小，文件系统调整为512MB
+		- lvreduce -L 512M /dev/vgname/lvname
+			- 再通过lvreduce将逻辑卷容量减小，逻辑卷减小到512MB
+		- 最后将逻辑卷挂载到目录树
+
+	> 注意 lvextend -l +128 与 lvextend -L +128M 的区别。一个是增加128个PE，一个是增加128MB
+
+##8、Linux 网络管理
+- ifconfig [接口]：查看IP地址，广播地址，网口掩码
+
+	> windowns 中用 ipconfig
+
+	- ifconfig 网口[参数]：设置网口的参数，如IP地址，广播地址，网口掩码等，重启网络或系统后失效
+
+			ifconfig eth3 192.168.100.128 broadcast 192.168.100.255 netmask 255.255.255.0
+
+	- 若想修改一直有效，则需要去修改配置文件：/etc/sysconfig/network/ifcfg-网口
+	
+		编辑配置文件：
+	
+			vi ifcfg-eth4
+	
+		使用ifup命令，启动网口:
+	
+			ifup ifcfg-eth4
+
+- route：查询本机路由表
+
+	Destination 目的地
+	Gateway 网管
+	Genmask
+	Flags 标记，为U：可用
+	Iface 该路由的网络出口
+
+- 新增路由：通过命令方式新建路由，会保存在内存中，重启无效，若想持久保存，通过配置文件 /etc/sysconfig/network/routes 静态保存路由信息，重启网络服务才能生效
+
+- 检测本地端口
+
+		netstat -tupln | grep:25
+
+	- 	t：TCP仅显示tcp相关选项
+	- 	u：UDP仅显示udp相关选项
+	- 	p：Procedure显示建立相关连接的程序名
+	- 	l：List仅列出正在Listen（监听）的服务
+	- 	n：拒绝显示别名，能显示数字的全部转化为数字
+
+- 检测远程服务
+
+	- nmap软件包
+	
+	- 可以单独检测服务器
+		- 如：nmap 192.168.0.101
+
+	- 可检测整个class C
+		- 如：nmap 192.168.0.0/24
+		- 不支持255.255.255.0的语法
+	- 如果没有防火墙干扰，结果应该与netstat一致
+
+- IP别名
+	- 在相同的网卡以及MAC地址之下，配置不同的IP地址
+	- 命名原则
+		- eth0
+		- eth0:0
+		- eth0:1 ...
+	- 哪些不支持IP别名
+		- DHCP不支持别名
+		- NetworkManager不支持别名
+			- NetworkManager也不支持网卡绑定
+			- service NetworkManager stop
+			- chkconfig NetworkManager Off
+- **ping -c 次数**
+
+- **traceroute 目的地址或主机名：追踪包源到目的所经过的路由**
+
+- 配置FTP服务，通过yast命令，yast界面可以修改网络信息
+
+- 配置Telnet服务，进入yast界面
+
+- - 
+
 ##10、Linux 系统监控
 - 监控系统启动日志
 
@@ -2000,1174 +3499,8 @@ LVM：Logical Volume Manager
 
 	- lastlog[参数][用户]：查看用户前一次登录信息。-t days：查看距今n天内登录了系统的用户的最近一次登录信息，-u显示登录与登出的详细信息
 	
-##11、Linux 命令执行顺序、管道、文本处理命令、I/O重定向
 
-### 命令执行顺序
 
-- 顺序执行
-
-  以下三条命令逐条输入：
-
-  ```
-  $ sudo apt-get update
-  # 等待——————————然后输入下面的命令
-  $ sudo apt-get install some-tool //这里some-tool是指具体的软件包，例如：banner
-  # 等待——————————然后输入下面的命令
-  $ some-tool
-  ```
-
-  这时你可能就会想：要是我可以一次性输入完，让它自己去依次执行各命令就好了，你可以使用 `;` 来完成，比如上述操作你可以：
-
-  ```
-  $ sudo apt-get update;sudo apt-get install some-tool;some-tool
-  # 让它自己运行
-  ```
-
-- 有选择的执行命令
-
-  关于上面的操作，如果我们在让它自动顺序执行命令时，前面的命令执行不成功，而后面的命令又依赖于上一条命令的结果，那么就会造成花了时间，最终却得到一个错误的结果，而且有时候直观的看你还无法判断结果是否正确。
-
-  我们需要能够有选择性的来执行命令，比如我们使用 `which` 来查找是否安装某个命令，如果找到就执行该命令，否则什么也不做：
-
-  ```
-  $ which cowsay>/dev/null && cowsay -f head-in ohch~
-  ```
-
-  你如果没有安装 `cowsay`，你可以先执行一次上述命令，你会发现什么也没发生，你再安装好之后你再执行一次上述命令，你也会发现一些惊喜。
-
-  上面的 `&&` 就是用来实现选择性执行的，它表示如果前面的命令执行结果（不是表示终端输出的内容，而是表示命令执行状态的结果）返回 0 则执行后面的，否则不执行，你可以从 `$?` 环境变量获取上一次命令的返回结果：
-
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rnci2gb5j30lq0hhwh6.jpg)
-
-  学习过 C 语言的用户应该知道在 C 语言里面 `&&` 表示逻辑与，而且还有一个 `||` 表示逻辑或，同样 Shell 也有一个 `||`，或的逻辑是：当前面不成功时，再判断（执行）后面，于是`||` 在这里就是与 `&&` 相反的控制效果，当上一条命令执行结果为≠0 ($?≠0) 时则执行它后面的命令：
-
-  ```
-  $ which cowsay>/dev/null || echo "cowsay has not been install, please run 'sudo apt-get install cowsay' to install"
-  ```
-
-  除了上述基本的使用之外，我们还可以结合着 `&&` 和 `||` 来实现一些操作，比如：
-
-  ```
-  $ which cowsay>/dev/null && echo "exist" || echo "not exist"
-  ```
-
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rncn0ib7j30jw0540up.jpg)
-
-  画个流程图来解释一下上面的流程：
-
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rncqvc0oj30660i9q34.jpg)
-
-### 管道（pipeline）
-
-- 管道是什么？管道是一种通信机制，通常用于进程间的通信（也可通过 socket 进行网络通信），它表现出来的形式就是将前面每一个进程的输出 (stdout) 直接作为下一个进程的输入 (stdin)。
-
-  管道又分为匿名管道和具名管道（这里将不会讨论在源程序中使用系统调用创建并使用管道的情况，它与命令行的管道在内核中实际都是采用相同的机制）。我们在使用一些过滤程序时经常会用到的就是匿名管道，在命令行中由 `|` 分隔符表示，`|` 在前面的内容中我们已经多次使用到了。具名管道简单的说就是有名字的管道，通常只会在源程序中用到具名管道。
-
-- 先试用一下管道，比如查看 `/etc` 目录下有哪些文件和目录，使用 `ls` 命令来查看：
-
-  ```
-  $ ls -al /etc
-  ```
-
-  有太多内容，屏幕不能完全显示，这时候可以使用滚动条或快捷键滚动窗口来查看。不过这时候可以使用管道：
-
-  ```
-  $ ls -al /etc | less
-  ```
-
-  通过管道将前一个命令 (`ls`) 的输出作为下一个命令 (`less`) 的输入，然后就可以一行一行地看。
-
-  接下来通过一些文本处理命令来熟悉管道的操作。
-
-### 文本处理命令：cut、grep、wc、sort、uniq、tr、col、join、paste
-
-- cut 命令，打印每一行的某一字段
-
-  cut 命令的 -d 参数传入分隔符，-f 参数传入要打印的第几个字段，比如打印 `/etc/passwd` 文件中以`:` 为分隔符的第 1 个字段和第 6 个字段分别表示用户名和其家目录：
-
-  ```
-  $ cut /etc/passwd -d ':' -f 1,6
-  ```
-
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rngve0a4j30k80nbwjb.jpg)
-
-  打印 `/etc/passwd` 文件中每一行的前 N 个字符：
-
-  ```
-  # 前五个（包含第五个）
-  $ cut /etc/passwd -c -5
-  # 前五个之后的（包含第五个）
-  $ cut /etc/passwd -c 5-
-  # 第五个
-  $ cut /etc/passwd -c 5
-  # 2到5之间的（包含第五个）
-  $ cut /etc/passwd -c 2-5
-  ```
-
-- grep 命令，在文本中或 stdin 中查找匹配字符串
-
-  `grep` 命令是很强大的，也是相当常用的一个命令，它结合正则表达式可以实现很复杂却很高效的匹配和查找
-
-  `grep` 命令的一般形式为：
-
-  ```
-  grep [命令选项]... 用于匹配的表达式 [文件]...
-  ```
-
-  还是先体验一下，我们搜索 `/home/shiyanlou` 目录下所有包含 "shiyanlou" 的文本文件，并显示出现在文本中的行号：
-
-  ```
-  $ grep -rnI "shiyanlou" ~
-  ```
-
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rniaxwayj30kb07qwi6.jpg)
-
-  `-r` 参数表示递归搜索子目录中的文件，`-n` 表示打印匹配项行号，`-I` 表示忽略二进制文件
-
-- wc 命令，简单小巧的计数工具
-
-  wc 命令用于统计并输出一个文件中行、单词和字节的数目，比如输出 `/etc/passwd` 文件的统计信息：
-
-  ```
-  $ wc /etc/passwd
-  ```
-
-  分别只输出行数、单词数、字节数、字符数和输入文本中最长一行的字节数：
-
-  ```
-  # 行数
-  $ wc -l /etc/passwd
-  # 单词数
-  $ wc -w /etc/passwd
-  # 字节数
-  $ wc -c /etc/passwd
-  # 字符数
-  $ wc -m /etc/passwd
-  # 最长行字节数
-  $ wc -L /etc/passwd
-  ```
-
-  **注意：对于西文字符来说，一个字符就是一个字节，但对于中文字符一个汉字是大于 2 个字节的，具体数目是由字符编码决定的**
-
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rnj4k0p0j30ka09en02.jpg)
-
-  再来结合管道来操作一下，下面统计 /etc 下面所有目录数：
-
-  ```
-  $ ls -dl /etc/*/ | wc -l
-  ```
-
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rnj8zo5lj30gc0243yb.jpg)
-
-- sort 排序命令
-
-  这个命令前面我们也是用过多次，功能很简单就是将输入按照一定方式排序，然后再输出，它支持的排序有按字典排序，数字排序，按月份排序，随机排序，反转排序，指定特定字段进行排序等等。
-
-  默认为字典排序：
-
-  ```
-  $ cat /etc/passwd | sort
-  ```
-
-  反转排序：
-
-  ```
-  $ cat /etc/passwd | sort -r
-  ```
-
-  按特定字段排序：
-
-  ```
-  $ cat /etc/passwd | sort -t':' -k 3
-  ```
-
-  上面的 `-t` 参数用于指定字段的分隔符，这里是以 ":" 作为分隔符；`-k 字段号`用于指定对哪一个字段进行排序。这里 `/etc/passwd` 文件的第三个字段为数字，默认情况下是以字典序排序的，如果要按照数字排序就要加上 `-n` 参数：
-
-  ```
-  $ cat /etc/passwd | sort -t':' -k 3 -n
-  ```
-
-  注意观察第二个冒号后的数字： 
-
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rnp30cktj30k70h8agk.jpg)
-
-- uniq 去重命令
-
-  `uniq` 命令可以用于过滤或者输出重复行。
-
-  - 过滤重复行
-
-  我们可以使用 `history` 命令查看最近执行过的命令（实际为读取 ${SHELL}_history 文件，如我们环境中的～/.zsh_history 文件），不过你可能只想查看使用了哪个命令而不需要知道具体干了什么，那么你可能就会要想去掉命令后面的参数然后去掉重复的命令：
-
-  ```
-  $ history | cut -c 8- | cut -d ' ' -f 1 | uniq
-  ```
-
-  然后经过层层过滤，你会发现确是只输出了执行的命令那一列，不过去重效果好像不明显，仔细看你会发现它确实去重了，只是不那么明显，之所以不明显是**因为 uniq 命令只能去连续重复的行，不是全文去重**，所以要达到预期效果，我们先排序：
-
-  ```
-  $ history | cut -c 8- | cut -d ' ' -f 1 | sort | uniq
-  # 或者$ history | cut -c 8- | cut -d ' ' -f 1 | sort -u
-  ```
-
-  这就是 Linux/UNIX 哲学吸引人的地方，大繁至简，一个命令只干一件事却能干到最好。
-
-  - 输出重复行
-
-  ```
-  # 输出重复过的行（重复的只输出一个）及重复次数
-  $ history | cut -c 8- | cut -d ' ' -f 1 | sort | uniq -dc
-  # 输出所有重复的行
-  $ history | cut -c 8- | cut -d ' ' -f 1 | sort | uniq -D
-  ```
-
-- tr 命令，删除
-
-  tr 命令可以用来删除一段文本信息中的某些文字。或者将其进行转换。
-
-  #### 使用方式：
-
-  ```
-  tr [option]...SET1 [SET2]
-  ```
-
-  #### 常用的选项有：
-
-  | 选项 | 说明                                                         |
-  | ---- | ------------------------------------------------------------ |
-  | `-d` | 删除和 set1 匹配的字符，注意不是全词匹配也不是按字符顺序匹配 |
-  | `-s` | 去除 set1 指定的在输入文本中连续并重复的字符                 |
-
-  #### 操作举例：
-
-  ```
-  # 删除 "hello shiyanlou" 中所有的'o','l','h'
-  $ echo 'hello shiyanlou' | tr -d 'olh'
-  # 将"hello" 中的ll,去重为一个l
-  $ echo 'hello' | tr -s 'l'
-  # 将输入文本，全部转换为大写或小写输出
-  $ echo 'input some text here' | tr '[:lower:]' '[:upper:]'
-  # 上面的'[:lower:]' '[:upper:]'你也可以简单的写作'[a-z]' '[A-Z]',当然反过来将大写变小写也是可以的
-  ```
-
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rnv2sdetj30k805umyv.jpg)
-
-- col 命令，转换 tab 与空格
-
-  col 命令可以将 `Tab` 换成对等数量的空格键，或反转这个操作。
-
-  #### 使用方式：
-
-  ```
-  col [option]
-  ```
-
-  #### 常用的选项有：
-
-  | 选项 | 说明                           |
-  | ---- | ------------------------------ |
-  | `-x` | 将 `Tab` 转换为空格            |
-  | `-h` | 将空格转换为 `Tab`（默认选项） |
-
-  #### 操作举例：
-
-  ```
-  # 查看 /etc/protocols 中的不可见字符，可以看到很多 ^I ，这其实就是 Tab 转义成可见字符的符号
-  $ cat -A /etc/protocols
-  # 使用 col -x 将 /etc/protocols 中的 Tab 转换为空格,然后再使用 cat 查看，你发现 ^I 不见了
-  $ cat /etc/protocols | col -x | cat -A
-  ```
-
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rnvruoy5j30kc07z0vy.jpg)
-
-- join 命令，将两个文件中包含相同内容的那一行合并在一起
-
-  学过数据库的用户对这个应该不会陌生，这个命令就是用于将两个文件中包含相同内容的那一行合并在一起。
-
-  #### 使用方式：
-
-  ```
-  join [option]... file1 file2
-  ```
-
-  #### 常用的选项有：
-
-  | 选项 | 说明                                                 |
-  | ---- | ---------------------------------------------------- |
-  | `-t` | 指定分隔符，默认为空格                               |
-  | `-i` | 忽略大小写的差异                                     |
-  | `-1` | 指明第一个文件要用哪个字段来对比，默认对比第一个字段 |
-  | `-2` | 指明第二个文件要用哪个字段来对比，默认对比第一个字段 |
-
-  #### 操作举例：
-
-  ```
-  $ cd /home/shiyanlou
-  # 创建两个文件，因为默认分隔符为空格，所以两个文件的第一行都有‘1’，故可以合并
-  $ echo '1 hello' > file1
-  $ echo '1 shiyanlou' > file2
-  $ join file1 file2
-  # 将/etc/passwd与/etc/shadow两个文件合并，指定以':'作为分隔符
-  $ sudo join -t':' /etc/passwd /etc/shadow
-  # 将/etc/passwd与/etc/group两个文件合并，指定以':'作为分隔符, 分别比对第4和第3个字段
-  $ sudo join -t':' -1 4 /etc/passwd -2 3 /etc/group
-  ```
-
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rnzjoumej30jq09mdjy.jpg)
-
-- paste 命令，不对比数据，简单将多个文件合并
-
-  `paste` 这个命令与 `join` 命令类似，它是在不对比数据的情况下，简单地将多个文件合并一起，以 `Tab` 隔开。
-
-  #### 使用方式：
-
-  ```
-  paste [option] file...
-  ```
-
-  #### 常用的选项有：
-
-  | 选项 | 说明                         |
-  | ---- | ---------------------------- |
-  | `-d` | 指定合并的分隔符，默认为 Tab |
-  | `-s` | 不合并到一行，每个文件为一行 |
-
-  #### 操作举例：
-
-  ```
-  $ echo hello > file1
-  $ echo shiyanlou > file2
-  $ echo www.shiyanlou.com > file3
-  $ paste -d ':' file1 file2 file3
-  $ paste -s file1 file2 file3
-  ```
-
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0ro8wwdoij30k606a763.jpg)
-
--  字符转换
-
-   Windows/dos 与 Linux/UNIX 文本文件一些特殊字符`不一致`，如断行符 Windows 为 CR+LF (`\r\n`)，Linux/UNIX 为 LF (`\n`)。使用 `cat -A 文本` 可以看到文本中包含的不可见特殊字符。Linux 的 `\n` 表现出来就是一个 `$`，而 Windows/dos 的表现为 `^M$`，可以直接使用 `dos2unix` 和 `unix2dos` 工具在两种格式之间进行转换，使用 `file` 命令可以查看文件的具体类型。
-
-   >   回车”（Carriage Return）和 “换行”（Line Feed）这两个概念的来历和区别。
-   >           在计算机还没有出现之前，有一种叫做电传打字机（Teletype Model 33，Linux/Unix 下的 tty 概念也来自于此）的玩意，每秒钟可以打 10 个字符。但是它有一个问题，就是打完一行换行的时候，要用去 0.2 秒，正好可以打两个字符。要是在这 0.2 秒里面，又有新的字符传过来，那么这个字符将丢失。
-   >
-   > ​         于是，研制人员想了个办法解决这个问题，就是在每行后面加两个表示结束的字符。一个叫做 “回车”，告诉打字机把打印头定位在左边界；另一个叫做 “换行”，告诉打字机把纸向下移一行。这就是 “换行” 和 “回车” 的来历，从它们的英语名字上也可以看出一二。
-   >
-   > ​        后来，计算机发明了，这两个概念也就被般到了计算机上。那时，存储器很贵，一些科学家认为在每行结尾加两个字符太浪费了，加一个就可以。于是，就出现了分歧。
-   >
-   > ​        Unix 系统里，每行结尾只有 “<换行>”，即 "\n"；Windows 系统里面，每行结尾是 “< 换行 >< 回车 >”，即 “\n\r”；Mac 系统里，每行结尾是 “< 回车 >”，即 "\n"；。一个直接后果是，Unix/Mac 系统下的文件在 Windows 里打开的话，所有文字会变成一行；而 Windows 里的文件在 Unix/Mac 下打开的话，在每行的结尾可能会多出一个 ^M 符号。 
-
-   1. 利用 vim 编辑器
-
-      利用 Linux 下的 vim 编辑器，可以方便的在 dos 文件、unix 文件之间进行切换，且可以便利的去除恼人的 `^M` 
-
-      ```html
-      vim file
-      ```
-
-      然后，在 vim 中使用以下命令用于查看当前文件是 dos 格式还是 unix 格式
-
-      ```
-      :set ff?
-      ```
-
-      在 vim 中强制切换为 unix/dos 格式，然后保存即可：
-
-      ```
-      :set ff=unix #转换为unix格式
-      or
-      :set ff=dos #转换为dos格式
-      :wq #保存、退出
-      ```
-
-      ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rpd4z62bj30gh068757.jpg)
-
-   2. 调用dos2unix中的两个命令：dos2unix、unix2dos
-
-      格式：
-
-      ```
-      $ dos2unix [options] <files>
-      ```
-
-      - `-o <files>`：直接操作输入文件进行编码转换，此处的 `-o` 可以省略；
-      - `-n <input> <output>`：转换输入文件，将操作结果输出至新的输出文件；
-      - `-i <files>`：仅查看文件的格式信息，不对文件进行转换操作；
-      - `-f`、`--force`：强制转换二进制文件，默认为跳过二进制文件；
-      - `-k`、`--keep-date`：保持新文件的时间戳（修改时间）不变；
-
-      ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rqi8v3ptj30gh06ngms.jpg)
-
-   > Linux 提供了两种文本格式相互转化的命令：dos2unix 和 unix2dos，dos2unix 把 "\r\n" 转化成 "\n"，unix2dos 把 "\n" 转化成 "\r\n"。
-   >
-   > 注意下载时要下载 dos2unix 包：
-   >
-   > ```
-   > sudo apt-get install dos2unix
-   > ```
-
-   3. 利用 tr 命令
-
-      经过各种实践，利用 tr 命令去替换 `\r\n` 与 `\n` 或者去替换 `^M$` 与 `$`，会出现各种意想不到的结果，这里就不深究了，还是参考前两点吧。
-      
-
-### 重定向
-
-- 前文已经多次见过 `>` 或 `>>` 操作了，分别是将标准输出导向一个文件或追加到一个文件中。这其实就是重定向，将原本输出到标准输出的数据重定向到一个文件中，因为标准输出 (`/dev/stdout`) 本身也是一个文件，我们将命令输出导向另一个文件自然也是没有任何问题的。
-
-- 在更多了解 Linux 的重定向之前，我们需要先知道一些基本的东西，前面我们已经提到过 Linux 默认提供了三个特殊设备，用于终端的显示和输出，分别为 `stdin`（标准输入，对应于你在终端的输入），`stdout`（标准输出，对应于终端的输出），`stderr`（标准错误输出，对应于终端的输出）。
-
-  | 文件描述符 | 设备文件      | 说明     |
-  | ---------- | ------------- | -------- |
-  | `0`        | `/dev/stdin`  | 标准输入 |
-  | `1`        | `/dev/stdout` | 标准输出 |
-  | `2`        | `/dev/stderr` | 标准错误 |
-
-  > 文件描述符：文件描述符在形式上是一个非负整数。实际上，它是一个索引值，指向内核为每一个进程所维护的该进程打开文件的记录表。当程序打开一个现有文件或者创建一个新文件时，内核向进程返回一个文件描述符。在程序设计中，一些涉及底层的程序编写往往会围绕着文件描述符展开。但是文件描述符这一概念往往只适用于 UNIX、Linux 这样的操作系统。
-
-  我们可以这样使用这些文件描述符：
-
-  默认使用终端的标准输入作为命令的输入和标准输出作为命令的输出
-
-  ```
-  $ cat 
-  （按Ctrl+C退出）
-  ```
-
-  将 cat 的连续输出（heredoc 方式）重定向到一个文件
-
-  ```
-  $ mkdir Documents
-  $ cat > Documents/test.c <<EOF
-  #include <stdio.h>
-  
-  int main()
-  {
-      printf("hello world\n");
-      return 0;
-  }
-  
-  EOF
-  ```
-
-  将一个文件作为命令的输入，标准输出作为命令的输出
-
-  ```
-  $ cat Documents/test.c
-  ```
-
-  将 echo 命令通过**管道传过来的数据作为 cat 命令的输入**，将标准输出作为命令的输出
-
-  ```
-  $ echo 'hi' | cat
-  ```
-
-- 标准输出重定向
-
-  将 echo 命令的输出从默认的标准输出**重定向到一个普通文件**
-
-  ```
-  $ echo 'hello shiyanlou' > redirect
-  $ cat redirect
-  ```
-
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rrf5x44wj30hs0gowic.jpg)
-
-  初学者这里要注意不要将管道和重定向混淆，**管道默认是连接前一个命令的输出到下一个命令的输入**，而重定向通常是需要一个文件来建立两个命令的连接，你可以仔细体会一下上述第三个操作和最后两个操作的异同点。
-
-- 标准错误重定向
-
-  都被指向伪终端的屏幕显示，所以我们经常看到的一个命令的输出通常是同时包含了标准输出和标准错误的结果的。比如下面的操作：
-
-  ```
-  # 使用cat 命令同时读取两个文件，其中一个存在，另一个不存在
-  $ cat Documents/test.c hello.c
-  # 你可以看到除了正确输出了前一个文件的内容，还在末尾出现了一条错误信息，见下图
-  # 那如果我们将输出重定向到一个文件呢？见下图
-  $ cat Documents/test.c hello.c > somefile
-  ```
-
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0s0160cq0j30fd06fgmb.jpg)
-
-  遗憾的是，这里依然出现了那条错误信息，其实标准输出和标准错误虽然都指向终端屏幕，实际它们并不一样。
-
-  但有时我们就是要隐藏某些错误或者警告，那又该怎么做呢？这就需要用到我们前面讲的文件描述符了：
-
-  ```
-  # 将标准错误（2）重定向到标准输出（1），再将标准输出重定向到文件（somefile），注意要将重定向到文件写到前面，且必须在文件描述符（1）前加上 & ，否则 shell 会当做重定向到一个文件名为 1 的文件中
-  $ cat Documents/test.c hello.c >somefile  2>&1
-  # 或者只用bash提供的特殊的重定向符号"&"将标准错误和标准输出同时重定向到文件
-  $ cat Documents/test.c hello.c &>somefilehell
-  ```
-
-  效果如下：
-
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0s01a52iij30g90bzdfw.jpg)
-
-- 使用 tee 命令同时重定向到多个文件
-
-  你可能还有这样的需求，除了需要将输出重定向到文件，也需要将信息打印在终端。那么你可以使用 `tee` 命令来实现：
-
-  ```
-  $ echo 'hello shiyanlou' | tee hello
-  ```
-
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0s0akrj0tj30hy04fwfs.jpg)
-
-  tee 命令详解
-
-  - tee：将上一个命令的STDOUT通过T管道重定向到该文件，再发送到另一个命令的STDIN
-
-  - 举例：
-
-    ifconfig eth0 | grep pattern | tee /root/interface-info | cut -f2 -d: | cut -f1 -d" "
-
-  - 再举例：
-    使用tee的示意图：ls -l的输出被导向 tee，并且复制到档案　file.txt 以及下一个命令 less。tee 的名称来自于这个图示，它看起来像是大写的字母 T。
-
-  ![](https://upload.wikimedia.org/wikipedia/commons/2/24/Tee.svg)
-
-- 使用 exec 命令永久重定向
-
-  之前的例子中重定向都是临时性的，**如果我们想把标准输出永久重定向到某个文件（尤其是日志文件）中**，可以用 exec 命令
-
-  `exec`命令的作用是使用指定的命令替换当前的 Shell，即使用一个进程替换当前进程，或者指定新的重定向：
-
-  ```
-  # 先开启一个子 Shell
-  $ zsh
-  # 使用exec替换当前进程的重定向，将标准输出（1）重定向到一个文件
-  $ exec 1>somefile
-  # 后面你执行的命令的“输出”都将被重定向到名为‘somefile’的文件中,直到你退出当前子shell，或取消exec的重定向（如何取消见后续操作）
-  $ ls
-  $ exit
-  $ cat somefile
-  ```
-
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0s0ejs2xtj30cy07dwed.jpg)
-
-  可以看到，执行 ls 命令的输出并没有显示在终端上，查看 somefile 文件，可以看到其中的内容正是 ls 命令的输出
-
-- 创建输出文件描述符
-
-  在 Shell 中有 9 个文件描述符。上面我们使用了也是它默认提供的 0,1,2 号文件描述符。另外我们还可以使用 3-8 的文件描述符，只是它们默认没有打开而已。你可以使用下面命令查看当前 Shell 进程中打开的文件描述符：
-
-  ```
-  $ cd /dev/fd/;ls -Al
-  ```
-
-  同样使用 `exec` 命令可以创建新的文件描述符：
-
-  ```
-  $ zsh
-  $ exec 3>somefile
-  # 先进入目录，再查看，否则你可能不能得到正确的结果，然后再回到上一次的目录
-  $ cd /dev/fd/;ls -Al;cd -
-  # 把字符串重定向到文件描述符3，而3会重定向到somefile文件，注意下面的命令>与&之间不应该有空格
-  $ echo "this is test" >&3
-  $ cat somefile
-  $ exit
-  ```
-
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0s0j683p7j30k20bwdjv.jpg)
-
-- 关闭文件描述符
-
-  EASY，如上面我们打开的 3 号文件描述符，可以使用如下操作将它关闭：
-
-  ```
-  $ exec 3>&-
-  $ cd /dev/fd;ls -Al;cd -
-  ```
-
-- 完全屏蔽命令的输出
-
-  在 Linux 中有一个被称为 “黑洞” 的设备文件，所有导入它的数据都将被 “吞噬”。
-
-  > 在类 UNIX 系统中，/dev/null，或称空设备，是一个特殊的设备文件，它通常被用于丢弃不需要的输出流，或作为用于输入流的空文件，这些操作通常由重定向完成。读取它则会立即得到一个 EOF。
-
-  我们可以利用设个 `/dev/null` 屏蔽命令的输出：
-
-  ```
-  $ cat Documents/test.c nefile 1>/dev/null 2>&1
-  ```
-
-  上面这样的操作将使你得不到任何输出结果，也可以叫它“垃圾箱”
-
-- 重定向运算符号
-
-  - `>` ：将STDOUT重定向到文件
-
-    - 文件内容会被覆盖
-    - 举例：
-
-    		ls -Ra /etc > root/backup/config-file-lists
-
-  - `>>` ：将STDOUT重定向到文件
-  	- 文件内容会被添加
-  	- 举例：
-
-  			(date;who -l) >> /root/monitor/who-online
-
-  - `<` ：重定向STDIN
-  	- 将键盘输入改由读入文件提供
-  	- 举例：
-
-  			mail -s "Warning" root < /root/mail/record/alert-notify
-
-  > Shell 输入 / 输出重定向：http://www.runoob.com/linux/linux-shell-io-redirections.html
-
-- 使用 xargs 命令分割参数列表
-
-  > xargs 是一条 UNIX 和类 UNIX 操作系统的常用命令。它的作用是将参数列表转换成小块分段传递给其他命令，以避免参数列表过长的问题。
-
-  这个命令在有些时候十分有用，特别是当用来处理产生大量输出结果的命令如 find，locate 和 grep 的结果，详细用法请参看 man 文档。
-
-  ```
-  $ cut -d: -f1 < /etc/passwd | sort | xargs echo
-  ```
-
-  上面这个命令用于将 `/etc/passwd` 文件按`:` 分割取第一个字段排序后，使用 `echo` 命令生成一个列表
-
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0s0s6rd7gj30gh02l0ta.jpg)
-
-- 比较
-
-  - 标准的命令用法：
-
-     grep root /etc/passwd
-
-  - 重定向：
-
-     grep root < /etc/passwd
-
-  - 管道：
-
-     cat /etc/passwd | grep root
-
-  - 三种原理不一样，但结果一样
-
-### 挑战：历史命令
-
-在 Linux 中，对于文本的处理和分析是极为重要的，现在有一个文件叫做 data1，可以使用下面的命令下载：
-
-```
-$ cd /home/shiyanlou
-$ wget http://labfile.oss.aliyuncs.com/courses/1/data1
-```
-
-data1 文件里记录是一些命令的操作记录，现在需要你从里面找出出现频率次数前 3 的命令并保存在 `/home/shiyanlou/result`。
-
-目标
-
-1. 处理文本文件 `/home/shiyanlou/data1`
-2. 将结果写入 `/home/shiyanlou/result`
-3. 结果包含三行内容，每行内容都是出现的次数和命令名称，如 “100 ls”
-
-提示
-
-1. cut 截取 (参数可以使用 `-c 8-`，使用 man cut 可以查看含义)
-2. `uniq -dc` 去重
-3. sort 的参数选择 `-k1 -n -r`
-4. 操作过程使用管道，例如：
-
-```
-$ cd /home/shiyanlou
-$ cat data1 |....|....|....   >  /home/shiyanlou/result
-```
-
-来源：2016 年百度校招面试题
-
-我的答案
-
-```
-shiyanlou:~/ $ cut data1 -c 8- | cut -d ' ' -f 1 | sort | uniq -dc | sort -rn | head -n 3
-```
-
-思考
-
-- 题目要求统计整条命令的频次，而我只截取了命令名称计数，按题目的意思 `cd .` 与 `cd ..` 是两条命令，而在我的方法下会认为是同一条命令
-- 文件中有些命令占据两行，无论是我的答案还是参考答案都没考虑这个
-
-参考答案
-
-```
-cat data1 |cut -c 8-|sort|uniq -dc|sort -rn -k1 |head -3 > /home/shiyanlou/result
-```
-
-## 12、Linux 三剑客——grep、sed、awk
-
-### 正则表达式
-
-- 什么是正则表达式呢？
-
-> **正则表达式**，又称正规表示式、正规表示法、正规表达式、规则表达式、常规表示法（英语：Regular Expression，在代码中常简写为 regex、regexp 或 RE），计算机科学的一个概念。正则表达式使用单个字符串来描述、匹配一系列符合某个句法规则的字符串。在很多文本编辑器里，正则表达式通常被用来检索、替换那些符合某个模式的文本。
-
-> 许多程序设计语言都支持利用正则表达式进行字符串操作。例如，在 Perl 中就内建了一个功能强大的正则表达式引擎。正则表达式这个概念最初是由 UNIX 中的工具软件（例如 `sed` 和 `grep`）普及开的。正则表达式通常缩写成 “regex”，单数有 regexp、regex，复数有 regexps、regexes、regexen。
-
-​	简单的说形式和功能上正则表达式和我们前面讲的通配符很像，不过它们之间又有很大差别，特别在于一些特殊的匹配字符的含义上
-
-- 一个正则表达式通常被称为一个模式（**pattern**），为用来描述或者匹配一系列符合某个句法规则的字符串。
-
-  #### 选择
-
-  `|` 竖直分隔符表示选择，例如 "boy|girl" 可以匹配 "boy" 或者 "girl"
-
-  #### 数量限定
-
-  数量限定除了我们举例用的 `*`, 还有 `+` 加号，`?` 问号，如果在一个模式中不加数量限定符则表示出现一次且仅出现一次：
-
-  - `+` 表示前面的字符必须出现至少一次 (1 次或多次)，例如，"goo+gle", 可以匹配 "gooogle","goooogle" 等；
-  - `?` 表示前面的字符最多出现一次 (0 次或 1 次)，例如，"colou?r", 可以匹配 "color" 或者 "colour";
-  - `*` 星号代表前面的字符可以不出现，也可以出现一次或者多次（0 次、或 1 次、或多次），例如，“0*42” 可以匹配 42、042、0042、00042 等。
-
-  #### 范围和优先级
-
-  `()` 圆括号可以用来定义模式字符串的范围和优先级，这可以简单的理解为是否将括号内的模式串作为一个整体。例如，"gr (a|e) y" 等价于 "gray|grey"，（这里体现了优先级，竖直分隔符用于选择 a 或者 e 而不是 gra 和 ey），"(grand)?father" 匹配 father 和 grandfather（这里体验了范围，`?` 将圆括号内容作为一个整体匹配）。
-
-  #### 语法（部分）
-
-  正则表达式有多种不同的风格，下面列举一些常用的作为 PCRE 子集的适用于 `perl` 和 `python` 编程语言及 `grep` 或 `egrep` 的正则表达式匹配规则：
-
-  > PCRE（Perl Compatible Regular Expressions 中文含义：perl 语言兼容正则表达式）是一个用 C 语言编写的正则表达式函数库，由菲利普。海泽 (Philip Hazel) 编写。PCRE 是一个轻量级的函数库，比 Boost 之类的正则表达式库小得多。PCRE 十分易用，同时功能也很强大，性能超过了 POSIX 正则表达式库和一些经典的正则表达式库。
-
-  | 字符      | 描述                                                         |
-  | --------- | ------------------------------------------------------------ |
-  | \         | **将下一个字符标记为一个特殊字符、或一个原义字符。**例如，“n” 匹配字符 “n”。“\n” 匹配一个换行符。序列 “\\” 匹配 “\” 而 “\(” 则匹配 “(”。 |
-  | ^         | **匹配输入字符串的开始位置。**                               |
-  | $         | **匹配输入字符串的结束位置。**                               |
-  | {n}       | n 是一个非负整数。**匹配确定的 n 次**。例如，“o {2}” 不能匹配 “Bob” 中的 “o”，但是能匹配 “food” 中的两个 o。 |
-  | {n,}      | n 是一个非负整数。**至少匹配 n 次**。例如，“o {2,}” 不能匹配 “Bob” 中的 “o”，但能匹配 “foooood” 中的所有 o。“o {1,}” 等价于 “o+”。“o {0,}” 则等价于 “o*”。 |
-  | {n,m}     | m 和 n 均为非负整数，其中 n<=m。**最少匹配 n 次且最多匹配 m 次。**例如，“o {1,3}” 将匹配 “fooooood” 中的前三个 o。“o {0,1}” 等价于 “o?”。请注意在逗号和两个数之间不能有空格。 |
-  | *         | **匹配前面的子表达式零次或多次**。例如，zo * 能匹配 “z”、“zo” 以及 “zoo”。* 等价于 {0,}。 |
-  | +         | **匹配前面的子表达式一次或多次**。例如，“zo+” 能匹配 “zo” 以及 “zoo”，但不能匹配 “z”。+ 等价于 {1,}。 |
-  | ?         | **匹配前面的子表达式零次或一次**。例如，“do (es)?” 可以匹配 “do” 或 “does” 中的 “do”。? 等价于 {0,1}。 |
-  | ?         | 当该字符紧跟在任何一个其他限制符（*,+,?，{n}，{n,}，{n,m}）后面时，匹配模式是非贪婪的。非贪婪模式尽可能少的匹配所搜索的字符串，而默认的贪婪模式则尽可能多的匹配所搜索的字符串。例如，对于字符串 “oooo”，“o+?” 将匹配单个 “o”，而 “o+” 将匹配所有 “o”。 |
-  | .         | **匹配除 “\n” 之外的任何单个字符**。要匹配包括 “\n” 在内的任何字符，请使用像 “(.\|\n)” 的模式。 |
-  | (pattern) | **匹配 pattern 并获取这一匹配的子字符串**。该子字符串用于向后引用。要匹配圆括号字符，请使用 “\(” 或 “\)”。 |
-  | x\|y      | **匹配 x 或 y**。例如，“z\|food” 能匹配 “z” 或 “food”。“(z\|f) ood” 则匹配 “zood” 或 “food”。 |
-  | [xyz]     | 字符集合（character class）。**匹配所包含的任意一个字符**。例如，“[abc]” 可以匹配 “plain” 中的 “a”。其中特殊字符仅有反斜线 \ 保持特殊含义，用于转义字符。其它特殊字符如星号、加号、各种括号等均作为普通字符。脱字符 ^ 如果出现在首位则表示负值字符集合；如果出现在字符串中间就仅作为普通字符。**连字符 -如果出现在字符串中间表示字符范围描述；如果出现在首位则仅作为普通字符。** |
-  | [^xyz]    | 排除型（negate）字符集合。**匹配未列出的任意字符。**例如，`[^abc]`可以匹配 “plain” 中的 “plin”。 |
-  | [a-z]     | 字符范围。**匹配指定范围内的任意字符。**例如，“[a-z]” 可以匹配 “a” 到 “z” 范围内的任意小写字母字符。 |
-  | [^a-z]    | 排除型的字符范围。**匹配任何不在指定范围内的任意字符**。例如，`[^a-z]`”可以匹配任何不在 “a” 到 “z” 范围内的任意字符。 |
-
-  #### 优先级
-
-  优先级为从上到下从左到右，依次降低：
-
-  | 运算符                    | 说明         |
-  | ------------------------- | ------------ |
-  | \                         | 转义符       |
-  | (), (?:), (?=), []        | 括号和中括号 |
-  | *、+、?、{n}、{n,}、{n,m} | 限定符       |
-  | ^、$、\ 任何元字符        | 定位点和序列 |
-  | \|                        | 选择         |
-
-  更多正则表达式的内容可以参考以下链接：
-
-  - [正则表达式 wiki](http://zh.wikipedia.org/wiki/%E6%AD%A3%E5%88%99%E8%A1%A8%E8%BE%BE%E5%BC%8F)
-  - [几种正则表达式引擎的语法差异](http://www.greenend.org.uk/rjk/tech/regexp.html)
-  - [各语言各平台对正则表达式的支持](http://en.wikipedia.org/wiki/Comparison_of_regular_expression_engines)
-
-  regex 的思导图：
-
-  ![img](https://doc.shiyanlou.com/linux_base/RegularExpression.png/wm)
-
-### grep 模式匹配命令
-
-- `grep` 命令用于打印输出文本中匹配的模式串，它使用正则表达式作为模式匹配的条件。`grep` 支持三种正则表达式引擎，分别用三个参数指定：
-
-  | 参数 | 说明                      |
-  | ---- | ------------------------- |
-  | `-E` | POSIX 扩展正则表达式，ERE |
-  | `-G` | POSIX 基本正则表达式，BRE |
-  | `-P` | Perl 正则表达式，PCRE     |
-
-  一般没学 perl 语言，只会用到 `ERE` 和 `BRE`, 所以不讨论 PCRE 中特有的一些正则表达式语法（它们之间大部分内容是存在交集的，所以你不用担心会遗漏多少重要内容）
-
-  在通过 `grep` 命令使用正则表达式之前，先介绍一下它的常用参数：
-
-  | 参数           | 说明                                                         |
-  | -------------- | ------------------------------------------------------------ |
-  | `-b`           | 将二进制文件作为文本来进行匹配                               |
-  | `-c`           | 统计以模式匹配的数目                                         |
-  | `-i`           | 忽略大小写                                                   |
-  | `-n`           | 显示匹配文本所在行的行号                                     |
-  | `-v`           | 反选，输出不匹配行的内容                                     |
-  | `-r`           | 递归匹配查找                                                 |
-  | `-A n`         | n 为正整数，表示 after 的意思，除了列出匹配行之外，还列出后面的 n 行 |
-  | `-B n`         | n 为正整数，表示 before 的意思，除了列出匹配行之外，还列出前面的 n 行 |
-  | `--color=auto` | 将输出中的匹配项设置为自动颜色显示                           |
-
-  > 注：在大多数发行版中是默认设置了 grep 的颜色的，你可以通过参数指定或修改 `GREP_COLOR` 环境变量。
-
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0t3nytohhj30jy0hb778.jpg)
-
-- #### 使用基本正则表达式，BRE
-
-  - 位置
-
-  查找 `/etc/group` 文件中以 "shiyanlou" 为开头的行
-
-  ```
-  $ grep 'shiyanlou' /etc/group
-  $ grep '^shiyanlou' /etc/group
-  ```
-
-  - 数量
-
-  ```
-  # 将匹配以'z'开头以'o'结尾的所有字符串
-  $ echo 'zero\nzo\nzoo' | grep 'z.*o'
-  # 将匹配以'z'开头以'o'结尾，中间包含一个任意字符的字符串
-  $ echo 'zero\nzo\nzoo' | grep 'z.o'
-  # 将匹配以'z'开头,以任意多个'o'结尾的字符串
-  $ echo 'zero\nzo\nzoo' | grep 'zo*'
-  ```
-
-  注意：其中 `\n` 为换行符
-
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0t46ow8w8j30k208bdhm.jpg)
-
-  - 选择
-
-  ```
-  # grep默认是区分大小写的，这里将匹配所有的小写字母
-  $ echo '1234\nabcd' | grep '[a-z]'
-  # 将匹配所有的数字
-  $ echo '1234\nabcd' | grep '[0-9]'
-  # 将匹配所有的数字
-  $ echo '1234\nabcd' | grep '[[:digit:]]'
-  # 将匹配所有的小写字母
-  $ echo '1234\nabcd' | grep '[[:lower:]]'
-  # 将匹配所有的大写字母
-  $ echo '1234\nabcd' | grep '[[:upper:]]'
-  # 将匹配所有的字母和数字，包括0-9,a-z,A-Z
-  $ echo '1234\nabcd' | grep '[[:alnum:]]'
-  # 将匹配所有的字母
-  $ echo '1234\nabcd' | grep '[[:alpha:]]'
-  ```
-
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0t46zccpbj30jv0da0wb.jpg)
-
-  下面包含完整的特殊符号及说明：
-
-  | 特殊符号     | 说明                                                         |
-  | ------------ | ------------------------------------------------------------ |
-  | `[:alnum:]`  | 代表英文大小写字母及数字，亦即 0-9, A-Z, a-z                 |
-  | `[:alpha:]`  | 代表任何英文大小写字母，亦即 A-Z, a-z                        |
-  | `[:blank:]`  | 代表空白键与 [Tab] 按键两者                                  |
-  | `[:cntrl:]`  | 代表键盘上面的控制按键，亦即包括 CR, LF, Tab, Del.. 等等     |
-  | `[:digit:]`  | 代表数字而已，亦即 0-9                                       |
-  | `[:graph:]`  | 除了空白字节 (空白键与 [Tab] 按键) 外的其他所有按键          |
-  | `[:lower:]`  | 代表小写字母，亦即 a-z                                       |
-  | `[:print:]`  | 代表任何可以被列印出来的字符                                 |
-  | `[:punct:]`  | 代表标点符号 (punctuation symbol)，亦即：" ' ? ! ; : # $...  |
-  | `[:upper:]`  | 代表大写字母，亦即 A-Z                                       |
-  | `[:space:]`  | 任何会产生空白的字符，包括空白键，[Tab], CR 等等             |
-  | `[:xdigit:]` | 代表 16 进位的数字类型，因此包括： 0-9, A-F, a-f 的数字与字节 |
-
-  > **注意**：之所以要使用特殊符号，是因为上面的 [a-z] 不是在所有情况下都管用，这还与主机当前的语系有关，即设置在 `LANG` 环境变量的值，zh_CN.UTF-8 的话 [a-z]，即为所有小写字母，其它语系可能是大小写交替的如，"a A b B...z Z"，[a-z] 中就可能包含大写字母。所以在使用 [a-z] 时请确保当前语系的影响，使用 [:lower:] 则不会有这个问题。
-
-  ```
-  # 排除字符
-  $ $ echo 'geek\ngood' | grep '[^o]'
-  ```
-
-  > **注意:** 当 `^` 放到中括号内为排除字符，否则表示行首。
-
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0t4l4fj0jj30jv05ymym.jpg)
-
-- **使用扩展正则表达式，ERE**
-
-  要通过 `grep` 使用扩展正则表达式需要加上 `-E` 参数，或使用 `egrep`。
-
-  - 数量
-
-  ```
-  # 只匹配"zo"
-  $ echo 'zero\nzo\nzoo' | grep -E 'zo{1}'
-  # 匹配以"zo"开头的所有单词
-  $ echo 'zero\nzo\nzoo' | grep -E 'zo{1,}'
-  ```
-
-  > **注意：**推荐掌握 `{n,m}` 即可，`+`,`?`,`*`，这几个不太直观，且容易弄混淆。
-
-  - 选择
-
-  ```
-  # 匹配"www.shiyanlou.com"和"www.google.com"
-  $ echo 'www.shiyanlou.com\nwww.baidu.com\nwww.google.com' | grep -E 'www\.(shiyanlou|google)\.com'
-  # 或者匹配不包含"baidu"的内容
-  $ echo 'www.shiyanlou.com\nwww.baidu.com\nwww.google.com' | grep -Ev 'www\.baidu\.com'
-  ```
-
-  > **注意：**因为`.` 号有特殊含义，所以需要转义。
-
-  ![此处输入图片的描述](https://doc.shiyanlou.com/document-uid735639labid354timestamp1532415579510.png/wm)
-
-### sed 流编辑器
-
-- `sed` 工具在 man 手册里面的全名为 "sed - stream editor for filtering and transforming text "，意即，用于过滤和转换文本的流编辑器。
-
-- 在 Linux/UNIX 的世界里敢称为编辑器的工具，大都非等闲之辈，比如前面的 "vi/vim (编辑器之神)","emacs (神的编辑器)","gedit" 这些个编辑器。`sed` 与上述的最大不同之处在于它是一个非交互式的编辑器，下面我们就开始介绍 `sed` 这个编辑器。
-
-- sed 命令基本格式：
-
-  ```
-  sed [参数]... [执行命令] [输入文件]...
-  # 形如：
-  $ sed -i 's/sad/happy/' test # 表示将test文件中的"sad"替换为"happy"
-  ```
-
-  | 参数          | 说明                                                         |
-  | ------------- | ------------------------------------------------------------ |
-  | `-n`          | 安静模式，只打印受影响的行，默认打印输入数据的全部内容       |
-  | `-e`          | 用于在脚本中添加多个执行命令一次执行，在命令行中执行多个命令通常不需要加该参数 |
-  | `-f filename` | 指定执行 filename 文件中的命令                               |
-  | `-r`          | 使用扩展正则表达式，默认为标准正则表达式                     |
-  | `-i`          | 将直接修改输入文件内容，而不是打印到标准输出设备             |
-
-- sed 执行命令格式：
-
-  ```
-  [n1][,n2]command
-  [n1][~step]command
-  # 其中一些命令可以在后面加上作用范围，形如：
-  $ sed -i 's/sad/happy/g' test # g表示全局范围
-  $ sed -i 's/sad/happy/4' test # 4表示指定行中的第四个匹配字符串
-  ```
-
-  其中 n1,n2 表示输入内容的行号，它们之间为 `,` 逗号则表示从 n1 到 n2 行，如果为`～`波浪号则表示从 n1 开始以 step 为步进的所有行；command 为执行动作，下面为一些常用动作指令：
-
-  | 命令 | 说明                                 |
-  | ---- | ------------------------------------ |
-  | `s`  | 行内替换                             |
-  | `c`  | 整行替换                             |
-  | `a`  | 插入到指定行的后面                   |
-  | `i`  | 插入到指定行的前面                   |
-  | `p`  | 打印指定行，通常与 `-n` 参数配合使用 |
-  | `d`  | 删除指定行                           |
-
-- sed 操作举例
-
-  我们先找一个用于练习的文本文件：
-
-  ```
-  $ cp /etc/passwd ~
-  ```
-
-  #### 打印指定行
-
-  ```
-  # 打印2-5行
-  $ nl passwd | sed -n '2,5p'
-  # 打印奇数行
-  $ nl passwd | sed -n '1~2p'
-  ```
-
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0t536sro0j30k10j2q9i.jpg)
-
-  #### 行内替换
-
-  ```
-  # 将输入文本中"shiyanlou" 全局替换为"hehe",并只打印替换的那一行，注意这里不能省略最后的"p"命令
-  $ sed -n 's/shiyanlou/hehe/gp' passwd
-  ```
-
-  > **注意：** 行内替换可以结合正则表达式使用。
-
-  #### 行间替换
-
-  ```
-  $ nl passwd | grep "shiyanlou"
-  # 删除第21行
-  $ sed -n '21c\www.shiyanlou.com' passwd
-  （这里我们只把要删的行打印出来了，并没有真正的删除，如果要删除的话，请使用-i参数）
-  ```
-
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0t545sw3lj30h303o3yf.jpg)
-
-  关于 sed 命令就介绍这么多，你如果希望了解更多 sed 的高级用法，你可以参看如下链接：
-
-  - [sed 简明教程](http://coolshell.cn/articles/9104.html)
-  - [sed 单行脚本快速参考](http://sed.sourceforge.net/sed1line_zh-CN.html)
-  - [sed 完全手册](http://www.gnu.org/software/sed/manual/sed.html)
-
-### awk 文本处理工具
-
-- `AWK` 是一种优良的文本处理工具，Linux 及 Unix 环境中现有的功能最强大的数据处理引擎之一。其名称得自于它的创始人 Alfred Aho（阿尔佛雷德・艾侯）、Peter Jay Weinberger（彼得・温伯格）和 Brian Wilson Kernighan（布莱恩・柯林汉) 姓氏的首个字母.AWK 程序设计语言，三位创建者已将它正式定义为 “样式扫描和处理语言”。它允许您创建简短的程序，这些程序读取输入文件、为数据排序、处理数据、对输入执行计算以及生成报表，还有无数其他的功能。最简单地说，AWK 是一种用于处理文本的编程语言工具。
-
-- 在大多数 linux 发行版上面，实际我们使用的是 gawk（GNU awk，awk 的 GNU 版本），在我们的环境中 ubuntu 上，默认提供的是 mawk，不过我们通常可以直接使用 awk 命令（awk 语言的解释器），因为系统已经为我们创建好了 awk 指向 mawk 的符号链接。
-
-  ```
-  $ ll /usr/bin/awk
-  ```
-
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0t5gzhklnj30jt04omyl.jpg)
-
-  > nawk： 在 20 世纪 80 年代中期，对 awk 语言进行了更新，并不同程度地使用一种称为 nawk (new awk) 的增强版本对其进行了替换。许多系统中仍然存在着旧的 awk 解释器，但通常将其安装为 oawk (old awk) 命令，而 nawk 解释器则安装为主要的 awk 命令，也可以使用 nawk 命令。Dr. Kernighan 仍然在对 nawk 进行维护，与 gawk 一样，它也是开放源代码的，并且可以免费获得； gawk： 是 GNU Project 的 awk 解释器的开放源代码实现。尽管早期的 GAWK 发行版是旧的 AWK 的替代程序，但不断地对其进行了更新，以包含 NAWK 的特性； mawk 也是 awk 编程语言的一种解释器，mawk 遵循 POSIX 1003.2 （草案 11.3）定义的 AWK 语言，包含了一些没有在 AWK 手册中提到的特色，同时 mawk 提供一小部分扩展，另外据说 mawk 是实现最快的 awk
-
-- awk 所有的操作都是基于 pattern (模式)—action (动作) 对来完成的，如下面的形式：
-
-  ```
-  $ pattern {action}
-  ```
-
-  你可以看到就如同很多编程语言一样，它将所有的动作操作用一对 `{}` 花括号包围起来。其中 pattern 通常是表示用于匹配输入的文本的 “关系式” 或 “正则表达式”，action 则是表示匹配后将执行的动作。在一个完整 awk 操作中，这两者可以只有其中一个，如果没有 pattern 则默认匹配输入的全部文本，如果没有 action 则默认为打印匹配内容到屏幕。
-
-  `awk` 处理文本的方式，是将文本分割成一些 “字段”，然后再对这些字段进行处理，默认情况下，awk 以空格作为一个字段的分割符，不过这不是固定的，你可以任意指定分隔符，下面将告诉你如何做到这一点。
-
-- awk 命令基本格式
-
-  ```
-  awk [-F fs] [-v var=value] [-f prog-file | 'program text'] [file...]
-  ```
-
-  其中 `-F` 参数用于预先指定前面提到的字段分隔符（还有其他指定字段的方式） ，`-v` 用于预先为 `awk` 程序指定变量，`-f`参数用于指定 `awk` 命令要执行的程序文件，或者在不加 `-f`参数的情况下直接将程序语句放在这里，最后为 `awk` 需要处理的文本输入，且可以同时输入多个文本文件。现在我们还是直接来具体体验一下吧。
-
-  先用 vim 新建一个文本文档
-
-  ```
-  $ vim test
-  ```
-
-  包含如下内容：
-
-  ```
-  I like linux
-  www.shiyanlou.com
-  ```
-
-  - 使用 awk 将文本内容打印到终端
-
-  ```
-  # "quote>" 不用输入
-  $ awk '{
-  > print
-  > }' test
-  # 或者写到一行
-  $ awk '{print}' test
-  ```
-
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0t5t926x1j30k3076dhh.jpg)
-
-  说明：在这个操作中我是省略了 `pattern`，所以 `awk` 会默认匹配输入文本的全部内容，然后在 "{}" 花括号中执行动作，即 `print` 打印所有匹配项，这里是全部文本内容
-
-  - 将 test 的第一行的每个字段单独显示为一行
-
-  ```
-  $ awk '{
-  > if(NR==1){
-  > print $1 "\n" $2 "\n" $3
-  > } else {
-  > print}
-  > }' test
-  
-  # 或者
-  $ awk '{
-  > if(NR==1){
-  > OFS="\n"
-  > print $1, $2, $3
-  > } else {
-  > print}
-  > }' test
-  ```
-
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0t5tgsenmj30jw08gmyt.jpg)
-
-  说明：你首先应该注意的是，这里我使用了 `awk` 语言的分支选择语句 `if`, 它的使用和很多高级语言如 `C/C++` 语言基本一致，如果你有这些语言的基础，这里将很好理解。另一个你需要注意的是 `NR` 与 `OFS`，这两个是 `awk` 内建的变量，`NR` 表示当前读入的记录数，你可以简单的理解为当前处理的行数，`OFS` 表示输出时的字段分隔符，默认为 " " 空格，如上图所见，我们将字段分隔符设置为 `\n` 换行符，所以第一行原本以空格为字段分隔的内容就分别输出到单独一行了。然后是 `$N` 其中 N 为相应的字段号，这也是 `awk` 的内建变量，它表示引用相应的字段，因为我们这里第一行只有三个字段，所以只引用到了 `$3`。除此之外另一个这里没有出现的 `$0`，它表示引用当前记录（当前行）的全部内容。
-
-  - 将 test 的第二行的以点为分段的字段换成以空格为分隔
-
-  ```
-  $ awk -F'.' '{
-  > if(NR==2){
-  > print $1 "\t" $2 "\t" $3
-  > }}' test
-  
-  # 或者
-  $ awk '
-  > BEGIN{
-  > FS="."
-  > OFS="\t"  # 如果写为一行，两个动作语句之间应该以";"号分开  
-  > }{
-  > if(NR==2){
-  > print $1, $2, $3
-  > }}' test
-  ```
-
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0t5v7nqk7j30k307utac.jpg)
-
-  说明：这里的 `-F` 参数，前面已经介绍过，它是用来预先指定待处理记录的字段分隔符。我们需要注意的是除了指定 `OFS` 我们还可以在 `print` 语句中直接打印特殊符号如这里的 `\t`，**print 打印的非变量内容都需要用 "" 一对引号包围起来**。上面另一个版本，展示了实现预先指定变量分隔符的另一种方式，即使用 `BEGIN`，就这个表达式指示了，其后的动作将在所有动作之前执行，这里是 `FS` 赋值了新的 "." 点号代替默认的 " " 空格
-
-  **注意**: 首先说明一点，我们在学习和使用 awk 的时候应该尽可能将其作为一门程序语言来理解，这样将会使你学习起来更容易，所以初学阶段在练习 `awk` 时应该尽量按照我那样的方式分多行按照一般程序语言的换行和缩进来输入，而不是全部写到一行（当然这在你熟练了之后是没有任何问题的）。
-
-- awk 常用的内置变量
-
-  | 变量名     | 说明                                                         |
-  | ---------- | ------------------------------------------------------------ |
-  | `FILENAME` | 当前输入文件名，若有多个文件，则只表示第一个。如果输入是来自标准输入，则为空字符串 |
-  | `$0`       | 当前记录的内容                                               |
-  | `$N`       | N 表示字段号，最大值为 `NF` 变量的值                         |
-  | `FS`       | 字段分隔符，由正则表达式表示，默认为 " " 空格                |
-  | `RS`       | 输入记录分隔符，默认为 "\n"，即一行为一个记录                |
-  | `NF`       | 当前记录字段数                                               |
-  | `NR`       | 已经读入的记录数                                             |
-  | `FNR`      | 当前输入文件的记录数，请注意它与 NR 的区别                   |
-  | `OFS`      | 输出字段分隔符，默认为 " " 空格                              |
-  | `ORS`      | 输出记录分隔符，默认为 "\n"                                  |
-
-  参看一下链接内容：
-
-  - [awk 程序设计语言](http://awk.readthedocs.org/en/latest/chapter-one.html)
-  - [awk 简明教程](http://coolshell.cn/articles/9070.html)
-  - [awk 用户指南](http://www.gnu.org/software/gawk/manual/gawk.html)
-
-### 挑战：数据提取
-
-介绍
-
-小明在做数据分析的时候需要提取文件中关于数字的部分，同时还要提取用户的邮箱部分，但是有的行不是数组也不是邮箱，现在需要你在 data2 这个文件中帮助他用正则表达式匹配出数字部分和邮箱部分。
-
-数据文件可以使用以下命令下载：
-
-```
-$ cd /home/shiyanlou
-$ wget http://labfile.oss.aliyuncs.com/courses/1/data2
-```
-
-下载后的数据文件路径为 `/home/shiyanlou/data2`。
-
-目标
-
-1. 在文件 `/home/shiyanlou/data2` 中匹配数字开头的行，将所有以数字开头的行都写入 `/home/shiyanlou/num` 文件。
-2. 在文件 `/home/shiyanlou/data2` 中匹配出正确格式的邮箱，将所有的邮箱写入 `/home/shiyanlou/mail` 文件，注意该文件中每行为一个邮箱。
-
-提示
-
-1. 邮箱的格式匹配
-2. 注意符号 `.` 的处理
-
-来源：2016 年 TapFun 校招面试题
-
-我的答案
-
-```
-shiyanlou:~/ $ cat data2 | grep '^[0-9]' > num
-shiyanlou:~/ $ cat data2 | grep -E '@.{1,}\.com' > mail
-shiyanlou:~/ $ cat data2 | grep -E '@.+\.com' > mail
-```
-
-​	思考：邮箱的匹配有点问题，`@`前一定要有东西，`.`hou的域名不一定非要是com
-
-参考答案
-
-```
-grep '^[0-9]' /home/shiyanlou/data2 > /home/shiyanlou/num
-
-grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data2 > /home/shiyanlou/mail
-```
 
 ## 13、Linux 安装与管理软件
 
