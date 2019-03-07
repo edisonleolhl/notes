@@ -8,19 +8,28 @@
 
 > 4、Linux 文件系统管理
 
-> 5、Linux LVM 配置
+> 5、Linux 任务计划 crontab
 
-> 6、Linux 网络管理
+> 6、Linux 命令执行顺序、管道、文本处理命令、I/O重定向
 
-> 7、Linux 进程与任务管理
+> 7、Linux 三剑客——grep、sed、awk
 
-> 8、Linux 系统监控
+> 8、Linux 进程与任务管理
 
-> 9、Linux 管道与I/O重定向
+> 9、Linux 日志系统
 
-> 10、Linux 安装与管理软件
+> 10、Linux 文件系统管理
+
+> 11、Linux LVM 配置
+
+> 12、Linux 网络管理
+
+> 13、Linux 系统监控
+
+> 14、Linux 安装与管理软件
 
 ##1、Linux 系统概述
+
 1. Linux 的发展：离不开它的前身 Unix
   
 	- Unix 的发展：
@@ -3170,7 +3179,7 @@ grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data
 
   当然在 /etc/logrotate.d/ 中有各项应用的 logrotate 配置，还有更多的配置参数，可以参考 man 帮助文档
 
-##6、Linux 文件系统管理
+##10、Linux 文件系统管理
 
 1. 文件系统的概念：操作系统用于明确存储和组织计算机数据的方法，使得对数据的查找和访问变得更加容易。用户不需要关心文件位于d硬盘的数据块地址。
 
@@ -3246,7 +3255,7 @@ grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data
   
 	- e2fsck：检查和修复 ext2 和 ext3 文件系统
 
-##7、Linux LVM 配置
+##11、Linux LVM 配置
 LVM：Logical Volume Manager
 
 - 传统：文件系统构建在物理分区（PP：physical partition）之上，物理分区的大小直接决定了文件系统的容量。LVM：使文件系统的调节更简便，搭配 RAID 做容错
@@ -3358,7 +3367,7 @@ LVM：Logical Volume Manager
 
 	> 注意 lvextend -l +128 与 lvextend -L +128M 的区别。一个是增加128个PE，一个是增加128MB
 
-##8、Linux 网络管理
+##12、Linux 网络管理
 - ifconfig [接口]：查看IP地址，广播地址，网口掩码
 
 	> windowns 中用 ipconfig
@@ -3431,7 +3440,7 @@ LVM：Logical Volume Manager
 
 - - 
 
-##10、Linux 系统监控
+##13、Linux 系统监控
 - 监控系统启动日志
 
 	想要查看启动信息，调用命令 dmesg|less，或者查看 /var/log/boot.msg 日志
@@ -3502,7 +3511,7 @@ LVM：Logical Volume Manager
 
 
 
-## 13、Linux 安装与管理软件
+## 14、Linux 安装与管理软件
 
 - 通常 Linux 上的软件安装主要有四种方式：
 
