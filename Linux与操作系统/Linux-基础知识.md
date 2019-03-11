@@ -431,6 +431,7 @@ Linux 通过 UID 和 GID 来管理用户和用户组
   - `cp /etc/passwd /tmp/.` ：在/tmp目录下，相同名称拷贝，与上结果一样
   - `cp /etc/passwd .` ：在当前文件夹下，相同名称拷贝一份
   - `cp -r father family`：把 father 目录复制到 family 目录中，复制目录要加参数 `-r`
+  - `cp -rf father family`；不询问，默认全部文件都覆盖，**极度危险**
 
 - 移动文件或目录（对父目录具备写权限）：mv 源文件或目录 目的文件或目录
   - `mv /tmp/passwd /tmp/abc` ：这种写法用来更改文件名称
@@ -442,11 +443,31 @@ Linux 通过 UID 和 GID 来管理用户和用户组
 
   > -name 以指定字符串开头的文件名  
   >
-  > -user 查找指定用户所拥有的文件。
+  > -user 查找指定用户所拥有的文件
 
   `rm -r family`：删除目录要加参数 `-r
 
-### 查看文件内容：
+- 链接文件
+
+   用处：编程时经常用到，通过连接文件（快捷方式）解决了文件的共享
+
+   `ln -s /home/xxx/testfile /home/testfile`
+
+   > ### Linux 文件管理特性
+   >
+   > 文件都有文件名与数据，在 Linux 上被分成两个部分：用户数据     (user data) 与元数据 (metadata)。
+   >
+   > 用户数据，即文件数据块 (data block)，数据块是记录文件真实内容的地方，元数据则是文件的附加属性，如文件大小、创建时间、所有者等信息。
+   >
+   > 在 Linux 中元数据中的 inode 号（inode 是文件元数据一部分但其并不    包含文件名，inode 号即索引节点号）才是文件的唯一标识而非文件名。文件名仅是为了方便人的记忆和使用，系统或程序通过 inode 号找    正确文件数据块。
+   >
+   > ### 为什么会有链接文件
+   >
+   > 为解决文件的共享使用，Linux 系统引入了链接，链接为 Linux 系统解决了文件的共享使用，还带来了隐藏文件路径、增加权限安全及节省存储等好处。创建链接文件可以给文件和目录创建替代名或别名。
+   >
+   > 关于软连接与硬链接的区别，可以参考：http://www.maiziedu.com/wiki/linux/link/
+
+### 查看文件内容
 
 - cat：直接查阅文件内容，不能翻页，正序
 
@@ -3731,6 +3752,8 @@ LVM：Logical Volume Manager
   ```
 
   ![](http://ww1.sinaimg.cn/large/005GdKShly1g0td15m9haj30kl0hu78q.jpg)
+
+### RPM 安装
 
 - RPM：redhat package manager
 
