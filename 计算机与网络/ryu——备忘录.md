@@ -244,7 +244,7 @@
 
   	用到了 networkx 模块的 shortest_simple_paths(G, source, target, weight=None) 函数，介绍：https://networkx.github.io/documentation/stable/reference/algorithms/generated/networkx.algorithms.simple_paths.shortest_simple_paths.html#networkx-algorithms-simple-paths-shortest-simple-paths
 
----
+### 重难点：限流
 
 用户选路的问题解决了，但是如何用 QOS 限流？ example 跑的结果符合预期，但是放在自己的 app 和 topo 中，一直没有体现出 example 里的效果，肯定是哪里没有理解对，需要小小的修改一些地方。
 
@@ -520,7 +520,6 @@ index 9fe72ed..6e750e6 100644
 
 ![mark](http://ph166fnv2.bkt.clouddn.com/blog/181113/bB9CAa34a9.png?imageslim)
 
-
 ---
 
 2.24返工
@@ -532,6 +531,12 @@ index 9fe72ed..6e750e6 100644
  > sh xx.sh
 
 有很多命令需要在c0终端输入，所以创建了几个sh文件供c0终端执行，最后的结果：verifying the setting通过，但是ryu应用终端还是在flow那里报错了，最后也没法限流，两个端口的流量都是1Mbit/s，很奇怪，因为这个是execute setting of queue那节中给s1-eth1的最大速率，那也就是说，queue实现了基础的最大速率限制，但没有queue0和queue1的QoS保障？
+
+```
+后来才知道iperf -u 默认带宽就是1Mbit/s
+```
+
+
 
 查看rest_qos.py，发现有许多地方都牵涉到了REST_DL_TYPE，而mailing list中给的解决方案并没有在所有REST_DL_TYPE的地方添加lldp变量，难道flow仍然报错是因为这个原因吗？退一万步讲，如果我不做时延检测了，那也就不需要修改lldp了，是否可以不报错而成功实现QoS限流呢？不急，教程中还有其他两个QoS实现手段：[using-diffserv](http://osrg.github.io/ryu-book/en/html/rest_qos.html#example-of-the-operation-of-qos-by-using-diffserv)、[using-meter-table](http://osrg.github.io/ryu-book/en/html/rest_qos.html#example-of-the-operation-of-qos-by-using-meter-table)，而且example中有多个switch，正好与sw5host拓扑类似。
 
@@ -546,7 +551,7 @@ index 9fe72ed..6e750e6 100644
 
 2.26返工
 
-复现原来的场景：network app + sw5host3，发现h1-h2ping不通，但h1-h3能ping通，估计又是玄学bug，总结一下解决流程：
+复现原来的场景：network app + sw5host3，发现h1-h2ping不通，但h1-h3能ping通，估计又是玄学bug，总结一下解决流程（一般前两步就ok了）：
     
   - 关闭mininet，清除缓存
 
@@ -567,3 +572,210 @@ index 9fe72ed..6e750e6 100644
     sudo mn --controller=remote --mac --switch ovs,protocols=OpenFlow13 --link tc --nat
 
  即使报flow错也可以限流.
+
+---
+
+5.8 返工
+
+rest_qos.py加入了两处lldp支持代码，回到之前的进度：两个 API 都可用，network app + 默认拓扑（sw1host2且带nat参数）在“verifying the setting”报flow错，但可限流，但是如果network app+sw5host3 就无法限流
+
+尝试用ovs限流，先用network app+默认拓扑试试，找到一篇文章：<https://www.sdnlab.com/19208.html>，ovs的QoS分为流量管制与流量整型
+
+#### 流量整型（traffic shaping）
+
+根据这篇文章的做法，h1----eth1-s1-eth2----h2，在s1-eth1上做shaping（整型），也就是s1-eth1作为出口时，流量整型了，具体对应：iperf udp，h1作为服务器端，h2作为客户端，这时s1-eth1才是出口整型，**反过来，若h1作为客户端，h2作为服务器端，s1-eth1是入口，不会限流！**
+
+还是network app+sw1host2仿照文章的做法，可以创建两条queue，其中一条是默认的，最大带宽1M，添加流表项：当数据包参数匹配时走另一条queue，最大带宽100K：
+
+```
+ovs-vsctl set port s1-eth1 qos=@newqos -- --id=@newqos create qos type=linux-htb queues=0=@q0,1=@q1 -- --id=@q0 create queue other-config:max-rate=1000000 -- --id=@q1 create queue other-config:max-rate=100000
+```
+
+可查看queue：
+
+```
+root@ubuntu:/home/lhl/Desktop/network# ovs-vsctl list queue
+_uuid               : fec5f7e5-9cc0-4032-9eba-9d23b68bf252
+dscp                : []
+external_ids        : {}
+other_config        : {max-rate="1000000"}
+
+_uuid               : ff52982d-2b05-492a-9f2f-bdf26257364f
+dscp                : []
+external_ids        : {}
+other_config        : {max-rate="100000"}
+```
+
+也可查看qos，注意到queues那行的“0=fe...”、“1=ff...”，正好对应上面的queue uuid：
+
+```
+root@ubuntu:/home/lhl/Desktop/network# ovs-vsctl list qos
+_uuid               : 98a10c49-6b68-4051-a7e4-d77c19e82fe2
+external_ids        : {}
+other_config        : {}
+queues              : {0=fec5f7e5-9cc0-4032-9eba-9d23b68bf252, 1=ff52982d-2b05-492a-9f2f-bdf26257364f}
+type                : linux-htb
+```
+
+还可查看port，注意到qos那行的值是以“98a10c49”开头的，正好对应上面的qos uuid：
+
+```
+root@ubuntu:/home/lhl/Desktop/network# ovs-vsctl list port
+_uuid               : 08665b7a-f0a5-40fc-9d9f-0960ba1e9ec4
+bond_active_slave   : []
+bond_downdelay      : 0
+bond_fake_iface     : false
+bond_mode           : []
+bond_updelay        : 0
+external_ids        : {}
+fake_bridge         : false
+interfaces          : [48a7807b-15c5-4421-bd17-ed0aa3350fcc]
+lacp                : []
+mac                 : []
+name                : "s1-eth1"
+other_config        : {}
+qos                 : 98a10c49-6b68-4051-a7e4-d77c19e82fe2
+rstp_statistics     : {}
+rstp_status         : {}
+statistics          : {}
+status              : {}
+tag                 : []
+trunks              : []
+vlan_mode           : []
+
+...#还有其他port，如s1-eth2
+```
+
+此时，若h2 udp 到h1，默认是走q0的，即最大带宽1M，mininet的xterm下用iperf工具测试的确是最大带宽1M。
+
+继续，添加流表项，若h2 udp 到h1的端口号是5002，则走q1，即最大带宽100K，这里要用到ovs的添加流表项命令:
+
+```
+root@ubuntu:/home/lhl/Desktop/network# ovs-ofctl -O openflow13 add-flow s1 udp,udp_dst=5002,actions=set_queue:1,normal
+```
+
+利用dump-flows命令查看一下：
+
+```
+root@ubuntu:/home/lhl/Desktop/network# ovs-ofctl -O openflow13 dump-flows s1
+OFPST_FLOW reply (OF1.3) (xid=0x2):
+ cookie=0x0, duration=1900.388s, table=0, n_packets=0, n_bytes=0, priority=65535,dl_dst=01:80:c2:00:00:0e,dl_type=0x88cc actions=CONTROLLER:65535
+ cookie=0x0, duration=1010.393s, table=0, n_packets=8515, n_bytes=12874680, udp,tp_dst=5002 actions=set_queue:1,NORMAL
+ cookie=0x0, duration=1900.388s, table=0, n_packets=15516, n_bytes=23315552, priority=0 actions=goto_table:1
+ cookie=0x0, duration=1900.477s, table=1, n_packets=105, n_bytes=15042, priority=0 actions=CONTROLLER:65535
+
+```
+
+继续用xterm的iperf工具测试，开两个h1终端，开两个h2终端，其中一对h2-h1用5001端口，另外一对h2-h1用5002端口，结果显示5001端口的带宽是1M，5002端口的带宽是100K，符合预期效果。
+
+> 前文提到过，这是出口的流量整形（traffic shaping），所以反过来h1-h2不受任何qos限制
+>
+> 而且发现流表项失效后（设置了hard_timeout），5002端口仍然限速100K，有点奇怪...
+
+---
+
+5.9 返工
+
+接下来用network app+sw5host3试试，s1的默认流表如下：
+
+```
+root@ubuntu:/home/lhl/Desktop/network# ovs-ofctl -O openflow13 dump-flows s1
+OFPST_FLOW reply (OF1.3) (xid=0x2):
+ cookie=0x0, duration=89.975s, table=0, n_packets=200, n_bytes=12000, priority=65535,dl_dst=01:80:c2:00:00:0e,dl_type=0x88cc actions=CONTROLLER:65535
+ cookie=0x0, duration=89.963s, table=0, n_packets=102, n_bytes=8316, priority=0 actions=goto_table:1
+ cookie=0x0, duration=90.003s, table=1, n_packets=64, n_bytes=4592, priority=0 actions=CONTROLLER:65535
+```
+
+仿照前文添加在s1-eth3（这是s1连接s2的端口）上添加两条queue，查询符合预期，但是h1到h3（这时h1到h3的路径就是最短跳数1-2-5）并没有限流，在s1-eth2（这是接入h2的端口）也添加两条queue，查询符合预期，但是h1-h2并没有限流
+
+> 在命令中添加“-O openflow13”参数即可解决以下报错：
+>
+> ```
+> 2019-05-09T02:48:44Z|00001|vconn|WARN|unix:/var/run/openvswitch/s1.mgmt: version negotiation failed (we support version 0x01, peer supports version 0x04)
+> ovs-ofctl: s1: failed to connect to socket (Broken pipe)
+> ```
+>
+> 还有，有时删除所有qos或queue时会报错：
+>
+> ```
+> root@ubuntu:/home/lhl/Desktop/network# ovs-vsctl -- --all destroy QoS
+> ovs-vsctl: transaction error: {"details":"cannot delete QoS row 53b3ba6b-cd47-40db-ba4e-563f235758f4 because of 1 remaining reference(s)","error":"referential integrity violation"}
+> root@ubuntu:/home/lhl/Desktop/network# ovs-vsctl -- --all destroy Queue
+> ovs-vsctl: transaction error: {"details":"cannot delete Queue row 4e0b0cac-07a7-4ec3-b84c-4ea44c4d49e8 because of 1 remaining reference(s)","error":"referential integrity violation"}
+> 
+> ```
+>
+> 这时可以指定某个端口的qos队列断开连接（利用clear命令）：
+>
+> ```
+> root@ubuntu:/home/lhl/Desktop/network# ovs-vsctl clear qos s1-eth4 queues
+> ```
+>
+> 这时再执行删除queue的指令不会报错：
+>
+> ````
+> root@ubuntu:/home/lhl/Desktop/network# ovs-vsctl -- --all destroy Queue
+> ````
+>
+> 但是删除qos时，发现还是有这个错误，根据--help参数可知clear命令：
+>
+> ```
+> clear TBL REC COL           clear values from COLumn in RECord in TBL
+> ```
+>
+> 这时可以把qos（column）从port（table）中清除，如下：
+>
+> ```
+> root@ubuntu:/home/lhl/Desktop/network# ovs-vsctl clear port s1-eth4 qos
+> ```
+>
+> 这时再用查询命令“ovs-vsctl list port s1-eth4”发现qos栏目为空，再删除qos就不会报错了：
+>
+> ```
+> root@ubuntu:/home/lhl/Desktop/network# ovs-vsctl destroy qos 53b3ba6b-cd47-40db-ba4e-563f235758f4
+> ```
+
+ryu book里的REST API其实就是把这些ovs的命令抽象成了API接口，按照文档的“Queue setting”，其实就是相当于如下命令：
+
+```
+ovs-vsctl set port s1-eth1 qos=@newqos -- --id=@newqos create qos type=linux-htb queues=0=@q0,1=@q1 -- --id=@q0 create queue other-config:max-rate=500000 -- --id=@q1 create queue other-config:min-rate=800000
+```
+
+“QoS Setting”就相当于如下命令：
+
+ ```
+ovs-ofctl -O openflow13 add-flow s1 udp,nw_dst=10.0.0.1,udp_dst=5002,actions=set_queue:1,normal
+ ```
+
+#### Policing 管制
+
+Policing 用于控制接口上接收分组（ingress）的速率，是一种简单的 QoS 的功能，通过简单的丢包机制实现接口速率的限制，它既可以作用于物理接口，也可以作用于虚拟接口；
+
+Shaping 是作用于接口上的出口流量（egress）策略，可以实现多个 QoS 队列，不同队列里面处理不同策略；
+
+**新突破！！！**流量管制有效，执行以下两个命令：
+
+```
+root@ubuntu:/home/lhl/Desktop/network# ovs-vsctl set interface s1-eth2 ingress_policing_rate=1000
+root@ubuntu:/home/lhl/Desktop/network# ovs-vsctl set interface s1-eth2 ingress_policing_burst=100
+```
+
+s1-eth2是接入h2的，无论是tcp还是udp，无论h2到h1还是h3，流量都被限制在了1M左右，但是这种是非常死板的，只是在入口时利用令牌桶算法丢弃了多余的数据包，也无法支持流表匹配功能，但现在的确可以限流了
+
+---
+
+5.14 返工
+
+#### 流量监控——sFlow
+
+上午想试试流量监控的，弄个可视化的图形出来，但是试了sFlowTrend和sFlow-rt，没成功。
+
+sFlowTrend是一款桌面应用，参考文章：<https://www.cnblogs.com/popsuper1982/p/3800583.html>，但Mininet加了nat参数就没法抓包，可能在port或者interface上有冲突，按照其他文章去设置port时会报错，于是放弃sFlowTrend。
+
+sFlow-rt使用的是服务器和客户端的架构，在浏览器打开后，可以看到一些统计信息，参考文章：<https://www.sdnlab.com/3760.html>、<https://www.sdnlab.com/15090.html>、<http://www.muzixing.com/pages/2014/11/21/sflowru-men-chu-she.html>，sFlow-rt貌似并没有显示带宽速率的可视化展示，于是放弃。
+
+最后决定不做流量监控了，反正到时候用iperf命令就可以展示限流效果。
+
+##### Python GUI—— pyqt 框架
+
+界面大概设计完了，能实现xterm h1打开时，知道是10.0.0.1的ip，非常好，接下里就是调用REST API！
