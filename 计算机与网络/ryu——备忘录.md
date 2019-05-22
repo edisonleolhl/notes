@@ -588,7 +588,7 @@ rest_qos.py加入了两处lldp支持代码，回到之前的进度：两个 API 
 还是network app+sw1host2仿照文章的做法，可以创建两条queue，其中一条是默认的，最大带宽1M，添加流表项：当数据包参数匹配时走另一条queue，最大带宽100K：
 
 ```
-ovs-vsctl set port s1-eth1 qos=@newqos -- --id=@newqos create qos type=linux-htb queues=0=@q0,1=@q1 -- --id=@q0 create queue other-config:max-rate=1000000 -- --id=@q1 create queue other-config:max-rate=100000
+ovs-vsctl set port s1-eth1 qos=@newqos -- --id=@newqos create qos type=linux-htb queues=0=@q0,1=@q1 -- --id=@q0 create queue other-config:max-rate=1000000 -- --id=@q1 create queue other-config:max-rate=100    000
 ```
 
 可查看queue：
@@ -762,6 +762,24 @@ root@ubuntu:/home/lhl/Desktop/network# ovs-vsctl set interface s1-eth2 ingress_p
 
 s1-eth2是接入h2的，无论是tcp还是udp，无论h2到h1还是h3，流量都被限制在了1M左右，但是这种是非常死板的，只是在入口时利用令牌桶算法丢弃了多余的数据包，也无法支持流表匹配功能，但现在的确可以限流了
 
+查看管制信息：
+
+```
+root@ubuntu:/home/lhl/Desktop/network# ovs-vsctl list interface s1-eth2
+_uuid               : 507d861a-8586-452e-bee8-91786544cdf8
+...
+ingress_policing_burst: 100
+ingress_policing_rate: 1000
+...
+```
+
+没有用管制的接口，burst与rate两行为0、0，故删除管制的方法就是把这两项置0：
+
+```
+root@ubuntu:/home/lhl/Desktop/network# ovs-vsctl set interface s1-eth2 ingress_policing_rate=0
+root@ubuntu:/home/lhl/Desktop/network# ovs-vsctl set interface s1-eth2 ingress_policing_burst=0
+```
+
 ---
 
 5.14 返工
@@ -776,6 +794,54 @@ sFlow-rt使用的是服务器和客户端的架构，在浏览器打开后，可
 
 最后决定不做流量监控了，反正到时候用iperf命令就可以展示限流效果。
 
-##### Python GUI—— pyqt 框架
+#### Python GUI—— pyqt 框架
 
 界面大概设计完了，能实现xterm h1打开时，知道是10.0.0.1的ip，非常好，接下里就是调用REST API！
+
+---
+
+5.15 返工
+
+继续美化界面，添加几个对用户友好的功能，当前用户（如h1）登录后，需要先选择目的主机，查询只会给出该用户到目的主机的路径，同时，选路的下拉框内容跟查询路径一致
+
+> 几个点要注意一下：
+>
+> 用 Python 的 requests 库发送 PUT 请求时，最开始的写法是这样的：
+>
+> ```
+> payload = {"dst_ip": dst_ip, "path": path}
+> response = requests.put(url, data=payload)
+> ```
+>
+> 这种写法，如果参数中有 `[`' 或者 `]`，会被转义成`%5B`与`%5D`，服务器端会报错，要改成下面这种：
+>
+> ```
+> payload = {"dst_ip": dst_ip, "path": path}
+> response = requests.put(url, data=json.dumps(payload))
+> ```
+>
+> 展示流量选路后的效果，在s2与s3交换机中用 tcpdump 命令监听数据包即可，因为 s2 与 s3 是两条路，调用选路 API 后，当前流量肯定只走其中一条，这就展示出来了选路效果，命令：
+>
+> ```
+> tcpdump -i s3-eth1 icmp
+> ```
+
+
+
+TODO：查询剩余带宽的 REST API ，GUI 上的限流功能
+
+---
+
+5.16 返工
+
+Mininet 创建拓扑时的带宽，不能在 network app 中获取到，所以必须要静态设定了，查询剩余带宽时，需要把选择的路径传过去，所以用POST请求，现在可以在服务器端获取到传入的参数，格式如下：
+
+```
+'10.0.0.1-->s1-->10.0.0.2
+```
+
+Pyqt5 框架的使用注意：
+
+- 如果在代码中多次绑定了事件，有可能按一下按钮会触发好几次action
+- 目前GUI界面逻辑：destination host 下拉框选择后（默认会选择一个），available path browser 清空，choose_path_layout 中的label、下拉框清空，query_bw_layout中的lcd、label、查询按钮清空，limit_bw_layout中的edit、label、button都清空，单击Query path 按钮后，这些控件全出现
+- 为了防止重复生成控件，点击 Query path 按钮后，要把 choose_path_layout 、query_bw_layout这三个 layout 中的控件全删除，再生成
