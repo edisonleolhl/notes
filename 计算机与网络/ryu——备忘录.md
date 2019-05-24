@@ -900,6 +900,39 @@ src_dpid   dst_dpid      delay
 ##### 改进
 
 - 两个lcdNumber的查询按钮太麻烦了，直接定义一个计时器，在点击query path按钮时开始计时，每秒发送两个REST API请求，更新两个lcdNumber的数据
-
 - 选择dst host的下拉框、点击query path按钮后，把计时器关闭
+
+##### 效果
+
+![](../image/GUI5.23.png)
+
+---
+
+5.24 返工
+
+在原来的GUI界面下方，添加对用户友好的指示界面
+
+时延越短（0.2s-0.3s），单价越贵，剩余带宽越小（0-50），单价越贵
+
+值域：unit_price的范围是1-10， 对于delay权重，范围是0.5-5，对于free_bw权重，范围是0.5-5
+
+```
+delay_factor = max(0.5, min(1/delay, 5))
+--0.2对应5.0
+--0.3对应3.33
+free_bw_factor = max(0.5, min(5/(free_bw*0.1), 5))
+--0对应5
+--50对应1.0
+unit_price = int(delay_factor + free_bw_factor)
+```
+
+##### 效果
+
+- 右边为模拟用户界面，一进入就查询通往h3（10.0.0.3）的所有路径（图中有两条），然后开启定时器，每三秒请求链路的delay与free bandwdith，实时更新 lcdNumber，后面的单价会根据定价公式更新
+- 下面的choose your charging plan的下拉框选择后，就会下发流表项改变路由规则
+- Edit框改变时，会触发事件，读取下拉框中的当前plan，找到对应的单价，单价乘以Edit框中的want bandwidth 数字，即为total lcdNumber的显示数目
+- total Lcdnumber 有三个触发时间，一个是改变了user want bandwidth edit，另一个是选择了choose charging plan的下拉框，还有一个是每三秒动态更新单价之后，满足这三种情况，total Lcdnumber 会更新一次
+- 最后的go button，就是为这条路限流，其实用的是QoS的管制，从接入交换机的入口就限流了，实际上与路径无关，但总之是可以有效果的
+
+![](../image/GUI5.24.png)
 
