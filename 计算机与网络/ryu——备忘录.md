@@ -936,3 +936,96 @@ unit_price = int(delay_factor + free_bw_factor)
 
 ![](../image/GUI5.24.png)
 
+---
+
+6.14
+
+把GUI左边的部分删除了，只保留右边，给用户使用的，修改了一个BUG：总价显示器仅在输入框改变时才触发事件，现在改为：输入框改变or当前方案单价显示器改变，触发总价显示器事件
+
+---
+
+6.15
+
+奇怪，控制器终端一直在报错，GUI打开是空白的
+
+```
+awareness: Exception occurred during handler processing. Backtrace from offending handler [_flow_stats_reply_handler] servicing event [EventOFPFlowStatsReply] follows.
+
+Traceback (most recent call last):
+  File "/usr/local/lib/python2.7/dist-packages/ryu/base/app_manager.py", line 290, in event_loop
+    handler(ev)
+  File "/home/lhl/Desktop/network/network.py", line 339, in _flow_stats_reply_handler
+    key = (stat.match['in_port'], stat.match['ipv4_dst'],
+  File "/usr/local/lib/python2.7/dist-packages/ryu/ofproto/ofproto_v1_3_parser.py", line 902, in getitem
+    return dict(self.fields2)[key]
+KeyError: 'ipv4_dst'
+
+```
+
+尝试了：重新安装Ryu、mn -c、运行Ryu自带的应用、重启计算机，都没用
+
+好像问题和之前rest_qos.py没有加入lldp的支持一样?
+
+---
+
+7.3考完期末了，继续肝
+
+换了一个虚拟机，重新安装了ryu（版本：4.32）、mininet（版本：2.3.0d5），重新打开后，发现还是有上文的ipv4报错，但是可以ping通了，突然想起来，17年暑假看到李呈（www.muzixing.com）的代码时，ryu版本可能非常低，我找了一下，可能是3.14。
+
+虽然可以ping通，但是无法调用自定义rest api，ryu终端会报错ipv4
+
+```
+(5978) accepted ('10.0.0.1', 55790)
+10.0.0.1 None
+available_path =  {}
+10.0.0.1 - - [03/Jul/2019 07:42:38] "GET /network/querypath HTTP/1.1" 200 109 0.000294
+used_bandwidth =  {1: {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}, 2: {1: 0, 2: 0}, 3: {1: 0, 2: 0}, 4: {1: 0, 2: 0}, 5: {1: 0, 2: 0, 3: 0}}
+awareness: Exception occurred during handler processing. Backtrace from offending handler [_flow_stats_reply_handler] servicing event [EventOFPFlowStatsReply] follows.
+Traceback (most recent call last):
+  File "/usr/local/lib/python2.7/dist-packages/ryu/base/app_manager.py", line 290, in _event_loop
+    handler(ev)
+  File "/home/liaohaolin/PycharmProjects/network/network.py", line 314, in _flow_stats_reply_handler
+    key = (stat.match['in_port'], stat.match['ipv4_dst'],
+  File "/usr/local/lib/python2.7/dist-packages/ryu/ofproto/ofproto_v1_3_parser.py", line 904, in __getitem__
+    return dict(self._fields2)[key]
+KeyError: 'ipv4_dst'
+awareness: Exception occurred during handler processing. Backtrace from offending handler [_flow_stats_reply_handler] servicing event [EventOFPFlowStatsReply] follows.
+Traceback (most recent call last):
+  File "/usr/local/lib/python2.7/dist-packages/ryu/base/app_manager.py", line 290, in _event_loop
+    handler(ev)
+  File "/home/liaohaolin/PycharmProjects/network/network.py", line 314, in _flow_stats_reply_handler
+    key = (stat.match['in_port'], stat.match['ipv4_dst'],
+  File "/usr/local/lib/python2.7/dist-packages/ryu/ofproto/ofproto_v1_3_parser.py", line 904, in __getitem__
+    return dict(self._fields2)[key]
+KeyError: 'ipv4_dst'
+awareness: Exception occurred during handler processing. Backtrace from offending handler [_flow_stats_reply_handler] servicing event [EventOFPFlowStatsReply] follows.
+Traceback (most recent call last):
+  File "/usr/local/lib/python2.7/dist-packages/ryu/base/app_manager.py", line 290, in _event_loop
+    handler(ev)
+  File "/home/liaohaolin/PycharmProjects/network/network.py", line 314, in _flow_stats_reply_handler
+    key = (stat.match['in_port'], stat.match['ipv4_dst'],
+  File "/usr/local/lib/python2.7/dist-packages/ryu/ofproto/ofproto_v1_3_parser.py", line 904, in __getitem__
+    return dict(self._fields2)[key]
+KeyError: 'ipv4_dst'
+
+```
+
+尝试使用低版本的ryu，切换到4.23，还是报错，
+
+> 我是用git的历史记录中找到旧版本， 然后重新安装的，运行ryu-manager可能会提示什么库找不到，可以用以下命令安装：
+>
+> ```
+> sudo pip install -r tools/pip-requires
+> ```
+
+运行network app+sw5host3后，终端没有报错，但是没法pingall，先用官方example跑了一遍后，除了nat0和h3没法ping通外，其他都通了，但是ryu终端的数据都是空的，used_bandwidth =  {}，delay=inf
+
+不管了，先把软件著作权交上去吧！  
+
+10.14：
+
+ryu切换为最新版本（4.34），终端未报错，完整运行命令，没有有报错！
+
+10.15：
+
+美化GUI、解决bugs，已git commit&push
