@@ -2775,4 +2775,159 @@ nums2 = [2,5,6],       n = 3
 输出: [1,2,2,3,5,6]
 ```
 
- 
+##### 最朴素的解法，合并数组+排序：
+
+思路：非常符合直觉，但时间复杂度较差，为O((n + m)log(n+m)。这是由于这种方法没有利用两个数组本身已经有序这一点，不太推荐
+
+##### 第一次尝试，两个指针遍历：
+
+思路：对于nums2的每一个元素，在nums1中确定插入的位置，在这里要用到容器的插入insert与resize函数，这种解法只能说完成了题目，用到了特定的容器操作，不具备一般性
+
+```c++
+class Solution {
+public:
+    void merge(vector<int>& nums1, int m, vector<int>& nums2, int n) {
+        auto it = nums1.begin();
+        nums1.resize(m);
+        for(int j = 0; j < n; ++j){
+            while(nums2[j] >= *it && it != nums1.end()) ++it;
+            it = nums1.insert(it, nums2[j]);
+            ++it;
+        }
+    }
+};
+```
+
+##### 尝试改进：
+
+思路：如果不允许用容器的resize操作，那nums1的数据要在其他地方存储下来，这就需要O(m)的额外空间，时间复杂度仍是O(n+m)
+
+```c++
+class Solution {
+public:
+    void merge(vector<int>& nums1, int m, vector<int>& nums2, int n) {
+        vector<int> temp;
+        for(int i = 0; i < m; ++i){
+            temp.push_back(nums1[i]);
+        }
+        for(int i = 0, j = 0, k = 0; k < m + n; ++k){
+            if(i == m){
+                while(j < n) nums1[k++] = nums2[j++];
+                break;
+            }
+            if(j == n){
+                while(i < m) nums1[k++] = temp[i++];
+                break;            
+            }
+            if(temp[i] < nums2[j]){
+                nums1[k] = temp[i++];
+            }
+            else{
+                nums1[k] = nums2[j++];    
+            }
+        }
+    }
+};
+```
+
+##### 再改进，最佳版本：
+
+思路：既然nums1后面的n个位置都为0，那么从后往前遍历，把较大值放在nums1的末尾，这样nums1的实际值就不会被覆盖
+
+```c++
+class Solution {
+public:
+    void merge(vector<int>& nums1, int m, vector<int>& nums2, int n) {
+        if(m == 0){
+            nums1 = nums2;
+            return;
+        }
+        if(n == 0) return;
+        for(int i = m - 1, j = n - 1, k = m + n - 1; k >= 0; --k){
+            if(i < 0){
+                while(j >= 0) nums1[k--] = nums2[j--];
+                return;
+            }
+            if(j < 0){
+                while(i >= 0) nums1[k--] = nums1[i--];
+                return;
+            }
+            if(nums1[i] > nums2[j]){
+                nums1[k] = nums1[i--];
+            }
+            else{
+                nums1[k] = nums2[j--];    
+            }
+        }
+    }
+};
+```
+
+#### 278.第一个错误的版本
+
+你是产品经理，目前正在带领一个团队开发新的产品。不幸的是，你的产品的最新版本没有通过质量检测。由于每个版本都是基于之前的版本开发的，所以错误的版本之后的所有版本都是错的。
+
+假设你有 `n` 个版本 `[1, 2, ..., n]`，你想找出导致之后所有版本出错的第一个错误的版本。
+
+你可以通过调用 `bool isBadVersion(version)` 接口来判断版本号 `version` 是否在单元测试中出错。实现一个函数来查找第一个错误的版本。你应该尽量减少对调用 API 的次数。
+
+**示例:**
+
+```
+给定 n = 5，并且 version = 4 是第一个错误的版本。
+
+调用 isBadVersion(3) -> false
+调用 isBadVersion(5) -> true
+调用 isBadVersion(4) -> true
+
+所以，4 是第一个错误的版本。 
+```
+
+##### 最朴素的解法，遍历：
+
+结果，超时！
+
+```c++
+class Solution {
+public:
+    int firstBadVersion(int n) {
+        if(n == 1) return 1;
+        for(int i = 1; i <= n; ++i){
+            if(isBadVersion(i)) return i;
+        }
+        return 0;
+    }
+};
+```
+
+##### 二分搜索：
+
+思路：定义区间下界lower、区间上界upper，计算其中点，若中点不是坏版本，则继续在[mid+1, upper]探索，若中点是坏版本，则继续在[lower, mid]，探索，这里的闭区间以及+1是考虑到，第一个坏版本的特点，中点不是坏版本，则第一个坏版本有可能是mid+1，中点是坏版本，则第一个坏版本有可能就是mid。
+
+测试用例有可能的值有可能很大，计算mid时有可能超过INT_MAX，所以用long型
+
+```c++
+// Forward declaration of isBadVersion API.
+bool isBadVersion(int version);
+
+class Solution {
+public:
+    int firstBadVersion(int n) {
+        long lower = 1, upper = n, mid;  // closed interval， [lower, upper]
+        while(lower != upper){
+            mid = (lower + upper) / 2;
+            if(!isBadVersion(mid)){
+                lower = mid + 1;
+                cout << "true" << endl;
+            }
+            else{
+                upper = mid;
+                cout << "false" << endl;
+            }
+            cout << "mid: " << mid << endl;
+        }
+        return lower;
+    }
+};
+```
+

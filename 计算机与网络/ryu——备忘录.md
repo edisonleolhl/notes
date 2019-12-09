@@ -192,18 +192,6 @@
     lhl@ubuntu:~/Desktop/network$ ryu-manager network.py rest_qos.py rest_conf_switch.py ofctl_rest.py --observe-links --weight=hop
     ```
 
-    而且，在调用之前，要先开启 ovsdb ，连接 OpenFlow 交换机到 ovsdb， 设定 queue 等操作，集成在了 enable_qos.sh 中，在命令行直接打开即可：
-
-    ```shell
-    lhl@ubuntu:~/Desktop/network$ sudo ./enable_qos.sh 
-    ```
-
-    为了调试方便，也集成了关闭操作，打开 remove_qos.sh 文件即可：
-
-    ```shell
-    lhl@ubuntu:~/Desktop/network$ sudo ./remove_qos.sh 
-    ```
-
 - xterm h1，输入以下命令调用用户查路 API：
 
     ```shell
@@ -244,11 +232,24 @@
 
   	用到了 networkx 模块的 shortest_simple_paths(G, source, target, weight=None) 函数，介绍：https://networkx.github.io/documentation/stable/reference/algorithms/generated/networkx.algorithms.simple_paths.shortest_simple_paths.html#networkx-algorithms-simple-paths-shortest-simple-paths
 
-### 重难点：限流
+---
 
-用户选路的问题解决了，但是如何用 QOS 限流？ example 跑的结果符合预期，但是放在自己的 app 和 topo 中，一直没有体现出 example 里的效果，肯定是哪里没有理解对，需要小小的修改一些地方。
+- 用户选路的问题解决了，但是如何用 QOS 限流？ example 跑的结果符合预期，但是放在自己的 app 和 topo 中，一直没有体现出 example 里的效果，肯定是哪里没有理解对，需要小小的修改一些地方。
 
-ryu book: https://osrg.github.io/ryu-book/en/html/rest_qos.html
+
+    而且，在使用qos之前，要先开启 ovsdb ，连接 OpenFlow 交换机到 ovsdb， 设定 queue 等操作，集成在了 enable_qos.sh 中，在命令行直接打开即可：
+
+    ```shell
+    lhl@ubuntu:~/Desktop/network$ sudo ./enable_qos.sh 
+    ```
+
+    为了调试方便，也集成了关闭操作，打开 remove_qos.sh 文件即可：
+
+    ```shell
+    lhl@ubuntu:~/Desktop/network$ sudo ./remove_qos.sh 
+    ```
+
+- ryu book: https://osrg.github.io/ryu-book/en/html/rest_qos.html
 
 ---
 4.4 开工，发现ping不通，查询，发现packet_in_handler根本没有输出，也就是说没有进入到packet_in_handler函数里面，mininet无论是自定拓扑（sw5h3.py），还是默认拓扑（sw1host2），都无法进入packet_in_handler函数，然而运行ryu的example是可以进入packet_in_handler的。
@@ -520,6 +521,7 @@ index 9fe72ed..6e750e6 100644
 
 ![mark](http://ph166fnv2.bkt.clouddn.com/blog/181113/bB9CAa34a9.png?imageslim)
 
+
 ---
 
 2.24返工
@@ -531,12 +533,6 @@ index 9fe72ed..6e750e6 100644
  > sh xx.sh
 
 有很多命令需要在c0终端输入，所以创建了几个sh文件供c0终端执行，最后的结果：verifying the setting通过，但是ryu应用终端还是在flow那里报错了，最后也没法限流，两个端口的流量都是1Mbit/s，很奇怪，因为这个是execute setting of queue那节中给s1-eth1的最大速率，那也就是说，queue实现了基础的最大速率限制，但没有queue0和queue1的QoS保障？
-
-```
-后来才知道iperf -u 默认带宽就是1Mbit/s
-```
-
-
 
 查看rest_qos.py，发现有许多地方都牵涉到了REST_DL_TYPE，而mailing list中给的解决方案并没有在所有REST_DL_TYPE的地方添加lldp变量，难道flow仍然报错是因为这个原因吗？退一万步讲，如果我不做时延检测了，那也就不需要修改lldp了，是否可以不报错而成功实现QoS限流呢？不急，教程中还有其他两个QoS实现手段：[using-diffserv](http://osrg.github.io/ryu-book/en/html/rest_qos.html#example-of-the-operation-of-qos-by-using-diffserv)、[using-meter-table](http://osrg.github.io/ryu-book/en/html/rest_qos.html#example-of-the-operation-of-qos-by-using-meter-table)，而且example中有多个switch，正好与sw5host拓扑类似。
 
@@ -551,7 +547,7 @@ index 9fe72ed..6e750e6 100644
 
 2.26返工
 
-复现原来的场景：network app + sw5host3，发现h1-h2ping不通，但h1-h3能ping通，估计又是玄学bug，总结一下解决流程（一般前两步就ok了）：
+复现原来的场景：network app + sw5host3，发现h1-h2ping不通，但h1-h3能ping通，估计又是玄学bug，总结一下解决流程：
     
   - 关闭mininet，清除缓存
 
@@ -574,458 +570,4 @@ index 9fe72ed..6e750e6 100644
  即使报flow错也可以限流.
 
 ---
-
-5.8 返工
-
-rest_qos.py加入了两处lldp支持代码，回到之前的进度：两个 API 都可用，network app + 默认拓扑（sw1host2且带nat参数）在“verifying the setting”报flow错，但可限流，但是如果network app+sw5host3 就无法限流
-
-尝试用ovs限流，先用network app+默认拓扑试试，找到一篇文章：<https://www.sdnlab.com/19208.html>，ovs的QoS分为流量管制与流量整型
-
-#### 流量整型（traffic shaping）
-
-根据这篇文章的做法，h1----eth1-s1-eth2----h2，在s1-eth1上做shaping（整型），也就是s1-eth1作为出口时，流量整型了，具体对应：iperf udp，h1作为服务器端，h2作为客户端，这时s1-eth1才是出口整型，**反过来，若h1作为客户端，h2作为服务器端，s1-eth1是入口，不会限流！**
-
-还是network app+sw1host2仿照文章的做法，可以创建两条queue，其中一条是默认的，最大带宽1M，添加流表项：当数据包参数匹配时走另一条queue，最大带宽100K：
-
-```
-ovs-vsctl set port s1-eth1 qos=@newqos -- --id=@newqos create qos type=linux-htb queues=0=@q0,1=@q1 -- --id=@q0 create queue other-config:max-rate=1000000 -- --id=@q1 create queue other-config:max-rate=100    000
-```
-
-可查看queue：
-
-```
-root@ubuntu:/home/lhl/Desktop/network# ovs-vsctl list queue
-_uuid               : fec5f7e5-9cc0-4032-9eba-9d23b68bf252
-dscp                : []
-external_ids        : {}
-other_config        : {max-rate="1000000"}
-
-_uuid               : ff52982d-2b05-492a-9f2f-bdf26257364f
-dscp                : []
-external_ids        : {}
-other_config        : {max-rate="100000"}
-```
-
-也可查看qos，注意到queues那行的“0=fe...”、“1=ff...”，正好对应上面的queue uuid：
-
-```
-root@ubuntu:/home/lhl/Desktop/network# ovs-vsctl list qos
-_uuid               : 98a10c49-6b68-4051-a7e4-d77c19e82fe2
-external_ids        : {}
-other_config        : {}
-queues              : {0=fec5f7e5-9cc0-4032-9eba-9d23b68bf252, 1=ff52982d-2b05-492a-9f2f-bdf26257364f}
-type                : linux-htb
-```
-
-还可查看port，注意到qos那行的值是以“98a10c49”开头的，正好对应上面的qos uuid：
-
-```
-root@ubuntu:/home/lhl/Desktop/network# ovs-vsctl list port
-_uuid               : 08665b7a-f0a5-40fc-9d9f-0960ba1e9ec4
-bond_active_slave   : []
-bond_downdelay      : 0
-bond_fake_iface     : false
-bond_mode           : []
-bond_updelay        : 0
-external_ids        : {}
-fake_bridge         : false
-interfaces          : [48a7807b-15c5-4421-bd17-ed0aa3350fcc]
-lacp                : []
-mac                 : []
-name                : "s1-eth1"
-other_config        : {}
-qos                 : 98a10c49-6b68-4051-a7e4-d77c19e82fe2
-rstp_statistics     : {}
-rstp_status         : {}
-statistics          : {}
-status              : {}
-tag                 : []
-trunks              : []
-vlan_mode           : []
-
-...#还有其他port，如s1-eth2
-```
-
-此时，若h2 udp 到h1，默认是走q0的，即最大带宽1M，mininet的xterm下用iperf工具测试的确是最大带宽1M。
-
-继续，添加流表项，若h2 udp 到h1的端口号是5002，则走q1，即最大带宽100K，这里要用到ovs的添加流表项命令:
-
-```
-root@ubuntu:/home/lhl/Desktop/network# ovs-ofctl -O openflow13 add-flow s1 udp,udp_dst=5002,actions=set_queue:1,normal
-```
-
-利用dump-flows命令查看一下：
-
-```
-root@ubuntu:/home/lhl/Desktop/network# ovs-ofctl -O openflow13 dump-flows s1
-OFPST_FLOW reply (OF1.3) (xid=0x2):
- cookie=0x0, duration=1900.388s, table=0, n_packets=0, n_bytes=0, priority=65535,dl_dst=01:80:c2:00:00:0e,dl_type=0x88cc actions=CONTROLLER:65535
- cookie=0x0, duration=1010.393s, table=0, n_packets=8515, n_bytes=12874680, udp,tp_dst=5002 actions=set_queue:1,NORMAL
- cookie=0x0, duration=1900.388s, table=0, n_packets=15516, n_bytes=23315552, priority=0 actions=goto_table:1
- cookie=0x0, duration=1900.477s, table=1, n_packets=105, n_bytes=15042, priority=0 actions=CONTROLLER:65535
-
-```
-
-继续用xterm的iperf工具测试，开两个h1终端，开两个h2终端，其中一对h2-h1用5001端口，另外一对h2-h1用5002端口，结果显示5001端口的带宽是1M，5002端口的带宽是100K，符合预期效果。
-
-> 前文提到过，这是出口的流量整形（traffic shaping），所以反过来h1-h2不受任何qos限制
->
-> 而且发现流表项失效后（设置了hard_timeout），5002端口仍然限速100K，有点奇怪...
-
----
-
-5.9 返工
-
-接下来用network app+sw5host3试试，s1的默认流表如下：
-
-```
-root@ubuntu:/home/lhl/Desktop/network# ovs-ofctl -O openflow13 dump-flows s1
-OFPST_FLOW reply (OF1.3) (xid=0x2):
- cookie=0x0, duration=89.975s, table=0, n_packets=200, n_bytes=12000, priority=65535,dl_dst=01:80:c2:00:00:0e,dl_type=0x88cc actions=CONTROLLER:65535
- cookie=0x0, duration=89.963s, table=0, n_packets=102, n_bytes=8316, priority=0 actions=goto_table:1
- cookie=0x0, duration=90.003s, table=1, n_packets=64, n_bytes=4592, priority=0 actions=CONTROLLER:65535
-```
-
-仿照前文添加在s1-eth3（这是s1连接s2的端口）上添加两条queue，查询符合预期，但是h1到h3（这时h1到h3的路径就是最短跳数1-2-5）并没有限流，在s1-eth2（这是接入h2的端口）也添加两条queue，查询符合预期，但是h1-h2并没有限流
-
-> 在命令中添加“-O openflow13”参数即可解决以下报错：
->
-> ```
-> 2019-05-09T02:48:44Z|00001|vconn|WARN|unix:/var/run/openvswitch/s1.mgmt: version negotiation failed (we support version 0x01, peer supports version 0x04)
-> ovs-ofctl: s1: failed to connect to socket (Broken pipe)
-> ```
->
-> 还有，有时删除所有qos或queue时会报错：
->
-> ```
-> root@ubuntu:/home/lhl/Desktop/network# ovs-vsctl -- --all destroy QoS
-> ovs-vsctl: transaction error: {"details":"cannot delete QoS row 53b3ba6b-cd47-40db-ba4e-563f235758f4 because of 1 remaining reference(s)","error":"referential integrity violation"}
-> root@ubuntu:/home/lhl/Desktop/network# ovs-vsctl -- --all destroy Queue
-> ovs-vsctl: transaction error: {"details":"cannot delete Queue row 4e0b0cac-07a7-4ec3-b84c-4ea44c4d49e8 because of 1 remaining reference(s)","error":"referential integrity violation"}
-> 
-> ```
->
-> 这时可以指定某个端口的qos队列断开连接（利用clear命令）：
->
-> ```
-> root@ubuntu:/home/lhl/Desktop/network# ovs-vsctl clear qos s1-eth4 queues
-> ```
->
-> 这时再执行删除queue的指令不会报错：
->
-> ````
-> root@ubuntu:/home/lhl/Desktop/network# ovs-vsctl -- --all destroy Queue
-> ````
->
-> 但是删除qos时，发现还是有这个错误，根据--help参数可知clear命令：
->
-> ```
-> clear TBL REC COL           clear values from COLumn in RECord in TBL
-> ```
->
-> 这时可以把qos（column）从port（table）中清除，如下：
->
-> ```
-> root@ubuntu:/home/lhl/Desktop/network# ovs-vsctl clear port s1-eth4 qos
-> ```
->
-> 这时再用查询命令“ovs-vsctl list port s1-eth4”发现qos栏目为空，再删除qos就不会报错了：
->
-> ```
-> root@ubuntu:/home/lhl/Desktop/network# ovs-vsctl destroy qos 53b3ba6b-cd47-40db-ba4e-563f235758f4
-> ```
-
-ryu book里的REST API其实就是把这些ovs的命令抽象成了API接口，按照文档的“Queue setting”，其实就是相当于如下命令：
-
-```
-ovs-vsctl set port s1-eth1 qos=@newqos -- --id=@newqos create qos type=linux-htb queues=0=@q0,1=@q1 -- --id=@q0 create queue other-config:max-rate=500000 -- --id=@q1 create queue other-config:min-rate=800000
-```
-
-“QoS Setting”就相当于如下命令：
-
- ```
-ovs-ofctl -O openflow13 add-flow s1 udp,nw_dst=10.0.0.1,udp_dst=5002,actions=set_queue:1,normal
- ```
-
-#### Policing 管制
-
-Policing 用于控制接口上接收分组（ingress）的速率，是一种简单的 QoS 的功能，通过简单的丢包机制实现接口速率的限制，它既可以作用于物理接口，也可以作用于虚拟接口；
-
-Shaping 是作用于接口上的出口流量（egress）策略，可以实现多个 QoS 队列，不同队列里面处理不同策略；
-
-**新突破！！！**流量管制有效，执行以下两个命令：
-
-```
-root@ubuntu:/home/lhl/Desktop/network# ovs-vsctl set interface s1-eth2 ingress_policing_rate=1000
-root@ubuntu:/home/lhl/Desktop/network# ovs-vsctl set interface s1-eth2 ingress_policing_burst=100
-```
-
-s1-eth2是接入h2的，无论是tcp还是udp，无论h2到h1还是h3，流量都被限制在了1M左右，但是这种是非常死板的，只是在入口时利用令牌桶算法丢弃了多余的数据包，也无法支持流表匹配功能，但现在的确可以限流了
-
-查看管制信息：
-
-```
-root@ubuntu:/home/lhl/Desktop/network# ovs-vsctl list interface s1-eth2
-_uuid               : 507d861a-8586-452e-bee8-91786544cdf8
-...
-ingress_policing_burst: 100
-ingress_policing_rate: 1000
-...
-```
-
-没有用管制的接口，burst与rate两行为0、0，故删除管制的方法就是把这两项置0：
-
-```
-root@ubuntu:/home/lhl/Desktop/network# ovs-vsctl set interface s1-eth2 ingress_policing_rate=0
-root@ubuntu:/home/lhl/Desktop/network# ovs-vsctl set interface s1-eth2 ingress_policing_burst=0
-```
-
----
-
-5.14 返工
-
-#### 流量监控——sFlow
-
-上午想试试流量监控的，弄个可视化的图形出来，但是试了sFlowTrend和sFlow-rt，没成功。
-
-sFlowTrend是一款桌面应用，参考文章：<https://www.cnblogs.com/popsuper1982/p/3800583.html>，但Mininet加了nat参数就没法抓包，可能在port或者interface上有冲突，按照其他文章去设置port时会报错，于是放弃sFlowTrend。
-
-sFlow-rt使用的是服务器和客户端的架构，在浏览器打开后，可以看到一些统计信息，参考文章：<https://www.sdnlab.com/3760.html>、<https://www.sdnlab.com/15090.html>、<http://www.muzixing.com/pages/2014/11/21/sflowru-men-chu-she.html>，sFlow-rt貌似并没有显示带宽速率的可视化展示，于是放弃。
-
-最后决定不做流量监控了，反正到时候用iperf命令就可以展示限流效果。
-
-#### Python GUI—— pyqt 框架
-
-界面大概设计完了，能实现xterm h1打开时，知道是10.0.0.1的ip，非常好，接下里就是调用REST API！
-
----
-
-5.15 返工
-
-继续美化界面，添加几个对用户友好的功能，当前用户（如h1）登录后，需要先选择目的主机，查询只会给出该用户到目的主机的路径，同时，选路的下拉框内容跟查询路径一致
-
-> 几个点要注意一下：
->
-> 用 Python 的 requests 库发送 PUT 请求时，最开始的写法是这样的：
->
-> ```
-> payload = {"dst_ip": dst_ip, "path": path}
-> response = requests.put(url, data=payload)
-> ```
->
-> 这种写法，如果参数中有 `[`' 或者 `]`，会被转义成`%5B`与`%5D`，服务器端会报错，要改成下面这种：
->
-> ```
-> payload = {"dst_ip": dst_ip, "path": path}
-> response = requests.put(url, data=json.dumps(payload))
-> ```
->
-> 展示流量选路后的效果，在s2与s3交换机中用 tcpdump 命令监听数据包即可，因为 s2 与 s3 是两条路，调用选路 API 后，当前流量肯定只走其中一条，这就展示出来了选路效果，命令：
->
-> ```
-> tcpdump -i s3-eth1 icmp
-> ```
-
-
-
-TODO：查询剩余带宽的 REST API ，GUI 上的限流功能
-
----
-
-5.16 返工
-
-Mininet 创建拓扑时的带宽，不能在 network app 中获取到，所以必须要静态设定了，查询剩余带宽时，需要把选择的路径传过去，所以用POST请求，现在可以在服务器端获取到传入的参数，格式如下：
-
-```
-'10.0.0.1-->s1-->10.0.0.2
-```
-
-Pyqt5 框架的使用注意：
-
-- 如果在代码中多次绑定了事件，有可能按一下按钮会触发好几次action
-- 目前GUI界面逻辑：destination host 下拉框选择后（默认会选择一个），available path browser 清空，choose_path_layout 中的label、下拉框清空，query_bw_layout中的lcd、label、查询按钮清空，limit_bw_layout中的edit、label、button都清空，单击Query path 按钮后，这些控件全出现
-- 为了防止重复生成控件，点击 Query path 按钮后，要把 choose_path_layout 、query_bw_layout这三个 layout 中的控件全删除，再生成
-
----
-
-5.22 返工
-
-限制 limit_bw_edit 输入框只能为一位数字，0表示取消QoS管制限流
-
-针对sw5host3拓扑，构造access_table，根据当前登录 GUI 的用户，确定接入接口
-
-```
-access_table = {'10.0.0.1': 's1-eth1', '10.0.0.2': 's1-eth2', '10.0.0.3': 's5-eth1'}
--------------------------------------------
-os.system('ovs-vsctl set interface ' + access_table[current_host_ip] + ' ingress_policing_rate=' + str(limit_bw*1000))
-```
-
-注意：这时限流是把该用户到外界的所有流量都限制住了
-
----
-
-5.23 返工
-
-今天的主要任务是构造一个用户友好的界面，之前与官老大谈到：
-
-- 用户不关心路由到底选择哪条路，所以不需要在 GUI 上显示选路的信息
-- 用户只关心性能指标，如带宽、时延，以及带宽的单价
-
-想着先把时延数据也拿到手，就像做query bandwidth那样，先在network app中周期得到delay数据，然后使能REST API接口，GUI 界面有一个触发的按钮，很奇怪的是，周期拿到delay数据时，有可能有些链路的delay为0，为了效果显著一点，在sw5host3.py中修改所有的交换机链路时延为100ms，控制台的时延数据如下：
-
-```
-src_dpid   dst_dpid      delay
--------------------------------
-   1 <------> 1      : 0                   
-   1 <------> 2      : 0.0904865264893     
-   1 <------> 3      : 0.0907900333405     
-   2 <------> 1      : 0.0904865264893     
-   2 <------> 2      : 0                   
-   2 <------> 5      : 0.111785888672      
-   3 <------> 1      : 0.0907900333405     
-   3 <------> 3      : 0                   
-   3 <------> 4      : 0.101326107979      
-   4 <------> 3      : 0.101326107979      
-   4 <------> 4      : 0                   
-   4 <------> 5      : 0.100703954697      
-   5 <------> 2      : 0.111785888672      
-   5 <------> 4      : 0.100703954697      
-   5 <------> 5      : 0               
-```
-
-那么查询h2-s1-s2-s5-h3的时延，那就是s1-s2，s2-s5这两段时延之和
-
-注意：因为时延检测模块无法检测出接入链路的时延，实际上这也是可以忽略的，肯定远小于100ms，所以这个功能时间起来不难
-
-##### 改进
-
-- 两个lcdNumber的查询按钮太麻烦了，直接定义一个计时器，在点击query path按钮时开始计时，每秒发送两个REST API请求，更新两个lcdNumber的数据
-- 选择dst host的下拉框、点击query path按钮后，把计时器关闭
-
-##### 效果
-
-![](../image/GUI5.23.png)
-
----
-
-5.24 返工
-
-在原来的GUI界面下方，添加对用户友好的指示界面
-
-时延越短（0.2s-0.3s），单价越贵，剩余带宽越小（0-50），单价越贵
-
-值域：unit_price的范围是1-10， 对于delay权重，范围是0.5-5，对于free_bw权重，范围是0.5-5
-
-```
-delay_factor = max(0.5, min(1/delay, 5))
---0.2对应5.0
---0.3对应3.33
-free_bw_factor = max(0.5, min(5/(free_bw*0.1), 5))
---0对应5
---50对应1.0
-unit_price = int(delay_factor + free_bw_factor)
-```
-
-##### 效果
-
-- 右边为模拟用户界面，一进入就查询通往h3（10.0.0.3）的所有路径（图中有两条），然后开启定时器，每三秒请求链路的delay与free bandwdith，实时更新 lcdNumber，后面的单价会根据定价公式更新
-- 下面的choose your charging plan的下拉框选择后，就会下发流表项改变路由规则
-- Edit框改变时，会触发事件，读取下拉框中的当前plan，找到对应的单价，单价乘以Edit框中的want bandwidth 数字，即为total lcdNumber的显示数目
-- total Lcdnumber 有三个触发时间，一个是改变了user want bandwidth edit，另一个是选择了choose charging plan的下拉框，还有一个是每三秒动态更新单价之后，满足这三种情况，total Lcdnumber 会更新一次
-- 最后的go button，就是为这条路限流，其实用的是QoS的管制，从接入交换机的入口就限流了，实际上与路径无关，但总之是可以有效果的
-
-![](../image/GUI5.24.png)
-
----
-
-6.14
-
-把GUI左边的部分删除了，只保留右边，给用户使用的，修改了一个BUG：总价显示器仅在输入框改变时才触发事件，现在改为：输入框改变or当前方案单价显示器改变，触发总价显示器事件
-
----
-
-6.15
-
-奇怪，控制器终端一直在报错，GUI打开是空白的
-
-```
-awareness: Exception occurred during handler processing. Backtrace from offending handler [_flow_stats_reply_handler] servicing event [EventOFPFlowStatsReply] follows.
-
-Traceback (most recent call last):
-  File "/usr/local/lib/python2.7/dist-packages/ryu/base/app_manager.py", line 290, in event_loop
-    handler(ev)
-  File "/home/lhl/Desktop/network/network.py", line 339, in _flow_stats_reply_handler
-    key = (stat.match['in_port'], stat.match['ipv4_dst'],
-  File "/usr/local/lib/python2.7/dist-packages/ryu/ofproto/ofproto_v1_3_parser.py", line 902, in getitem
-    return dict(self.fields2)[key]
-KeyError: 'ipv4_dst'
-
-```
-
-尝试了：重新安装Ryu、mn -c、运行Ryu自带的应用、重启计算机，都没用
-
-好像问题和之前rest_qos.py没有加入lldp的支持一样?
-
----
-
-7.3考完期末了，继续肝
-
-换了一个虚拟机，重新安装了ryu（版本：4.32）、mininet（版本：2.3.0d5），重新打开后，发现还是有上文的ipv4报错，但是可以ping通了，突然想起来，17年暑假看到李呈（www.muzixing.com）的代码时，ryu版本可能非常低，我找了一下，可能是3.14。
-
-虽然可以ping通，但是无法调用自定义rest api，ryu终端会报错ipv4
-
-```
-(5978) accepted ('10.0.0.1', 55790)
-10.0.0.1 None
-available_path =  {}
-10.0.0.1 - - [03/Jul/2019 07:42:38] "GET /network/querypath HTTP/1.1" 200 109 0.000294
-used_bandwidth =  {1: {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}, 2: {1: 0, 2: 0}, 3: {1: 0, 2: 0}, 4: {1: 0, 2: 0}, 5: {1: 0, 2: 0, 3: 0}}
-awareness: Exception occurred during handler processing. Backtrace from offending handler [_flow_stats_reply_handler] servicing event [EventOFPFlowStatsReply] follows.
-Traceback (most recent call last):
-  File "/usr/local/lib/python2.7/dist-packages/ryu/base/app_manager.py", line 290, in _event_loop
-    handler(ev)
-  File "/home/liaohaolin/PycharmProjects/network/network.py", line 314, in _flow_stats_reply_handler
-    key = (stat.match['in_port'], stat.match['ipv4_dst'],
-  File "/usr/local/lib/python2.7/dist-packages/ryu/ofproto/ofproto_v1_3_parser.py", line 904, in __getitem__
-    return dict(self._fields2)[key]
-KeyError: 'ipv4_dst'
-awareness: Exception occurred during handler processing. Backtrace from offending handler [_flow_stats_reply_handler] servicing event [EventOFPFlowStatsReply] follows.
-Traceback (most recent call last):
-  File "/usr/local/lib/python2.7/dist-packages/ryu/base/app_manager.py", line 290, in _event_loop
-    handler(ev)
-  File "/home/liaohaolin/PycharmProjects/network/network.py", line 314, in _flow_stats_reply_handler
-    key = (stat.match['in_port'], stat.match['ipv4_dst'],
-  File "/usr/local/lib/python2.7/dist-packages/ryu/ofproto/ofproto_v1_3_parser.py", line 904, in __getitem__
-    return dict(self._fields2)[key]
-KeyError: 'ipv4_dst'
-awareness: Exception occurred during handler processing. Backtrace from offending handler [_flow_stats_reply_handler] servicing event [EventOFPFlowStatsReply] follows.
-Traceback (most recent call last):
-  File "/usr/local/lib/python2.7/dist-packages/ryu/base/app_manager.py", line 290, in _event_loop
-    handler(ev)
-  File "/home/liaohaolin/PycharmProjects/network/network.py", line 314, in _flow_stats_reply_handler
-    key = (stat.match['in_port'], stat.match['ipv4_dst'],
-  File "/usr/local/lib/python2.7/dist-packages/ryu/ofproto/ofproto_v1_3_parser.py", line 904, in __getitem__
-    return dict(self._fields2)[key]
-KeyError: 'ipv4_dst'
-
-```
-
-尝试使用低版本的ryu，切换到4.23，还是报错，
-
-> 我是用git的历史记录中找到旧版本， 然后重新安装的，运行ryu-manager可能会提示什么库找不到，可以用以下命令安装：
->
-> ```
-> sudo pip install -r tools/pip-requires
-> ```
-
-运行network app+sw5host3后，终端没有报错，但是没法pingall，先用官方example跑了一遍后，除了nat0和h3没法ping通外，其他都通了，但是ryu终端的数据都是空的，used_bandwidth =  {}，delay=inf
-
-不管了，先把软件著作权交上去吧！  
-
-10.14：
-
-ryu切换为最新版本（4.34），终端未报错，完整运行命令，没有有报错！
-
-10.15：
-
-美化GUI、解决bugs，已git commit&push
+5.8 fa
