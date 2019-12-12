@@ -271,6 +271,16 @@ private:
   }
   ```
 
+  > 自我感觉，上面的拷贝赋值函数可以使用**拷贝并交换（copy and swap）**技术，这也能解决自赋值的情况
+  > ```c++
+  > HasPtr& HasPtr::operator=(const HasPtr &rhs)
+  > {
+  >    HasPtr copy = rhs;
+  >    std::swap(*this, copy);
+  >    return *this;   // return this object
+  > }
+  > ```
+
 #### 定义行为像指针的类
 
 使用`shared_ptr`来管理类中的资源，可以使得类的行为像个指针。但有时，我们希望直接管理资源，这时使用**引用计数（reference count）**可以使得类的行为像个指针。
@@ -393,6 +403,28 @@ HasPtr& HasPtr::operator=(HasPtr rhs)
     return *this;       // rhs is destroyed, which deletes the pointer in rhs
 }
 ```
+
+> std::swap in C++98
+> ```c++
+> template <class T> void swap ( T& a, T& b )
+> {
+>   T c(a); a=b; b=c;
+> }
+> ```
+>
+> std::swap in C++11
+> ```c++
+> template <class T> void swap (T& a, T& b)
+> {
+>   T c(std::move(a)); a=std::move(b); b=std::move(c);
+> }
+> template <class T, size_t N> void swap (T (&a)[N], T (&b)[N])
+> {
+>   for (size_t i = 0; i<N; ++i) swap (a[i],b[i]);
+> }
+> ```
+>
+> 可以看到，在C++11中，std::swap内部使用了std::move，这样速度更快
 
 #### 拷贝控制示例
 
@@ -550,7 +582,7 @@ hp = std::move(hp2);    // move constructor moves hp2
 
 建议将五个拷贝控制成员当成一个整体来对待。如果一个类需要任何一个拷贝操作，它就应该定义所有五个操作。
 
-C++11 标准库定义了移动迭代器（move iterator）适配器。一个移动迭代器通过改变给定迭代器的解引用运算符的行为来适配此迭代器。移动迭代器的解引用运算符返回一个右值引用。	
+C++11 标准库定义了移动迭代器（move iterator）适配器。一个移动迭代器通过改变给定迭代器的解引用运算符的行为来适配此迭代器。移动迭代器的解引用运算符返回一个右值引用。
 
 调用 `make_move_iterator` 函数能将一个普通迭代器转换成移动迭代器。原迭代器的所有其他操作在移动迭代器中都照常工作。
 
@@ -1453,7 +1485,7 @@ double net_price(std::size_t) const = 0;
 
 每个类分别控制自己的成员初始化过程，与之类似，每个类还分别控制着其成员对于派生类来说是否**可访问（accessible）**。
 
-一个类可以使用 `protected` 关键字来声明外部代码无法访问，但是派生类对象可以访问的成员。
+一个类可以使用 `protected` 关键字来声明外部代码无法访问，但是派生类对象可���访问的成员。
 
 派生类的成员或友元只能通过派生类对象来访问基类的 `protected` 成员。派生类对于一个基类对象中的 `protected` 成员没有任何访问权限。
 
