@@ -1367,7 +1367,7 @@ unordered map的性能常常可以超越map的性能，不过，若不按两种�
 
 其中的一种做法就是杜鹃散列( cuckoo hashing)。在杜鹃散列中，假设我们有N项。我们保持两个散列表，每个都多于半空，并且我们有两个独立的散列函数，它们可将每一项分配给每个表中的一个位置。杜鹃散列保持下述不变性：一项总是被存储在它的两个位置之一中。
 
-个人感觉杜鹃散列不是很重要，代码实现就没细看了
+个人感觉杜鹃散列不是很重要，代码实现就没细看了，底层是用vector存储的，通过下标实现O(1)时间的访问
 
 下面摘自[Cuckoo hash 算法分析](https://www.cnblogs.com/bonelee/p/6409733.html)：
 
@@ -1491,3 +1491,1281 @@ And since (p + 1) ≡ 1 (mod p), we obtain r ≡ q'+ r'(mod p).
 - 再散列算法可以通过使散列表增长(和收缩)来实现，这样将会保持一个合理的装填因子，这对于空间紧缺的散列表是很重要的手段
 - 其他一些方法，诸如杜鹃散列和跳房子散列，也能够产生好的结果。因为所有这些算法都是常数时间的，所以强调哪个散列表的实现“最佳”是困难的。- 算法的性能可能严重依赖于所处理的项的类型、底层计算机硬件和程序设计语言。
 - 散列表有很丰富的应用：编译器使用散列表跟踪代码中声明的变量，称之为符号表；图论问题；游戏编程中的置换表；在线拼写检验程序；互联网浏览器中的高速缓存(软件)；现代计算机中的内存高速缓冲区(硬件)；路由器的硬件实现
+
+## 优先队列（堆）
+
+很多时候，队列这种先进先出的数据结构并不能体现某些优先级更高的作业，所以需要**优先队列(priority queue)**
+
+优先队列是允许至少下列两种操作的数据结构: insert(插入)以及 deleteMin(删除最小者)，deleteMin的工作是找出、返回并删除优先队列中最小的元素。insert操作等价于 enqueue(入队)，而 deleteMin则是队列运算 dequeue(出队)在优先队列中的等价操作。
+
+### 优先队列的实现
+
+链表实现：
+
+- 我们可以使用一个简单链表(list)在表头以O(1)执行插入操作，并且遍历该链表以删除最小元，但这需要O(N)时间
+- 始终让链表保持排序状态，这使得插入代价高昂(即O(N))而 deleteMin花费低廉(即O(1))，但因为插入一般比删除开销小，所以第一种方法更好
+
+二叉查找树：
+
+尽管插入是随机的，删除不是随机，二叉查找树对这两种操作的平均运行时间都是O(logN)。记住我们删除的唯一元素是最小元。反复除去左子树中的节点似乎损害树的平衡，使得右子树加重。然而，右子树是随机的。在最坏的情形，即deleteMin将左子树删空的情形下，右子树拥有的元素最多也就是它应具有的元素数的两倍。这只是在它的期望深度上加了一个小常数。注意，通过使用平衡树，可以把这个界变成最坏情形的界，这将防止出现坏的插入序列
+
+使用查找树可能有些过头，因为它支持许许多多并不需要的操作。我们下面将要使用的二叉堆不需要链，它以最坏情形时间O(logN)支持上述两种操作。插入操作实际上将平均花费常数时间，若无删除操作的干扰，该结构的实现将以线性时间建立一个具有N项的优先队列。
+
+### 二叉堆(binary heap)
+
+一般说到堆这种数据结构，就是指的本节所要介绍的优先队列的实现，类似二叉查找树，堆也有两个性质，即结构性(structure property)与堆序性(heap-order property)，类似AVL树，对堆的一次操作可能会破坏其中一个性质，所以必须要要有补救措施
+
+堆是一种完全二叉树(complete binary tree)，即每层节点都是完全填满的，唯一允许最下一层的节点不满，但只准缺少右边的节点，下图是个例子
+
+![completebinarytree.png](http://ww1.sinaimg.cn/large/005GdKShly1g9yeoa4wqfj30gf0bbdgk.jpg)
+
+因为完全二叉树非常有规律，所以它可以用一个数组来表示，如下所示，对于任意未知i的元素，其左儿子在2i上，右儿子在2i+1上，父亲在[i/2]上（向下取整），注意我们需要事先确定堆的大小，但是这不是问题（甚至还可以重新调整），还需要注意这里位置0为空，后文解释原因
+
+![arraycompletebinarytree.png](http://ww1.sinaimg.cn/large/005GdKShly1g9yev2mruhj30l903v74i.jpg)
+
+于是，堆结构可以由一个(Comparable对象的)数组和一个代表当前堆的大小的整数组成，下面展示了一个优先队列接口
+
+```c++
+1 template <typename Comparable>
+2 class BinaryHeap
+3 {
+4   public:
+5       explicit BinaryHeap( int capacity = 100 );
+6       explicit BinaryHeap( const vector<Comparable> & items );
+7
+8       bool isEmpty( ) const;
+9       const Comparable & findMin( ) const;
+10
+11      void insert( const Comparable & x );
+12      void insert( Comparable && x );
+13      void deleteMin( );
+14      void deleteMin( Comparable & minItem );
+15      void makeEmpty( );
+16
+17  private:
+18      int currentSize; // Number of elements in heap
+19      vector<Comparable> array; // The heap array
+20
+21      void buildHeap( );
+22      void percolateDown( int hole );
+23 };
+```
+
+#### 堆序性
+
+堆序性可以保证操作被快速执行，假设我们要找最小元，最小元在根上查找起来最快，这就叫**最小堆(min heap)**，考虑任意子树也是一个堆，那么任意节点都应该小于它的后裔
+
+应用这个逻辑,我们得到堆序性质。在一个堆中，对于每一个节点X，X的父亲中的关键字小于(或等于)X中的关键字，根节点除外(它没有父亲)。在下图中左边的树是一个堆但是，右边的树则不是(虚线表示堆的有序性被破坏)
+
+![heaporderproperty.png](http://ww1.sinaimg.cn/large/005GdKShly1g9yk2cebxdj30mm096dh1.jpg)
+
+于是堆的findMin只需要O(1)时间
+
+注意：在堆中查找其他元素，最坏情况需要O(N)
+
+#### 基本堆操作
+
+堆操作必须要保证堆序性
+
+##### 堆insert
+
+为将一个元素X插入到堆中，我们在最后一个位置的后面创建一个空穴(hole)，以保证完全二叉树。如果X可以放在该空穴中而并不破坏堆的序，那么插入完成。否则，我们把空穴的父节点上的元素移入该空穴中，父节点变为空穴（也可认为交换空穴与其父节点），这样，空穴好像就朝着根的方向上移动一步。继续该过程直到X能被放入空穴中为止。下图举例说明，为了插入14，我们在堆的下一个可用位置建立个空穴。由于将14插入空穴破坏了堆序性质，因此将空穴的父节点31移入该空穴，空穴上移。继续这种策略，直到找出置入14的正确位置。
+
+![heapinsert.png](http://ww1.sinaimg.cn/large/005GdKShly1g9yk6gjf03j30mv0ipwhe.jpg)
+
+这种策略叫做**上滤(percolate up/up heap)**，用下面的代码很容易实现上滤insert
+
+```c++
+1 /**
+2 * Insert item x, allowing duplicates.
+3 */
+4 void insert( const Comparable & x )
+5 {
+6   if( currentSize == array.size( ) - 1 )
+7       array.resize( array.size( ) * 2 );
+8
+9   // Percolate up
+10  int hole = ++currentSize;
+11  Comparable copy = x;
+12
+13  array[ 0 ] = std::move( copy );
+14  for( ; x < array[ hole / 2 ]; hole /= 2 )   // x < array[hole/2]与父节点比较，每次for循环后hole /= 2递归访问父节点
+15      array[ hole ] = std::move( array[ hole / 2 ] );
+16  array[ hole ] = std::move( array[ 0 ] );    // 最后把待插入元素放在hole里
+17 }
+```
+
+如果要插入的元素是新的最小值，那么它将一直被推向顶端。这样在某一时刻hole将是1，并且程序跳出循环。我们选择把X放到位置0处。如果欲插入的元素是新的最小元从而一直上滤到根处，那么这种插入的时间将长达O(logN),所以**堆insert最坏运行时间为O(logN)**。平均看来，上滤终止得要早。业已证明，执行一次插入平均需要2.507次比较，因此平均 insert将元素上移1.607层，故**堆insert平均运行时间为O(1)**。
+
+##### 堆deleteMin
+
+找出deleteMin是容易的，但是删除它比较繁琐，删除最小元时要在根节点建立一个空穴，因为堆少了一个元素，所以最后一个元素X必须移动到该堆的某个地方，首先比较X与空穴，若X≤空穴，则把X置入空穴，完成deleteMin操作，否则把空穴的两个儿子中的较小者与空穴交换，这样空穴就下移了一层，重复该步骤直至空穴没有儿子了，最后再把X放入空穴中，以保证完全二叉树。
+
+下图中左边的图显示 deleteMin之前的堆。删除13后，我们必须试图正确地将31放到堆中。31不能放在空穴中，因为这将破坏堆序性质。于是，我们把较小的儿子14置入空穴,同时空穴下移一层。重复该过程，由于31大于19，因此把19置入空穴，在更下一层上建立一个新的空穴。然后，因为31还是太大，于是再把26置入空穴，在底层又建立一个新的空穴。最后，我们得以将31置入空穴中。这种一般的策略叫作**下滤(percolate down)**
+
+![heapdeletemin.png](http://ww1.sinaimg.cn/large/005GdKShly1g9ykv0h8fpj30hh0lgq5p.jpg)
+
+堆deleteMin的代码实现如下，注意第40行处理了堆元素为偶数的时候，此时最后一个树叶没有兄弟节点，该算法把每个节点都看成有两个儿子，不用管是否存在右儿子，这里需要仔细想想
+
+```c++
+1 /**
+2 * Remove the minimum item.
+3 * Throws UnderflowException if empty.
+4 */
+5 void deleteMin( )
+6 {
+7   if( isEmpty( ) )
+8       throw UnderflowException{ };
+9
+10  array[ 1 ] = std::move( array[ currentSize-- ] );
+11  percolateDown( 1 );
+12 }
+13
+14 /**
+15 * Remove the minimum item and place it in minItem.
+16 * Throws UnderflowException if empty.
+17 */
+18 void deleteMin( Comparable & minItem )
+19 {
+20  if( isEmpty( ) )
+21      throw UnderflowException{ };
+22
+23  minItem = std::move( array[ 1 ] );
+24  array[ 1 ] = std::move( array[ currentSize-- ] );
+25  percolateDown( 1 );
+26 }
+27
+28 /**
+29 * Internal method to percolate down in the heap.
+30 * hole is the index at which the percolate begins.
+31 */
+32 void percolateDown( int hole )
+33 {
+34  int child;
+35  Comparable tmp = std::move( array[ hole ] );
+36
+37  for( ; hole * 2 <= currentSize; hole = child )
+38  {
+39      child = hole * 2;
+40      if( child != currentSize && array[ child + 1 ] < array[ child ] )
+41          ++child;
+42      if( array[ child ] < tmp )
+43          array[ hole ] = std::move( array[ child ] );    // 把空穴的小儿子与空穴交换
+44      else
+45          break;
+46  }
+47  array[ hole ] = std::move( tmp );
+48 }
+```
+
+这种操作最坏情形运行时间为O(logN)。平均而言，被放到根处的元素几乎下滤到堆的底层(即它所来自的那层)，因此平均运行时间为O(logN)。
+
+#### 其他的堆操作
+
+之前讨论的是最小堆，查找最小值只需要O(1)时间，但是最小堆查找最大元比较困难，唯一肯定的是最大元应该在树叶上，但是整个堆差不多一般的元素都在树叶上，这个信息没有太大帮助
+
+下面几种操作均以对数最坏情形时间运行
+
+##### decreaseKey(降低关键字的值)
+
+decreasekey(p,Δ)操作降低在位置p处的项的值，降值的幅度为正的量Δ。由于这可能破坏堆序性质，因此必须通过**上滤**对堆进行调整。该操作对系统管理程序是有用的：系统管理程序能够使它们的程序以最高的优先级来运行。
+
+##### increaseKey(增加关键字的值)
+
+increasekey(p,Δ)操作增加在位置p处的项的值，增值的幅度为正的量Δ。这可以用**下滤**来完成。许多调度程序自动地降低正在过多地消耗CPU时间的进程的优先级
+
+##### remove(删除)
+
+remove(p)操作删除堆中位置p上的节点。该操作通过首先执行 decreasekey(p,∞)（待删除节点会移动到根节点处，为当前最小堆的最小值）。然后再执行 deleteMin()来完成。当一个进程被用户中止(而不是正常终止)时，它必须从优先队列中被除去。
+
+##### build Heap(构建堆)
+
+有时二叉堆是由一些项的一个初始集合构造而得的，这种构造函数以N项作为输入，并把它们放到一个堆中。显然，这可以使用N个相继的 insert操作来完成。由于每个 insert将花费O(1)平均时间以及O(logN)的最坏情形时间，因此该算法的总的运行时间平均是O(N)时间，而最坏情形则是O(logN)时间。由于这是一种特殊的指令，没有其他操作干扰，而且我们已经知道该指令能够以线性平均时间实施，因此，期望能够保证线性时间界的考虑是合乎情理的
+
+一般的算法考虑这N项是任意顺序插入的，下面的构造函数可以用来构造一棵堆序的树，这差不多要O(N)时间，**属于自下向上的建堆方式**
+
+```c++
+1   explicit BinaryHeap( const vector<Comparable> & items )
+2   : array( items.size( ) + 10 ), currentSize{ items.size( ) }
+3   {
+4       for( int i = 0; i < items.size( ); ++i )
+5           array[ i + 1 ] = items[ i ];
+6           buildHeap( );
+7   }
+8
+9   /**
+10  * Establish heap order property from an arbitrary
+11  * arrangement of items. Runs in linear time.
+12  */
+13  void buildHeap( )
+14  {
+15      for( int i = currentSize / 2; i > 0; --i )
+16          percolateDown( i );
+17 }
+```
+
+下面展示了从一棵无序的树到最小堆的过程
+
+![buildheap.png](http://ww1.sinaimg.cn/large/005GdKShly1g9ymf8acyij30hb0kg77q.jpg)
+
+还有一种是自顶向下的建堆方式，具有O(NlogN)的时间复杂度，这种方式就是从根节点开始，一个一个地把点insert进入堆中，显然自下而上的建堆更快
+
+关于二叉树建堆的时间复杂度分析，这里有篇知乎可以继续深入：[为什么建立一个二叉堆的时间为 O (N) 而不是 O (Nlog (N))?](https://www.zhihu.com/question/264693363)
+
+#### 理想二叉树(perfect binary tree)
+
+For the perfect binary tree of height h containing `2^(h+1)−1` nodes, the sum of the heights of the nodes is `2^(h+1)−1−(h+1)`.
+
+注意：**一棵完全二叉树不是理想二叉树**
+
+### 优先队列的应用
+
+#### 选择问题
+
+我们将要考察的第一个问题是来自第1章1.1节的选择问题( selection problem)。回忆当时的输入是N个元素以及一个整数k，这N个元素可以是全序的( totally ordered)。该选择问题是要找出第k个最大的元素。在第1章中给出了两个算法，不过它们都不是很有效的算法。第一个算法我们将称其为1A，是把这些元素读入数组并将它们排序，返回适当的元素。假设使用的是简单的排序算法(如冒泡排序)，则运行时间为O(N^2)。另一个算法叫作1B，是将k个元素读入一个数组并将其排序。这些元素中的最小者在第k个位置上。我们一个一个地处理其余的元素。当一个元素被读入时，它先与数组中第k个元素比较，如果该元素大，那么将第k个元素除去，而这个新元素则被放在其余k-1个元素间的正确的位置上。当算法结束时，第k个位置上的元素就是问题的解答。该方法的运行时间为O(Nk)（因为总共要处理N个元素，每个元素要与前k个元素比较）。如果k=[N/2]（向上取整），那么这两种算法都是O(N^2)。注意，对于任意的k，我们可以求解对称的问题：找出第(N-k+1)个最小的元素，从而k=[N/2]（向上取整）。实际上是这两个算法最困难的情况。这刚好也是最有趣的情形，因为k的这个值称为中位数( median)。
+
+我们在这里给出两个基于（最小）堆的算法，在k=[N/2]（向上取整）的极端情形它们均以O(NogN)运行，这是明显的改进
+
+##### 算法6A
+
+为了简单起见，假设只考虑找出第k个最小的元素。该算法很简单。我们将N个元素读入一个数组。然后对该数组应用 buildHeap算法。最后，执行k次 deletemin操作。从该堆最后提取的元素就是我们的答案。显然，用最大堆可以使用此算法找出第k个最大的元素。如果使用 buildHeap，构造堆的最坏情形用时是O(N)，而每次 deleteMin用时O(logN)。由于有k次 deleteMin，因此得到总的运行时间为O(N+klogN)。如果k=O(N/logN)，那么运行时间取决于 buildHeap操作，即O(N)。对于大的k值，运行时间为O(klogN)。如果k=[N/2]（向上取整），那么运行时间则为θ(NlogN)。
+
+注意，如果对k=N运行该程序并在元素离开堆时记录它们的值，那么实际上已经对输入文件以时间O(NlogN)做了排序。在第7章，我们将细化该想法，得到一种快速的排序算法，叫作**堆排序(heapsort)**。
+
+##### 算法6B
+
+关于第2个算法，我们回到原始问题，找出第k个最大的元素。我们使用算法1B的思路。在任一时刻我们都将保留k个最大元素的集合S。在前k个元素读入以后，当再读入一个新的元素时，该元素将与第k个最大元素进行比较，记这第k个最大的元素为Sk。注意，Sk是S中最小的元素。如果新的元素更大，那么用新元素代替S中的Sk。此时，S将有一个新的最小元素，它可能是新添加进的元素，也可能不是。在输入终了时，我们找到S中最小的元素，将其返回，它就是答案。
+
+这基本上与第1章中描述的算法相同。不过，**这里使用一个堆来实现S**。前k个元素通过调用一次 buildHeap以总时间O(k)被置入堆中。处理每个其余的元素的时间为O(1)，用于检测是否元素进入S，再加上时间O(logk)，用于在必要时删除Sk并插入新元素。因此，总的时间是O(k+(N-k)logk)=O( Nlogk)。该算法也给出找出中位数的时间界θ(NlogN)
+
+在第7章，我们将看到如何以平均时间O(N)解决这个问题。在第10章，我们将看到个以O(N)最坏情形时间求解该问题的算法，虽然不实用但却很精妙。
+
+#### 事件模拟
+
+不懂作者在写什么-_-
+
+看到一篇还不错的讲堆的应用的文章：[堆的应用：如何快速获取到 Top 10 最热门的搜索关键词](https://shouliang.github.io/2018/11/28/%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E4%B8%8E%E7%AE%97%E6%B3%95/29%20%7C%20%E5%A0%86%E7%9A%84%E5%BA%94%E7%94%A8%EF%BC%9A%E5%A6%82%E4%BD%95%E5%BF%AB%E9%80%9F%E8%8E%B7%E5%8F%96%E5%88%B0Top%2010%E6%9C%80%E7%83%AD%E9%97%A8%E7%9A%84%E6%90%9C%E7%B4%A2%E5%85%B3%E9%94%AE%E8%AF%8D/)
+
+### d堆(d heap)
+
+d堆就是二叉堆的推广，所有节点都有d个儿子，所以二叉堆可以看成d堆的特例，二叉堆是2堆
+
+一般d堆比二叉堆浅得多，它将insert操作改进到了O(log d N)，然而对于大的d，deleteMin操作费时得多，因为d个儿子的最小值是必须要找出来的
+
+当优先队列太大以致于不能装入内存，d堆也是很有用的，d堆能够以与B树大致相同的方式发挥作用
+
+最后有证据显示，在实践中，4堆可以胜过二叉堆
+
+### 左式堆(leftist heap)
+
+二叉堆底层是用数组实现的，如果想把两个堆合并起来，想要在o(N)时间内完成似乎很困难，故所有支持高效合并的高级数据结构都需要使用链式数据结构，但是这又有可能导致其他操作变慢
+
+**左式堆(leftist heap)**也是一种二叉堆，也有结构性和堆序性，区别在于：左式堆不是理想平衡的(perfectly balanced)，而实际上是趋向于非常的不平衡
+
+合并两个左式堆的时间界为O(logN)
+
+#### 左式堆的性质
+
+我们把任一节点X的零路径长(null path length)，npl(X)，定义为从X到一个不具有两个儿子的节点的最短路径的长。因此，具有0个或1个儿子的节点的npl为0，而npl(nullptr)=-1。在下图给出的树中，零路径长标记在树的节点内。
+
+![leftisttreeexample.png](http://ww1.sinaimg.cn/large/005GdKShly1g9yp7th2tlj30k208vmxv.jpg)
+
+注意，任一节点的零路径长比它的诸儿子节点的零路径长的最小值多1。这个结论也适用少于两个儿子的节点，因为nu1ptr的零路径长是-1。
+
+左式堆性质是：对于堆中的每一个节点X，左儿子的零路径长至少与右儿子的零路径长一样。所以，上图只有左边的那棵树满足该性质，它才是左式堆
+
+这个性质使堆偏向于向左增加深度，于是我们就有了名称**左式堆(leftist heap)**
+
+因为左式堆趋向于加深左路径，所以右路径应该短。
+
+#### 左式堆操作
+
+注意，插入只是合并的特殊情形，因为可以把插入看成是单节点堆与一个更大的堆的 merge。
+
+我们的输入是两个左式堆H1和H2，最小的元素在根处。除数据、左指针和右指针所用空间外，每个节点还要有一个指示零路径长的项。首先可比较它们的根。首先，我们递归地将具有较大的根值的堆与具有较小的根值的堆的右子堆合并。在本例中这就是说，我们递归地将H2与H1的根在8处的右子堆合并，得到图6.22中的堆。递归描述暂时先不细讲。然后让这个新的堆成为H1的根的右儿子，如图6.23所示，但因为这违反了左式堆的性质，所以把根的左右儿子调换即可，新的零路径长是新的右儿子的零路径长加1，最后得到图2.3的左式堆
+
+![mergeleftisttree.png](http://ww1.sinaimg.cn/large/005GdKShly1g9yr7x2gkwj30980fiaaz.jpg)
+
+执行合并所用的时间与右路径的长的和成正比，因为在调用期间对每个访问节点花费常数时间，所以合并两个左式堆的时间界为O(logN)
+
+下面给出了左式堆的类接口以及合并操作的实现
+
+```c++
+1 template <typename Comparable>
+2 class LeftistHeap
+3 {
+4   public:
+5       LeftistHeap( );
+6       LeftistHeap( const LeftistHeap & rhs );
+7       LeftistHeap( LeftistHeap && rhs );
+8
+9       ~LeftistHeap( );
+10
+11      LeftistHeap & operator=( const LeftistHeap & rhs );
+12      LeftistHeap & operator=( LeftistHeap && rhs );
+13
+14      bool isEmpty( ) const;
+15      const Comparable & findMin( ) const;
+16
+17      void insert( const Comparable & x );
+18      void insert( Comparable && x );
+19      void deleteMin( );
+20      void deleteMin( Comparable & minItem );
+21      void makeEmpty( );
+22      void merge( LeftistHeap & rhs );
+23
+24  private:
+25      struct LeftistNode
+26      {
+27          Comparable element;
+28          LeftistNode *left;
+29          LeftistNode *right;
+30          int npl;
+31
+32           LeftistNode( const Comparable & e, LeftistNode *lt = nullptr,
+33          LeftistNode *rt = nullptr, int np = 0 )
+34          : element{ e }, left{ lt }, right{ rt }, npl{ np } { }
+35
+36          LeftistNode( Comparable && e, LeftistNode *lt = nullptr,
+37          LeftistNode *rt = nullptr, int np = 0 )
+38          : element{ std::move( e ) }, left{ lt }, right{ rt }, npl{ np } { }
+39      };
+40
+41      LeftistNode *root;
+42
+43      LeftistNode * merge( LeftistNode *h1, LeftistNode *h2 );
+44      LeftistNode * merge1( LeftistNode *h1, LeftistNode *h2 );
+45
+46      void swapChildren( LeftistNode *t );
+47      void reclaimMemory( LeftistNode *t );
+48      LeftistNode * clone( LeftistNode *t ) const;
+49 };
+```
+
+```c++
+1 /**
+2 * Merge rhs into the priority queue.
+3 * rhs becomes empty. rhs must be different from this.
+4 */
+5 void merge( LeftistHeap & rhs )
+6 {
+7   if( this == &rhs ) // Avoid aliasing problems
+8       return;
+9
+10  root = merge( root, rhs.root );
+11  rhs.root = nullptr;
+12 }
+13
+14 /**
+15 * Internal method to merge two roots.
+16 * Deals with deviant cases and calls recursive merge1.
+17 */
+18 LeftistNode * merge( LeftistNode *h1, LeftistNode *h2 )
+19 {
+20  if( h1 == nullptr )
+21      return h2;
+22  if( h2 == nullptr )
+23      return h1;
+24  if( h1->element < h2->element )
+25      return merge1( h1, h2 );
+26  else
+27      return merge1( h2, h1 );
+28 }
+```
+
+```c++
+1 /**
+2 * Internal method to merge two roots.
+3 * Assumes trees are not empty, and h1’s root contains smallest item.
+4 */
+5 LeftistNode * merge1( LeftistNode *h1, LeftistNode *h2 )
+6 {
+7   if( h1->left == nullptr ) // Single node
+8       h1->left = h2; // Other fields in h1 already accurate
+9   else
+10  {
+11      h1->right = merge( h1->right, h2 );
+12      if( h1->left->npl < h1->right->npl )
+13          swapChildren( h1 );
+14      h1->npl = h1->right->npl + 1;
+15  }
+16   return h1;
+17 }
+```
+
+插入可以看做一个单节点的堆与另一个堆合并，而为了执行deleteMin，我们只需除掉根而得到两个堆，然后再将这两个堆合并即可，用时O(logN)，两者实现如下
+
+```c++
+1 /**
+2 * Remove the minimum item.
+3 * Throws UnderflowException if empty.
+4 */
+5 void deleteMin( )
+6 {
+7   if( isEmpty( ) )
+8       throw UnderflowException{ };
+9
+10  LeftistNode *oldRoot = root;
+11  root = merge( root->left, root->right );
+12  delete oldRoot;
+13 }
+14
+15 /**
+16 * Remove the minimum item and place it in minItem.
+17 * Throws UnderflowException if empty.
+18 */
+19 void deleteMin( Comparable & minItem )
+20 {
+21  minItem = findMin( );
+22  deleteMin( );
+23 }
+```
+
+### 斜堆(skew heap)
+
+斜堆( skew heap)是左式堆的自调节形式，实现起来极其简单。斜堆和左式堆间的关系类似于伸展树和AVL树间的关系。斜堆是具有堆序的二叉树，但是不存在对树的结构限制。不同于左式堆，关于任意节点的零路径长的任何信息都不再保留。斜堆的右路径在任何时刻都可以任意长，因此，所有操作的最坏情形运行时间均为O(M)。然而，正如同伸展树，可以证明(见第11章)对任意M次连续操作，总的最坏情形运行时间是O(MlogN)。因此，斜堆每
+次操作的**摊还开销(amortized cost)**为O(logN)。
+
+### 二项队列（binomial queue）
+
+二项队列( binomial queue)不同于我们已经看到的所有优先队列的实现之处在于，一个二项队列不是**一棵**堆序的树，而是**一组**堆序树(heap- ordered tree)，称为森林(forest)。堆序树中的每一棵都是有约束的形式，叫作二项树(binomial tree)。每一个高度上至多存在一棵二项树。高度为0的二项树是一棵单节点树，高度为k的二项树Bk通过将一棵二项树Bk-1附接到另一棵二项树Bk-1的根上而构成。图6.34显示出二项树B0、B1、B2、B3以及B4
+
+![binomialtrees.png](http://ww1.sinaimg.cn/large/005GdKShly1g9ysu4f43lj30hh0cl3ze.jpg)
+
+从图中看到，二项树Bk由一个带有儿子B0,B1,…,Bk-1的根组成。高度为k的二项树恰好有2个节点，而在深度d处的节点个数是二项系数Ckd(k为下标，d为上标，即排列组合中的记法)，如果把堆序施加到二项树上并允许任意高度上最多一棵二项树，那么我们就能够用二项树的集合表示任意大小的优先队列。
+
+#### 二项队列操作
+
+最小元可以通过搜索所有的树的根来找出。由于最多有logN棵不同的树，因此最
+小元可以时间O(logN)找到。另外，如果我们记住当最小元在其他操作期间变化时更新它，那么也可以保留最小元的信息并以O(1)时间执行这种操作。
+
+##### 二项队列merge
+
+考虑两个二项队列H1和H2，它们分别具有6个和7个元素，见图6.36。合并操作基本上是通过将两个队列加到一起来完成的。令H3是新的二项队列。由于H1没有高度为0的二项树而H2有，因此我们就用H2中高度为0的二项树作为H3的一部分。然后，将两个高度为1的二项树相加。由于H1和H2都有高度为1的二项树，因此可以将它们合并，让大的根成为小的根的子树，从而建立高度为2的二项树，见图6.37。这样，H3将没有高度为1的二项树。现在存在3棵高度为2的二项树，即H1和H2原有的两棵二项树以及由上一步形成的一棵二项树。我们将一棵高度为2的二项树放到H3中，并合并其他两棵二项树，得到一棵高度为3的二项树。由于H和H2都没有高度为3的二项树，因此该二项树就成为H3的一部分，合并结束。最后得到的二项队列如图6.38所示
+
+![binomialqueuemerge.png](http://ww1.sinaimg.cn/large/005GdKShly1g9yt2fjdcxj30h30gwabm.jpg)
+
+总结：合并两棵二项树花费O(1)时间，而总共存在O(log)棵二项树，因此**合并操作在最坏情形下花费时间O(logN)**。为使该操作更有效，需要将这些树放到按照高度排序的二项队列中，当然这做起来是件简单的事情
+
+##### 二项队列insert
+
+插入实际上就是特殊情形的合并，因为我们只要创建一棵单节点树并执行一次合并即可，这种操作的最坏情形运行时间也是O(logN)。更准确地说，如果在优先队列中不存在的最小的二项树是Bi，那么将元素插入其中的运行时间与i+1成正比。例如，H2(见图6.38)缺少高度为1的二项树，因此插入将进行两步终止。由于二项队列中的每棵树均以概率1/2出现，于是我们预计插入在两步后终止，因此，平均时间是O(1)。不仅如此，分析将指出，对一个初始为空的二项队列进行N次 insert将花费O(N)最坏情形时间。事实上，只用N-1次比较就有可能进行该操作
+
+作为一个例子，我们用图6.39~图6.45演示通过依序插入1~7来构成一个二项队列。4的插入展现一种坏的情形。我们把4与B0合并，得到一棵新的高度为1的树。然后将该树与B1合并，得到一棵高度为2的树，它是新的优先队列。我们把这些算作3步(两次树的合并再加上终止情形)。在插入7以后的下一次插入又是一个坏情形，需要3次树的合并操作。
+
+![binomialqueueinsert.png](http://ww1.sinaimg.cn/large/005GdKShly1g9yt46txe0j307p0kz3zl.jpg)
+
+总结：**二项队列insert，最坏情况O(logN)，平均O(1)**
+
+##### 二项队列deleteMin
+
+deleteMin可以通过首先找出一棵具有最小根的二项树来完成。令该树为Bk，并令原始的优先队列为H。我们从H的树的森林中删除二项树Bk，形成新的二项队列H'。再在Bk中删除它的根，得到二项树B0,B1,…,Bk-1，它们形成优先队列H''。合并H'和H''，操作结束。
+
+作为例子，设对3执行一次 deleteMin，它也在图6.46中给出。最小的根是12，因此得到图6.47和图6.48中的两个优先队列H'和H''，合并H'和H''后得到的二项队列是最后的答案，如图6.49所示。
+
+![binomialqueuedeletemin.png](http://ww1.sinaimg.cn/large/005GdKShly1g9yuoistvyj30gu0k80up.jpg)
+
+总结：为了分析，首先注意，deleteMin操作将原二项队列一分为二。找出含有最小元素的树并创建队列H和H"，花费时间O(logN)。合并这两个队列又花费O(logN)时间，因此，**整个deleteMin操作花费时间O(logN)**
+
+#### 二项队列的实现
+
+deleteMin操作需要快速找出根的所有子树的能力,因此,需要一般树的标准表示:每个节点的儿子都留在一个链表中,而且每个节点都有一个指针指向它的第一个儿子(如果有的话)。该操作还要求诸儿子按照它们子树的大小排序。我们还需要保证合并两棵树容易。当两棵树被合并时,其中的一棵树作为儿子被加到另一棵树上。由于这棵新树将是最大的子树,因此,以大小递减的方式保持这些子树是有意义的。只有这时才能够有效地合并两棵二项树从而合并两个二项队列。二项队列将是二项树的数组。总而言之,二项树的每一个节点都将包含数据、第一个儿子以及右兄弟。二项树中的诸儿子以递减次序排列。
+
+下图的数组包含了二项队列的根节点
+
+![binomialqueueimplementation.png](http://ww1.sinaimg.cn/large/005GdKShly1g9yvmc12y2j30kr0dawg1.jpg)
+
+二项队列的类接口如下
+
+```c++
+1 template <typename Comparable>
+2 class BinomialQueue
+3 {
+4   public:
+5       BinomialQueue( );
+6       BinomialQueue( const Comparable & item );
+7       BinomialQueue( const BinomialQueue & rhs );
+8       BinomialQueue( BinomialQueue && rhs );
+9
+10      ~BinomialQueue( );
+11
+12      BinomialQueue & operator=( const BinomialQueue & rhs );
+13      BinomialQueue & operator=( BinomialQueue && rhs );
+14
+15      bool isEmpty( ) const;
+16      const Comparable & findMin( ) const;
+17
+18      void insert( const Comparable & x );
+19      void insert( Comparable && x );
+20      void deleteMin( );
+21      void deleteMin( Comparable & minItem );
+22
+23      void makeEmpty( );
+24      void merge( BinomialQueue & rhs );
+25
+26  private:
+27      struct BinomialNode
+28      {
+29          Comparable element;
+30          BinomialNode *leftChild;
+31          BinomialNode *nextSibling;
+32
+33          BinomialNode( const Comparable & e, BinomialNode *lt, BinomialNode *rt )
+34          : element{ e }, leftChild{ lt }, nextSibling{ rt } { }
+35
+36          BinomialNode( Comparable && e, BinomialNode *lt, BinomialNode *rt )
+37          : element{ std::move( e ) }, leftChild{ lt }, nextSibling{ rt } { }
+38      };
+39
+40      const static int DEFAULT_TREES = 1;
+41
+42      vector<BinomialNode *> theTrees; // An array of tree roots
+43      int currentSize; // Number of items in the priority queue
+44
+45      int findMinIndex( ) const;
+46      int capacity( ) const;
+47      BinomialNode * combineTrees( BinomialNode *t1, BinomialNode *t2 );
+48      void makeEmpty( BinomialNode * & t );
+49      BinomialNode * clone( BinomialNode * t ) const;
+50 };
+```
+
+合并二项队列的底层是合并两棵同样大小的二项树，如下图所示
+
+![binomialtreesmerge.png](http://ww1.sinaimg.cn/large/005GdKShly1g9yvu4gozpj30k406kaas.jpg)
+
+合并二项树的代码如下，if语句保证了当前`t1->element <= t2->element`，对于图6.53， 左边为t1，右边为t2
+
+```c++
+1 /**
+2 * Return the result of merging equal-sized t1 and t2.
+3 */
+4 BinomialNode * combineTrees( BinomialNode *t1, BinomialNode *t2 )
+5 {
+6   if( t2->element < t1->element )
+7       return combineTrees( t2, t1 );
+8   t2->nextSibling = t1->leftChild;
+9   t1->leftChild = t2;
+10  return t1;
+11 }
+```
+
+合并二项队列的实现如下，这里代码量较大，carry是从上一步得来的树，相当于加法里的进位
+
+```c++
+1 /**
+2 * Merge rhs into the priority queue.
+3 * rhs becomes empty. rhs must be different from this.
+4 * Exercise 6.35 needed to make this operation more efficient.
+5 */
+6 void merge( BinomialQueue & rhs )
+7 {
+8   if( this == &rhs ) // Avoid aliasing problems
+9       return;
+10
+11  currentSize += rhs.currentSize;
+12
+13  if( currentSize > capacity( ) )
+14  {
+15      int oldNumTrees = theTrees.size( );
+16      int newNumTrees = max( theTrees.size( ), rhs.theTrees.size( ) ) + 1;
+17      theTrees.resize( newNumTrees );
+18      for( int i = oldNumTrees; i < newNumTrees; ++i )
+19          theTrees[ i ] = nullptr;
+20  }
+21
+22  BinomialNode *carry = nullptr;
+23  for( int i = 0, j = 1; j <= currentSize; ++i, j *= 2 )
+24  {
+25      BinomialNode *t1 = theTrees[ i ];
+26      BinomialNode *t2 = i < rhs.theTrees.size( ) ? rhs.theTrees[ i ]
+27      : nullptr;
+28      int whichCase = t1 == nullptr ? 0 : 1;
+29      whichCase += t2 == nullptr ? 0 : 2;
+30      whichCase += carry == nullptr ? 0 : 4;
+31
+32      switch( whichCase )
+33      {
+34          case 0: /* No trees */
+35          case 1: /* Only this */
+36              break;
+37          case 2: /* Only rhs */
+38              theTrees[ i ] = t2;
+39              rhs.theTrees[ i ] = nullptr;
+40              break;
+41          case 4: /* Only carry */
+42              theTrees[ i ] = carry;
+43              carry = nullptr;
+44              break;
+45          case 3: /* this and rhs */
+46              carry = combineTrees( t1, t2 );
+47              theTrees[ i ] = rhs.theTrees[ i ] = nullptr;
+48              break;
+49          case 5: /* this and carry */
+50              carry = combineTrees( t1, carry );
+51              theTrees[ i ] = nullptr;
+52              break;
+53          case 6: /* rhs and carry */
+54              carry = combineTrees( t2, carry );
+55              rhs.theTrees[ i ] = nullptr;
+56              break;
+57          case 7: /* All three */
+58              theTrees[ i ] = carry;
+59              carry = combineTrees( t1, t2 );
+60              rhs.theTrees[ i ] = nullptr;
+61              break;
+62      }
+63  }
+64
+65  for( auto & root : rhs.theTrees )
+66      root = nullptr;
+67  rhs.currentSize = 0;
+68 }
+
+二项队列的deleteMin实现如下
+
+```c++
+1 /**
+2 * Remove the minimum item and place it in minItem.
+3 * Throws UnderflowException if empty.
+4 */
+5 void deleteMin( Comparable & minItem )
+6 {
+7   if( isEmpty( ) )
+8       throw UnderflowException{ };
+9
+10  int minIndex = findMinIndex( );
+11  minItem = theTrees[ minIndex ]->element;
+12
+13  BinomialNode *oldRoot = theTrees[ minIndex ];
+14  BinomialNode *deletedTree = oldRoot->leftChild;
+15  delete oldRoot;
+16
+17  // Construct H’’
+18  BinomialQueue deletedQueue;
+19  deletedQueue.theTrees.resize( minIndex + 1 );
+20  deletedQueue.currentSize = ( 1 << minIndex ) - 1;
+21  for( int j = minIndex - 1; j >= 0; --j )
+22  {
+23      deletedQueue.theTrees[ j ] = deletedTree;
+24      deletedTree = deletedTree->nextSibling;
+25      deletedQueue.theTrees[ j ]->nextSibling = nullptr;
+26  }
+27
+28  // Construct H’
+29  theTrees[ minIndex ] = nullptr;
+30  currentSize -= deletedQueue.currentSize + 1;
+31
+32  merge( deletedQueue );
+33 }
+34
+35 /**
+36 * Find index of tree containing the smallest item in the priority queue.
+37 * The priority queue must not be empty.
+38 * Return the index of tree containing the smallest item.
+39 */
+40 int findMinIndex( ) const
+41 {
+42  int i;
+43  int minIndex;
+44
+45  for( i = 0; theTrees[ i ] == nullptr; ++i )
+46      ;
+47
+48  for( minIndex = i; i < theTrees.size( ); ++i )
+49      if( theTrees[ i ] != nullptr &&
+50          theTrees[ i ]->element < theTrees[ minIndex ]->element )
+51          minIndex = i;
+52
+53  return minIndex;
+54 }
+
+### 标准库中的优先队列——priority_queue
+
+STL中的二叉堆是通过priority_queue的类模板实现的，可以在标准头文件queue中找到它，必须要注意：**STL中priority_queue实现的是最大堆**，其核心成员函数是：
+
+```c++
+void push( const Object & x );
+const Object & top( ) const; // 返回最大元素
+void pop( ); // 删除最大元素
+bool empty( );
+void clear( );
+```
+
+当然，priority_queue也可以作为最小堆使用，在类模板实例化时传入greater函数对象作为比较器即可，只是默认情况下是最大堆，下面是个例子，展示了priority_queue如何实现最大堆与最小堆，priority_queue类模板中的容器类型参数也允许默认值，几乎总是用vector作为容器的
+
+```c++
+1 #include <iostream>
+2 #include <vector>
+3 #include <queue>
+4 #include <functional>
+5 #include <string>
+6 using namespace std;
+7
+8 // Empty the priority queue and print its contents.
+9 template <typename PriorityQueue>
+10 void dumpContents( const string & msg, PriorityQueue & pq )
+11 {
+12  cout << msg << ":" << endl;
+13  while( !pq.empty( ) )
+14  {
+15      cout << pq.top( ) << endl;
+16      pq.pop( );
+17  }
+18 }
+19
+20 // Do some inserts and removes (done in dumpContents).
+21 int main( )
+22 {
+23  priority_queue<int> maxPQ;
+24  priority_queue<int,vector<int>,greater<int>> minPQ;
+25
+26  minPQ.push( 4 ); minPQ.push( 3 ); minPQ.push( 5 );
+27  maxPQ.push( 4 ); maxPQ.push( 3 ); maxPQ.push( 5 );
+28
+29  dumpContents( "minPQ", minPQ ); // 3 4 5
+30  dumpContents( "maxPQ", maxPQ ); // 5 4 3
+31
+32  return 0;
+33 }
+```
+
+## 排序(Sorting)
+
+### 排序预备知识
+
+本章例子假设只包含整数，并且排序能在主存中完成，而在本章末尾讨论了对于大量元素的排序，它们没法放入主存，得放在磁盘中完成，这叫**外部排序(external sorting)**
+
+任何通用的算法均需要Ω(NlogN)次比较
+
+这里的接口不同于STL中的排序算法。在STL中，排序是通过使用函数模板sort完成的。sort的参数代表容器(中某个范围)的开始和终端标记(endmarker)以及一个可选的比较器
+
+```c++
+void sort( Iterator begin, Iterator end );
+void sort( Iterator begin, Iterator end, Comparator cmp );
+```
+
+迭代器必须支持随机访问。sort算法并不保证相等的项保持它们原有的顺序(若这很重要，则可使用stable_sort而不用sort)。例如，在
+
+```c++
+std::sort( v.begin( ), v.end( ) );
+std::sort( v.begin( ), v.end( ), greater<int>{ } );
+std::sort( v.begin( ), v.begin( ) + ( v.end( ) - v.begin( ) ) / 2 );
+```
+
+中第一个调用是将整个容器v以非降顺序排序，第二个调用是将整个容器以非增顺序排序，第三个调用则将容器的前半部分以非降顺序排序。
+
+排序算法的稳定与否，在于原来相等的项在排序后是否仍然保持原有的顺序
+
+### 插入排序(insertion sort)
+
+插入排序是最简单的排序算法之一
+
+插入排序由N-1趟排序组成。对于p=1到N-1趟，插入排序保证从位置0到位置p上的元素为已排序状态。插入排序利用了这样的事实；已知位置0到位置p-1上的元素已经处于排过序的状态。图7.1显示一个数组样例在每一趟插入排序后的情况。
+
+![insertionsort.png](http://ww1.sinaimg.cn/large/005GdKShly1g9zq1jczhcj30hi06kwf4.jpg)
+
+#### 简单的插入排序实现
+
+个人先写了个交换版本的插入排序实现
+
+```c++
+template <typename Comparable>
+void insertionSort(vector<Comparable> &a)
+{
+    for (int i = 1; i < a.size(); ++i)
+    {
+        for (int j = i; j > 0; --j)
+        {
+            if (a[j] < a[j - 1])
+            {
+                swap(a[j], a[j - 1]);
+            }
+            else
+            {
+                break;
+            }
+        }
+    }
+}
+```
+
+书中使用了**移动(move)**，这比**交换(swap)**更快，每次内层循环之前把待排元素用tmp变量暂存起来，然后每个大于tmp的元素后移一位
+
+```c++
+1 /**
+2 * Simple insertion sort.
+3 */
+4 template <typename Comparable>
+5 void insertionSort( vector<Comparable> & a )
+6 {
+7   for( int p = 1; p < a.size( ); ++p )
+8   {
+9       Comparable tmp = std::move( a[ p ] );
+10
+11      int j;
+12      for( j = p; j > 0 && tmp < a[ j - 1 ]; --j )
+13          a[ j ] = std::move( a[ j - 1 ] );
+14      a[ j ] = std::move( tmp );
+15  }
+16 }
+```
+
+#### STL中的插入排序
+
+在预备知识小节，我们知道STL中的sort函数模板接受一对迭代器作为参数，并且还支持第三个比较器参数
+
+这里有个问题，模板类型参数（即泛型类型）都是Iterator；可是Object不是一个泛型类型参数，在C++11之前要额外的工作来解决这个问题，但C++11引入了decltpye，实现如下
+
+```c++
+1 /*
+2 * The two-parameter version calls the three-parameter version,
+3 * using C++11 decltype
+4 */
+5 template <typename Iterator>
+6 void insertionSort( const Iterator & begin, const Iterator & end )
+7 {
+8   insertionSort( begin, end, less<decltype(*begin)>{ } );
+9 }
+```
+
+```c++
+1 template <typename Iterator, typename Comparator>
+2 void insertionSort( const Iterator & begin, const Iterator & end,
+3 Comparator lessThan )
+4 {
+5   if( begin == end )
+6       return;
+7
+8   Iterator j;
+9
+10  for( Iterator p = begin+1; p != end; ++p )
+11  {
+12      auto tmp = std::move( *p );
+13      for( j = p; j != begin && lessThan( tmp, *( j-1 ) ); --j )
+14          *j = std::move( *(j-1) );
+15      *j = std::move( tmp );
+16  }
+17 }
+```
+
+#### 插入排序的分析
+
+由于嵌套循环中的每一个都可能用到N次迭代，因此插入排序为O(N^2)，而且这个界还是精确的，因为以反序的输入可以达到该界
+
+另一方面，如果输入数据已预先排序，那么运行时间为O(N)，因为内层for循环中的检测总是立即失败而使下一语句得不到执行。事实上，如果输入几乎被排序(该术语将在下节更严格地定义)，那么插入排序将运行得很快。由于这种变化差别很大，因此值得我们去分析该算法平均情形的行为。实际上，和各种其他排序算法一样，插入排序的平均情形也是θ(N^2)，详见下节的分析。
+
+### 一些简单排序算法的下界
+
+成员为数的数组的一个**逆序(inversion)**即具有性质`i<j`但`a[i]>a[j]`的序偶( ordered pair)`(a[i],a[j])。在上节的例子中，输入数据34,8,64,51,32,21有9个逆序，即(34,8),(34,32),(34,21),(64,51),(64,32),(64,21),(51,32),(51,21),以及(32,21)。注意，这正好是
+需要由插入排序(隐含)执行的交换次数。情况总是这样，因为交换两个不按顺序排列的相邻元素恰好消除一个逆序，而一个排过序的数组没有逆序。由于算法中还有O(N)项其他的工作，因此插入排序的运行时间是O(I+M)，其中I为原始数组中的逆序数。于是，若逆序数是O(N)，则插入排序以线性时间运行。
+
+定理：N个互异元素的数组的平均逆序数是N(N-1)/4
+
+定理：通过交换相邻元素进行排序的任何算法平均都需要Ω(N^2)时间
+
+### 希尔排序
+
+上节所提到的，它通过比较相距一定间隔的元素来工作。各趟比较所用的距离随着算法的进行而减小，直到只比较相邻元素的最后一趟排序为止。由于这个原因，希尔排序有时也叫作缩减增量排序(diminishing increment sort)。
+
+希尔排序使用一个序列h1,h2,…,hk，叫作增量序列(increment sequence)。只要h1=1，任何增量序列都是可行的，但有些增量序列性能更好。在使用增量hk的一趟排序之后，对于每一个i我们都有`a[i]≤a[i+hk]`，所有相隔hk的元素都被排序。此时称文件是hk排序的(hk-sorted)。实际上，增量为hk的子数组的排序方式为插入排序，故**希尔排序的底层是用插入排序实现的**
+
+![shellsort.png](http://ww1.sinaimg.cn/large/005GdKShly1g9zszjtqlyj30kf0530tc.jpg)
+
+增量序列的一个流行（但不是很好）的选择是使用Shell建议的序列：hk初始为[N/2]，hk=[hk/2]（都是向下取整）
+
+#### 希尔排序的实现
+
+下面给出了希尔排序的实现，它的增量序列是按照Shell建议那样的，书上的外层for循环缺少花括号，这里补上了，这段代码初看有问题，但经我检验是可行的，内层for循环的逻辑需要搞清楚，序号为0~gap的元素是各子数组的首元素，默认已经排好序了，当考察a[i]时，进行插入排序，从所属子数组的最后一个元素开始依次往前比较，直至找到a[i]应该插入的位置，然后i增大直至遍历后面所有待排元素
+
+```c++
+1 /**
+2 * Shellsort, using Shell’s (poor) increments.
+3 */
+4 template <typename Comparable>
+5 void shellsort( vector<Comparable> & a )
+6 {
+7   for( int gap = a.size( ) / 2; gap > 0; gap /= 2 )
+    {
+8       for( int i = gap; i < a.size( ); ++i )
+9       {
+10          Comparable tmp = std::move( a[ i ] );
+11          int j = i;
+12
+13          for( ; j >= gap && tmp < a[ j - gap ]; j -= gap )
+14              a[ j ] = std::move( a[ j - gap ] );
+15          a[ j ] = std::move( tmp );
+16      }
+    }
+17 }
+```
+
+#### 希尔排序的分析
+
+使用希尔增量时希尔排序的最坏情形运行时间为θ(N^2)
+
+使用 Hibbard增量的希尔排序的最坏情形运行时间为θ(N^(3/2))。
+
+最优时间复杂度根据增量不同而不同
+
+希尔排序是不稳定的
+
+### 堆排序(heapsort)
+
+之前提到过，二叉堆的建堆需要O(N)时间，然后再执行N次deleteMin操作，每次deleteMin操作为O(logN)，将这些元素记录到另一个数组然后再复制回来（二叉堆本来底层也是用数组实现的），复制用时O(N)，于是就得到了N个元素的排序，用时O(N+NlogN+N)，故**堆排序的时间复杂度为O(NlogN)**
+
+用另外一个数组作为中间暂存，看上去挺费空间的，这可以改进，因为每次deleteMin之后，二叉堆的元素-1，需要进行下滤（percolate down），所以数组后部的某个位置就空出来了，可以把刚得到的min放入，这样就有效地利用了空间。
+
+例如，设我们有个堆，它含有6个元素。第一次deleteMin产生个a1。现在该堆只有5个元素，因此可以把a1放在位置6上。下一次deleteMin产生个a2，由于该堆现在只有4个元素，因此把a2放在位置5上
+
+![heapsort.png](http://ww1.sinaimg.cn/large/005GdKShly1g9zvn8j7h4j30m1096gmw.jpg)
+
+#### 堆排序的实现
+
+堆排序的实现代码如下，不需要额外空间，最大堆，得到非递减排序，注意这里与二叉堆有点不同，二叉堆的数组里的元素是从下标1开始的，而这里的元素是从下标0开始的
+
+```c++
+1 /**
+2 * Standard heapsort.
+3 */
+4 template <typename Comparable>
+5 void heapsort( vector<Comparable> & a )
+6 {
+7   for( int i = a.size( ) / 2 - 1; i >= 0; --i ) /* buildHeap */
+8       percDown( a, i, a.size( ) );
+9   for( int j = a.size( ) - 1; j > 0; --j )
+10  {
+11      std::swap( a[ 0 ], a[ j ] ); /* deleteMax */
+12      percDown( a, 0, j );
+13  }
+14 }
+15
+16 /**
+17 * Internal method for heapsort.
+18 * i is the index of an item in the heap.
+19 * Returns the index of the left child.
+20 */
+21 inline int leftChild( int i )
+22 {
+23  return 2 * i + 1;
+24 }
+25
+26 /**
+27 * Internal method for heapsort that is used in deleteMax and buildHeap.
+28 * i is the position from which to percolate down.
+29 * n is the logical size of the binary heap.
+30 */
+31 template <typename Comparable>
+32 void percDown( vector<Comparable> & a, int i, int n )
+33 {
+34  int child;
+35  Comparable tmp;
+36
+37  for( tmp = std::move( a[ i ] ); leftChild( i ) < n; i = child )
+38  {
+39      child = leftChild( i );
+40      if( child != n - 1 && a[ child ] < a[ child + 1 ] )
+41          ++child;
+42      if( tmp < a[ child ] )
+43          a[ i ] = std::move( a[ child ] );
+44      else
+45          break;
+46  }
+47  a[ i ] = std::move( tmp );
+48 }
+```
+
+#### 堆排序的分析
+
+经验指出，堆排序的性能极其稳定：平均它使用的比较只比最坏情形界指出的略少，**堆排序的时间复杂度为O(NlogN)**
+
+### 归并排序(mergesort)
+
+**归并排序的最坏运行时间跟堆排序一样，也是O(NlogN)**，而所使用的的比较次数几乎是最优的，它是递归算法的一个很好的实例
+
+归并算法的基本操作是合并两个已排好序的数组，结果输出到第三个数组中，可以一趟排序完成，时间是O(N)，取两个数组A和B，以及三个计数器Actr，Bctr，Cctr，初始置于对应数组的头部，A[Actr]和B[Bctr]的较小者被复制到C中的下一个位置，相关计数器前进一步，当两个输入数组有一个用完时，把另一个数组剩余部分复制到C中，下图说明了这样的过程
+
+![mergesort.png](http://ww1.sinaimg.cn/large/005GdKShly1g9zwo4e4ifj30ff0hsdgp.jpg)
+
+因此，归并排序算法很容易描述。如果N=1，那么只有一个元素需要排序，答案是显然的。否则，递归地将前半部分数据和后半部分数据各自归并排序，得到排序后的两部分数据，然后使用上面描述的合并算法再将这两部分合并到一起。例如，欲将8元素数组24,13,26,1,2,27,38,15排序，我们递归地将前4个数据和后4个数据分别排序，得到1,13,24,26,2,15,27,38。然后，像上面那样将这两部分合并，得到最后的表1,2,13,15,24,26,27,38。该算法是经典的**分治(divide-and-conquer)**策略，它将问题**分(divide)**成一些小的问题然后递归求解，而**治(conquer)**的阶段则将分的阶段解得的各答案修补在一起。分治是递归非常有效的用法，我们将会多次遇到。
+
+#### 归并排序的实现
+
+如果对merge的每个递归调用均局部声明一个临时数组，那么在任一时刻就可能有logN个临时数组处在活动期。通过仔细思考，**由于merge是mergesort的最后一行，因此在任一时刻只需要一个临时数组在活动**，而且这个临时数组可以在public的mergeSort驱动程序中创建，而且我们可以使用该临时数组的任意部分，我们将使用与输入数组a相同的部分这是非常巧妙的，有效地节约了空间
+
+```c++
+1 /**
+2 * Mergesort algorithm (driver).
+3 */
+4 template <typename Comparable>
+5 void mergeSort( vector<Comparable> & a )
+6 {
+7   vector<Comparable> tmpArray( a.size( ) );
+8
+9   mergeSort( a, tmpArray, 0, a.size( ) - 1 );
+10 }
+11
+12 /**
+13 * Internal method that makes recursive calls.
+14 * a is an array of Comparable items.
+15 * tmpArray is an array to place the merged result.
+16 * left is the left-most index of the subarray.
+17 * right is the right-most index of the subarray.
+18 */
+19 template <typename Comparable>
+20 void mergeSort( vector<Comparable> & a,
+21 vector<Comparable> & tmpArray, int left, int right )
+22 {
+23  if( left < right )
+24  {
+25      int center = ( left + right ) / 2;
+26      mergeSort( a, tmpArray, left, center );
+27      mergeSort( a, tmpArray, center + 1, right );
+28      merge( a, tmpArray, left, center + 1, right );
+29  }
+30 }
+```
+
+merge的实现如下
+
+```c++
+1 /**
+2 * Internal method that merges two sorted halves of a subarray.
+3 * a is an array of Comparable items.
+4 * tmpArray is an array to place the merged result.
+5 * leftPos is the left-most index of the subarray.
+6 * rightPos is the index of the start of the second half.
+7 * rightEnd is the right-most index of the subarray.
+8 */
+9 template <typename Comparable>
+10 void merge( vector<Comparable> & a, vector<Comparable> & tmpArray,
+11 int leftPos, int rightPos, int rightEnd )
+12 {
+13  int leftEnd = rightPos - 1;
+14  int tmpPos = leftPos;
+15  int numElements = rightEnd - leftPos + 1;
+16
+17  // Main loop
+18  while( leftPos <= leftEnd && rightPos <= rightEnd )
+19      if( a[ leftPos ] <= a[ rightPos ] )
+20          tmpArray[ tmpPos++ ] = std::move( a[ leftPos++ ] );
+21      else
+22          tmpArray[ tmpPos++ ] = std::move( a[ rightPos++ ] );
+23
+24  while( leftPos <= leftEnd ) // Copy rest of first half
+25      tmpArray[ tmpPos++ ] = std::move( a[ leftPos++ ] );
+26
+27  while( rightPos <= rightEnd ) // Copy rest of right half
+28      tmpArray[ tmpPos++ ] = std::move( a[ rightPos++ ] );
+29
+30  // Copy tmpArray back
+31  for( int i = 0; i < numElements; ++i, --rightEnd )
+32      a[ rightEnd ] = std::move( tmpArray[ rightEnd ] );
+33 }
+```
+
+#### 归并排序的分析
+
+虽然归并排序的运行时间是O(NlogN)，但是它有一个明显的问题，即合并两个已排序的表用到线性附加内存。在整个算法中还要花费将数据复制到临时数组再复制回来这样一些附加的工作，它明显地减慢了排序的速度。这种复制可以通过在递归的那些交替层次上审慎地交换a和tmpArray的角色得以避免。归并排序也可以非递归地实现，暂时不讨论
+
+与其他的O(NlogN)排序算法比较，归并排序的运行时间严重依赖于比较元素和在数组(以及临时数组)中移动元素的相对开销。这些开销是与语言相关的
+
+例如，在Java中，当执行一次范型排序(使用 Comparator)时，进行一次元素比较可能是昂贵的(因为比较可能不容易内联( inlined)使用，从而动态调度的开销可能会减慢执行的速度)，但是移动元素则是省时的(因为它们是引用的赋值，而不是庞大对象的拷贝)。归并排序使用所有流行的排序算法中最少的比较次数，因此它是Java通用排序算法中的上好选择。事实上，**归并排序就是标准Java库中范型排序所使用的算法**。
+
+另一方面，在传统C++的范型排序中，如果对象庞大，那么拷贝对象可能要昂贵，而由于编译器主动执行内联( inline)优化的能力，因此对象比较常常是相对省时的。在这种情形下，如果还能够使用少得多的数据移动，那么有理由让一个算法使用更多一些比较。我们将在下节讨论的快速排序达到了这种权衡，**快速排序是C++库中通常一直在使用的排序实现**。如今，新的C++11移动语义可能改变这种动态，于是剩下的就要看快速排序是否还将继续作为C++库中使用的排序算法了。
+
+### 快速排序
+
+顾名思义，对于C++，快速排序(quicksort)历史上一直是实践中已知最快的泛型排序算法，它的平均运行时间是O(NlogN)。该算法之所以特别快，主要是由于非常精练和高度优化的内部循环。它的最坏情形性能为O(N)，但经过稍许努力可使这种情形极难出现。通过将快速排序和堆排序结合，由于堆排序的最坏情形运行时间是O(NlogN)，因此可以对几乎所有的输入都能达到快速排序的快速运行时间。
+
+像归并排序一样，快速排序也是种**分治的递归算法**。
+
+现在我们描述快速排序最普通的实现—“经典快速排序”，此时的输入是一个数组，而且该算法并没有创建任何附加的数组，将数组S排序的经典快速排序算法由下列简单的4步组成:
+
+1. 如果S中元素个数是0或1，则返回
+2. 取S中任一元素ν，称之为枢纽元(pivot)
+3. 将S-{}(即S中其余元素)划分成两个不相交的集合:S1={x∈S-{v}|x≤v}，S2={x∈S-{v}|x≥v}
+4. 返回{quicksort(S1)，后跟v，继而再 quicksort(S2)}
+
+第3步的分割(partition)可以有很多种方法，最好的方法是尽可能让这两个集合大致相等，这很像我们希望二叉查找树保持平衡的情形
+
+快速排序比归并排序更快的原因关键在于：**在恰当位置上分割会使算法非常有效**，接下来就来讨论如何选择枢纽元
+
+#### 选取枢纽元
+
+虽然无论选择哪个元素作为枢纽元都能完成排序工作，但是有些选择是非常低效的
+
+最常见的是把第一个元素作为枢纽元，如果输入是随机的，这样做还可以接受，但是如果输入是顺序或者反序的，这就将产生一个劣质的分割，所有元素不是划入S1就是划入S2，并且后续的递归也是这样，**这将产生O(N^2)的运行时间**
+
+更安全的方法是随机选择枢纽元，这样大概率不会出现连续的劣质分割，但是生成随机数也是需要开销的，所以也不好
+
+推荐的做法是**三数中值分割法(Median-of-Three Partition)**，一组N个数的中值(median)是第[N/2]（向上取整）个最大的数。枢纽元的最好的选择是数组的中值。遗憾的是，这很难算出且明显减慢快速排序的速度。该中值一个比较好的估计值可以通过随机选取三个元素并用它们的中值作为枢纽元而得到。事实上，随机性并没有太大的帮助，因此一般的做法是使用左端、右端和中心位置上的三个元素的中值作为枢纽元。例如，输入为
+8,1,4,9,6,3,7,5,2,0,它的左端元素是8，右端元素是0，中心位置(left+ right)/2)上的元素是6。于是枢纽元则是ν=6。显然使用三数中值分割法消除了预排序输入的坏情形(在这种情形下，这些分割都是一样的)，并且实际减少了14%比较次数。
+
+#### 分割策略
+
+推荐做法：**第一步将枢纽元与最后的元素交换使得枢纽元离开要被分割的数据段，i从第一个元素开始而j从倒数第二个元素开始**。
+
+如果原始输入与前面一样，那么下面的图表示当前的状态，当i在j的左边时，我们将i右移，移过那些小于枢纽元的元素，并将j左移，移过那些大于枢纽元的元素。当i和j停止时，i指向一个大元索而j指向一个小元素。如果i在j的左边，那么将这两个元素互换，其效果是把一个大元素推向右边而把一个小元素推向左边。在上面的例子中，i不移动，而j滑过一个位置。然后我们交换由i和j指向的元素，重复该过程直到1和j彼此交错为止。此时，i和已经交错，故不再交换。分割的最后一步是将枢纽元与主所指向的元素交换
+
+![quicksort.png](http://ww1.sinaimg.cn/large/005GdKShly1ga04k1w85pj306n0bt0sy.jpg)
+
+在最后一步当枢纽元与i所指向的元素交换时，我们知道在位置`p<i`的每一个元素都必然是小元素，这是因为或者位置p包含一个从它开始移动的小元素，或者位置p上原来的大元素在交换期间被置换了。类似的论断指出，在位置`p>i`上的元素必然都是大元素。
+
+我们必须考虑的一个重要的细节是如何处理那些等于枢纽元的元素。问题在于当i遇到个等于枢纽元的元素时是否应该停止以及当j遇到一个等于枢纽元的元素时是否应该停止。直观地看，i和j应该做相同的工作，因为否则分割将出现偏向一方的倾向。例如，如果i停止而j不停，那么所有等于枢纽元的元素都将被分到S2中。
+
+If neither i nor j stops, and code is present to prevent them from running off the end of the array, no swaps will be performed. Although this seems good, a correct implementation would then swap the pivot into the last spot that i touched, which would be the next-to-last position (or last, depending on the exact implementation). This would create very uneven subarrays. If all the elements are identical, the running time is O(N 2 ). The effect is the same as using the first element as a pivot for presorted input. It takes quadratic time to do nothing!
+
+Thus, we find that it is better to do the unnecessary swaps and create even subarrays than to risk wildly uneven subarrays. Therefore, we will have both i and j stop if they encounter an element equal to the pivot. This turns out to be the only one of the four possibilities that does not take quadratic time for this input.
+
+总之：**如果i和j遇到等于枢纽元的关键字，就让i和j都停止**
+
+#### 小数组
+
+对于很小的数组(N≤20)，快速排序不如插入排序好。不仅如此，因为快速排序是递归的，所以这样的情形还经常发生。通常的解决方法是对于小的数组不递归地使用快速排序，而代之以诸如插入排序这样的对小数组有效的排序算法。使用这种策略实际上可以节省大约15%(对于不用截止的做法而自始至终使用快速排序时)的运行时间。一种好的截止范围(cutoff range)是N=10，不过在5~20之间任一截止范围都有可能产生类似的结果。这种做
+法也避免了一些有害的退化情形，比如当只有一个或两个元素时却取3个元素的中值这样的情况
+
+#### 实际的快速排序
+
+快速排序的驱动程序如下
+
+```c++
+1 /**
+2 * Quicksort algorithm (driver).
+3 */
+4 template <typename Comparable>
+5 void quicksort( vector<Comparable> & a )
+6 {
+7   quicksort( a, 0, a.size( ) - 1 );
+8 }
+```
+
+在我们的实现中，快速排序函数的一般形式将是传递数组以及被排序数组的范围(1eft和 right)。要处理的第一个函数是枢纽元的选取。选取枢纽元最容易的方法是对a[1eft]、a[right]、a[center]适当地排序。这种方法还有额外的好处，即该三元素中的最小者被分在a[1eft]，而这正是
+分割阶段应该将它放到的位置。三元素中的最大者被分在a[ right]，这也是正确的位置，因为它大于枢纽元。因此，我们可以把枢纽元放到a[ right-1]并在分割阶段将i和j初始化到1eft+1和 right-2。因为a[1eft]比枢纽元小，所以将它用作j的警戒标记，这是另一个好处。此时，我们不必担心j跑过端点。由于i将停在那些等于枢纽元的元素处，故将枢纽元存储在a[ right-1]则为主提供了一个警戒标记，下面提供了一个三数中值分割的实现代码
+
+```c++
+1 /**
+2 * Return median of left, center, and right.
+3 * Order these and hide the pivot.
+4 */
+5 template <typename Comparable>
+6 const Comparable & median3( vector<Comparable> & a, int left, int right )
+7 {
+8   int center = ( left + right ) / 2;
+9
+10  if( a[ center ] < a[ left ] )
+11      std::swap( a[ left ], a[ center ] );
+12  if( a[ right ] < a[ left ] )
+13      std::swap( a[ left ], a[ right ] );
+14  if( a[ right ] < a[ center ] )
+15      std::swap( a[ center ], a[ right ] );
+16
+17  // Place pivot at position right - 1
+18  std::swap( a[ center ], a[ right - 1 ] );
+19  return a[ right - 1 ];
+20 }
+```
+
+接下来就是快速排序的核心代码，包括分割和递归调用，注意第16行将i和j初始化为比它们的正确值均越过1个位置，这样就需要考虑特殊情况
+
+```c++
+1 /**
+2 * Internal quicksort method that makes recursive calls.
+3 * Uses median-of-three partitioning and a cutoff of 10.
+4 * a is an array of Comparable items.
+5 * left is the left-most index of the subarray.
+6 * right is the right-most index of the subarray.
+7 */
+8 template <typename Comparable>
+9 void quicksort( vector<Comparable> & a, int left, int right )
+10 {
+11  if( left + 10 <= right )
+12  {
+13      const Comparable & pivot = median3( a, left, right );
+14
+15      // Begin partitioning
+16      int i = left, j = right - 1;
+17      for( ; ; )
+18      {
+19          while( a[ ++i ] < pivot ) { }
+20          while( pivot < a[ --j ] ) { }
+21          if( i < j )
+22              std::swap( a[ i ], a[ j ] );
+23          else
+24          break;
+25      }
+26
+27      std::swap( a[ i ], a[ right - 1 ] ); // Restore pivot
+28
+29      quicksort( a, left, i - 1 ); // Sort small elements
+30      quicksort( a, i + 1, right ); // Sort large elements
+31  }
+32  else // Do an insertion sort on the subarray
+33      insertionSort( a, left, right );
+34 }
+```
+
+#### 快速排序的分析
+
+最坏运行时间：O(N^2)
+最好运行时间：θ(NlogN)
+平均运行时间：O(NlogN)
+
+#### 选择问题的线性期望时间算法
+
+通过快速排序，我们可以解决**选择问题(selection problem)**，这个问题已经在第1章和第6章见到过，在第6章，通过优先队列（堆），可以通过时间O(N+klogN)找到第k个最大(最小)元，这里O(N)为建堆时间，k为k个元素，deleteMin/deleteMax耗时O(logN)。
+
+对于查找中值的特殊情形，这里给出一个O(NlogN)算法，这种算法叫做**快速选择(quickselect)**，它与快速排序非常像，前3步是一样的，令|Si|为Si中元素的个数，算法步骤如下
+
+1. 如果|S|=1，那么k=1并将S中的元素作为答案返回。如果正在使用小数组的截止( cutoff)方法且|S|≤CUTOFF，则将S排序并返回第k个最小元素。
+2. 选取一个枢纽元v∈S。
+3. 将集合S-{v}分割成S1和S2，就像我们在快速排序中所做的那样
+4. 如果k≤|S1|，那么第k个最小元必然在S中。在这种情况下，返回 quickselect(S1,k)。如果k=1+|Si|，那么枢纽元就是第k个最小元，我们将它作为答案返回。否则，这第k个最小元就在S2中，它是S2中的第(k-|S1|-1)个最小元。我们进行一次递归调用并返回 quickselect(S2,k-|S1|-1)
+
+与快速排序对比，快速选择只做一次递归调用而不是两次。快速选择的最坏情况和快速排序的相同，也是O(N^2)。直观看来，这是因为快速排序的最坏情况是在S1和S2有一个是空的时候的情况，于是，快速选择也就不是真的节省一次递归调用。不过，它的平均运行时间是O(N)。
+
+快速选择的实现如下，当算法终止时，第k个最小元就在位置k-1上(因为数组开始于下标0)。算法破坏了数组原来的排序;如果不希望这样，那么必须要做一份拷贝。
+
+```c++
+1 /**
+2 * Internal selection method that makes recursive calls.
+3 * Uses median-of-three partitioning and a cutoff of 10.
+4 * Places the kth smallest item in a[k-1].
+5 * a is an array of Comparable items.
+6 * left is the left-most index of the subarray.
+7 * right is the right-most index of the subarray.
+8 * k is the desired rank (1 is minimum) in the entire array.
+9 */
+10 template <typename Comparable>
+11 void quickSelect( vector<Comparable> & a, int left, int right, int k )
+12 {
+13  if( left + 10 <= right )
+14  {
+15      const Comparable & pivot = median3( a, left, right );
+16
+17      // Begin partitioning
+18      int i = left, j = right - 1;
+19      for( ; ; )
+20      {
+21          while( a[ ++i ] < pivot ) { }
+22          while( pivot < a[ --j ] ) { }
+23          if( i < j )
+24              std::swap( a[ i ], a[ j ] );
+25          else
+26              break;
+27      }
+28
+29      std::swap( a[ i ], a[ right - 1 ] ); // Restore pivot
+30
+31      // Recurse; only this part changes
+32      if( k <= i )
+33          quickSelect( a, left, i - 1, k );
+34      else if( k > i + 1 )
+35          quickSelect( a, i + 1, right, k );
+36  }
+37  else // Do an insertion sort on the subarray
+38      insertionSort( a, left, right );
+39 }
+```
+
+使用三数中值选取枢纽元，可以使得最坏情形发生的几率很小很小
