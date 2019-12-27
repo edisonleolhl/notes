@@ -172,6 +172,57 @@ delete也包含两段操作
 
 #### construct()和destroy()
 
+下面是 <stl_construct.h> 的部份内容（阅读程序代码的同时，请参考图 2-1）：
+
+```c++
+#include <new.h>
+//欲使用 placement new ，需先含入此文件
+template <class T1, class T2>
+inline void construct (T1* p, const T2& value) {
+    new (p) T1(value) ; // placement new ;唤起 T1::T1(value);
+}
+
+//以下是 destroy() 第一版本，接受一个指标。
+template <class T>
+inline void destroy (T* pointer) {
+    pointer->~T() ; //唤起 dtor ~T()
+}
+
+//以下是 destroy() 第二版本，接受两个迭代器。此函式设法找出元素的数值型别，
+//进而利用 __type_traits<> 求取最适当措施。
+template <class ForwardIterator>
+inline void destroy (ForwardIterator first, ForwardIterator last) {
+    __destroy (first, last, value_type(first));
+}
+
+//判断元素的数值型别（ value type ）是否有 trivial destructor
+template <class ForwardIterator, class T>
+inline void __destroy (ForwardIterator first, ForwardIterator last, T*)
+{
+    typedef typename __type_traits<T>::has_trivial_destructor trivial_destructor;
+    __destroy_aux(first, last, trivial_destructor());
+}
+
+//如果元素的数值型别（ value type ）有 non-trivial destructor…
+template <class ForwardIterator>
+inline void
+__destroy_aux (ForwardIterator first, ForwardIterator last, __false_type ) {
+    for ( ; first < last; ++first)
+        destroy(&*first);
+}
+//如果元素的数值型别（ value type ）有 trivial destructor…
+template <class ForwardIterator>
+inline void __destroy_aux (ForwardIterator, ForwardIterator, __true_type ) {}
+
+//以下是 destroy()第二版本针对迭代器为 char*和 wchar_t* 的特化版
+inline void destroy (char*, char*) {}
+inline void destroy (wchar_t*, wchar_t*) {}
+```
+
+![《STL源码剖析》的笔记-constructoranddestructor.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-constructoranddestructor.png)
+
+这两个做为建构、解构之用的函式被设计为全域函式，符合 STL 的规范 4 。此外STL 还规定配置器必须拥有名为 construct() 和 destroy() 的两个成员函式（见2.1 节），然而真正在 SGI STL 中大显身手的那个名为 std::alloc 的配置器并未遵守此一规则（稍后可见）。
+
 #### 空间的配置与释放，std::alloc
 
 考虑小型区块所可能造成的内存破碎问题，SGI 设计了双层级配置器，第一级配置器直接使用 malloc() 和 free() ，第二级配置器则视情况采用不同的策略：当配置区块超过128bytes，视之为「足够大」，便呼叫第一级配置器；当配置区块小于 128bytes，视之为「过小」，为了降低额外负担（overhead，见 2.2.6 节），便采用复杂的memory pool整理方式，而不再求助于第一级配置器。整个设计究竟只开放第一级配置器，或是同时开放第二级配置器，取决于 __USE_MALLOC  是否被定义（唔，我们可以轻易测试出来，SGI STL 并未定义 __USE_MALLOC） ：
@@ -573,7 +624,7 @@ const T& x, __false_type)
 
 ![《STL源码剖析》的笔记-threememoryoperatationfunction.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-threememoryoperatationfunction.png)
 
-#### Placement new
+#### 拓展：Placement new
 
 [推荐阅读](https://www.cnblogs.com/luxiaoxun/archive/2012/08/10/2631812.html)
 
@@ -599,7 +650,7 @@ Placement new只是 operator new 重载的一个版本。它并不分配内存�
 
 如果你想在已经分配的内存中创建一个对象，使用 new 时行不通的。也就是说 placement new 允许你在一个已经分配好的内存中（栈或者堆中）构造一个新的对象。原型中 void* p 实际上就是指向一个已经分配好的内存缓冲区的的首地址
 
-#### trivial destructor
+#### 拓展：trivial destructor
 
 如果用户不定义析构函数，而是用系统自带的，则说明，析构函数基本没有什么用（但默认会被调用）我们称之为 trivial destructor。反之，如果特定定义了析构函数，则说明需要在释放空间之前做一些事情，则这个析构函数称为 non-trivial destructor。如果某个类中只有基本类型的话是没有必要调用析构函数的，delelte p 的时候基本不会产生析构代码，
 
@@ -609,7 +660,7 @@ Placement new只是 operator new 重载的一个版本。它并不分配内存�
 
 把trivial翻译为“无关痛痒”，也就是说这个destructor是默认的，是无关痛痒的
 
-#### volatile
+#### 拓展：volatile
 
 [谈谈 C/C++ 中的 volatile](https://liam.page/2018/01/18/volatile-in-C-and-Cpp/)
 
@@ -1347,13 +1398,491 @@ template<>struct __type_traits<Shape> {
 
 即使你无法全面针对你自己定义的型别，设计 __type_traits 特化版本，无论如何，至少，有了这个 __type_traits 之后，当我们设计新的泛型算法时，面对C++纯量型别，便有足够的信息决定采用最有效的拷贝动作或赋值动作—因为每一个纯量型别都有对应的 __type_traits 特化版本，其中每一个 typedef 的值都是 __true_type 。
 
-#### type traits 类型特征
-
+> type traits 类型特征
 从字面上理解，Type Traits 就是” 类型的特征” 的意思。在 C++ 元编程中，程序员不少时候都需要了解一些类型的特征信息，并根据这些类型信息选择应有的操作。Type Traits 有助于编写通用、可复用的代码。
 
-https://blog.csdn.net/mogoweb/article/details/79264925
+[推荐阅读](https://blog.csdn.net/mogoweb/article/details/79264925)
+
+## Chapter4 序列式容器 sequence containers
+
+### 4.1 容器的概观与分类
+
+容器，置物之所也。
+
+序列式容器sequence containers  研究数据的特定排列方式，以利搜寻或排序或其它特殊目的，这一专门学科我们称为数据结构（Data Structures）。大学信息相关教育里头，与编程最有直接关系的科目，首推数据结构与算法（Algorithms）。几乎可以说，任何特定的数据结构都是为了实现某种特定的算法。STL 容器即是将运用最广的一些数据结构实作出来（图4-1）。未来，在每五年召开一次的C++标准委员会中，STL容器的数量还有可能增加。众所周知，常用的数据结构不外乎 array（数组）、list（串行）、tree（树）、stack（堆栈）、queue（队列）、hash table（杂凑表）、set（集合）、map（映像表）…等等。根据「资料在容器中的排列」特性，这些数据结构分为序列式（sequence）和关系型（associative）两种。本章探讨序列式容器，下一章探讨关系型容器。
+
+![《STL源码剖析》的笔记-stlcontainers.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-stlcontainers.png)
+
+这里所谓的衍生，并非继承（inheritance）关系，而是内含（containment）关系。例如 heap 内含一个 vector，priority-queue 内含一个 heap，stack 和 queue 都含一个deque，set/map/multiset/multimap 都内含一个 RB-tree，hast_x都内含一个 hashtable。
+
+### 4.2 vector
+
+#### 4.2.1 vector 概述
+
+vector 的数据安排以及操作方式，与 array 非常像似。两者的唯一差别在于空间的运用弹性。 **array 是静态空间**，一旦配置了就不能改变；要换个大（或小）一点的房子，可以，一切细琐得由客端自己来：首先配置一块新空间，然后将元素从旧址一一搬往新址，然后再把原来的空间释还给系统。 **vector 是动态空间**，随着元素的加入，它的内部机制会自行扩充空间以容纳新元素。因此， vector 的运用对于内存的樽节与运用弹性有很大的帮助，我们再也不必因为害怕空间不足而一开始就要求一个大块头 array 了，我们可以安心使用 vector ，吃多少用多少。
+
+vector 的实作技术，关键在于其对大小的控制以及重新配置时的数据搬移效率。一旦 vector 旧有空间满载，如果客端每新增一个元素， vector 内部只是扩充一个元素的空间，实为不智，因为所谓扩充空间（不论多大），一如稍早所说，是**配置新空间 /数据搬移 /释还旧空间**的大工程，时间成本很高，应该加入某种未雨绸缪的考虑。稍后我们便可看到 SGI vector 的空间配置策略。
+
+#### 4.2.2 vector 定义式摘要
+
+以下是 vector 定义式的源码摘录。虽然 STL规定，欲使用 vector 者必须先含入 `<vector>` ，但 SGI STL 将 vector 实作于更底层的 `<stl_vector.h>` 。
+
+```c++
+// alloc是 SGI STL的空间配置器，见第二章。
+template <class T, class Alloc = alloc>
+class vector {
+public:
+// vector 的巢状型别定义
+typedef T value_type;
+typedef value_type* pointer;
+typedef value_type* iterator;
+typedef value_type& reference;
+typedef size_t size_type;
+typedef ptrdiff_tdifference_type;
+protected:
+// 以下， simple_alloc 是 SGI STL的空间配置器，见 2.2.4节。
+typedef simple_alloc<value_type,Alloc>data_allocator;
+iterator start; //表示目前使用空间的头
+iterator finish; //表示目前使用空间的尾
+iterator end_of_storage; //表示目前可用空间的尾
+void insert_aux (iterator position, const T& x);
+void deallocate () {
+    if (start)
+        data_allocator::deallocate(start, end_of_storage - start);
+}
+void fill_initialize (size_type n, const T& value) {
+    start =allocate_and_fill (n, value);
+    finish = start + n;
+    end_of_storage = finish;
+}
+public:
+iterator begin () { return start; }
+iterator end () { return finish; }
+size_type size () const { return size_type(end() - begin()); }
+size_type capacity () const {
+return size_type(end_of_storage - begin()); }
+bool empty () const { return begin() == end(); }
+reference operator[] (size_type n) { return *(begin() + n); }
+vector () : start(0), finish(0), end_of_storage(0) {}
+vector (size_type n, const T& value) {fill_initialize(n, value); }
+vector (int n, const T& value) { fill_initialize(n, value); }
+vector (long n, const T& value) { fill_initialize(n, value); }
+explicit vector (size_type n) { fill_initialize(n, T()); }
+~vector()
+    destroy (start, finish); //全域函式，见 2.2.3节。
+    deallocate(); // 这是 vector 的一个 member function
+}
+reference front () { return * begin() ; } //第一个元素
+reference back () { return *( end() - 1); } //最后一个元素
+void push_back (const T& x) {    //将元素安插至最尾端
+    if (finish != end_of_storage) {
+        construct (finish, x); //全域函式，见 2.2.3节。
+        ++finish;
+    }
+    else
+        insert_aux(end(), x); // 这是 vector 的一个 member function
+}
+void pop_back () {    //将最尾端元素取出
+    --finish;
+    destroy(finish); //全域函式，见 2.2.3节。
+}
+iterator erase (iterator position) { //清除某位置上的元素
+    if (position + 1 != end())
+        copy (position + 1, finish, position); //后续元素往前搬移
+    --finish;
+    destroy(finish); //全域函式，见 2.2.3节。
+    return position;
+}
+void resize (size_type new_size, const T& x) {
+    if (new_size < size())
+        erase (begin() + new_size, end());
+    else
+        insert (end(), new_size - size(), x);
+}
+void resize (size_type new_size) { resize (new_size, T()); }
+void clear () { erase(begin(), end()); }
+protected:
+// 配置空间并填满内容
+iterator allocate_and_fill (size_type n, const T& x) {
+    iterator result =data_allocator::allocate (n);
+    uninitialized_fill_n(result, n, x); // 全域函式，见 2.3 节
+    return result;
+}
+```
+
+#### 4.2.3 vector 的迭代器
+
+vector 维护的是一个连续线性空间，所以不论其元素型别为何，原生指标都可以做为 vector 的迭代器而满足所有必要条件，因为 vector 迭代器所需要的操作行为如 operator*,operator->,operator++,operator--,operator+, operator-, operator+=,operator-= ，原生指标天生就具备。 vector 支援随机存取，而原生指标正有着这样的能力。所以，**vector 提供的是 Random Access Iterators**。
+
+```c++
+template <class T, class Alloc = alloc>
+class vector {
+public:
+typedef T value_type;
+typedef value_type* iterator;
+...
+};
+```
+
+根据上述定义，如果客端写出这样的代码：
+
+```c++
+// vector 的迭代器是原生指标
+vector<int>::iterator ivite;
+vector<Shape>::iterator svite;
+```
+
+ivite 的型别其实就是 int* ， svite 的型别其实就是 Shape* 。
+
+#### 4.2.4 vector 的数据结构
+
+vector 所采用的数据结构非常简单：线性连续空间。它以两个迭代器 start 和 finish 分 别 指 向 配 置 得 来 的 连 续 空 间 中 目 前 已 被 使 用 的 范 围 ， 并 以 迭 代 器 end_of_storage 指向整块连续空间（含备用空间）的尾端：
+
+```c++
+template <class T, class Alloc = alloc>
+class vector {
+...
+protected:
+iterator start;
+iterator finish;
+//表示目前使用空间的头
+//表示目前使用空间的尾
+iterator end_of_storage; //表示目前可用空间的尾
+...
+};
+```
+
+为了降低空间配置时的速度成本， vector 实际配置的大小可能比客端需求量更大一些，以备将来可能的扩充。这便是**容量（capacity）**的观念。换句话说**一个vector的容量永远大于或等于其大小**。一旦容量等于大小，便是满载，下次再有新增元素，整个 vector 就得另觅居所。见图 4-2。
+
+运用 start, finish, end_of_storage 三个迭代器，便可轻易提供首尾标示、大小、容量、空容器判断、注标（ [ ] ）运算子、最前端元素值、最后端元素值…等机能：
+
+```c++
+template <class T, class Alloc = alloc>
+class vector {
+...
+public:
+iterator begin () { return start ; }
+iterator end () { return finish ; }
+size_type size () const { return size_type(end() - begin()); }
+size_type capacity () const {
+    return size_type(end_of_storage - begin()); }
+bool empty () const { return begin() == end(); }
+reference operator[] (size_type n) { return*(begin() + n); }
+reference front () { return *begin() ; }
+reference back () { return *(end() - 1) ; }
+...
+};
+```
+
+![《STL源码剖析》的笔记-vectords.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-vectords.png)
+
+#### 4.2.5 vector 的建构与内存管理 ： constructor, push_back
+
+下面是个小小的测试程序，我的观察重点在建构的方式、元素的添加，以及大小、容量的变化：
+
+```c++
+// filename : 4vector-test.cpp
+#include <vector>
+#include <iostream>
+#include <algorithm>
+using namespace std;
+int main()
+{
+    int i;
+    vector<int> iv(2,9);
+    cout << "size=" << iv. size() << endl; // size=2
+    cout << "capacity=" << iv. capacity() << endl; // capacity=2
+    iv.push_back(1);
+    cout << "size=" << iv.size() << endl; // size=3
+    cout << "capacity=" << iv.capacity() << endl; // capacity=4
+    iv.push_back(2);
+    cout << "size=" << iv.size() << endl; // size=4
+    cout << "capacity=" << iv.capacity() << endl; // capacity=4
+    iv.push_back(3);
+    cout << "size=" << iv.size() << endl; // size=5
+    cout << "capacity=" << iv.capacity() << endl; // capacity=8
+    iv.push_back(4);
+    cout << "size=" << iv.size() << endl; // size=6
+    cout << "capacity=" << iv.capacity() << endl; // capacity=8
+
+    for(i=0; i<iv.size(); ++i)
+        cout << iv[i] << ' ';     // 9 9 1 2 3 4
+    cout << endl;
+
+    iv.push_back(5);
+    cout << "size=" << iv.size() << endl; // size=7
+    cout << "capacity=" << iv.capacity() << endl; // capacity=8
+
+    for(i=0; i<iv.size(); ++i)
+        cout << iv[i] << ' ';    // 9 9 1 2 3 4 5
+    cout << endl;
+
+    iv.pop_back();
+    iv.pop_back();
+    cout << "size=" << iv.size() << endl; // size=5
+    cout << "capacity=" << iv.capacity() << endl; // capacity=8
+    iv.pop_back();
+    cout << "size=" << iv.size() << endl; // size=4
+    cout << "capacity=" << iv.capacity() << endl; // capacity=8
+    vector<int>::iterator ivite = find (iv.begin(), iv.end(), 1);
+    if (ivite) iv.erase(ivite);
+    cout << "size=" << iv.size() << endl; // size=3
+    cout << "capacity=" << iv.capacity() << endl; // capacity=8
+
+    for(i=0; i<iv.size(); ++i)
+        cout << iv[i] << ' ';     // 9 9 2
+    cout << endl;
+
+    ite = find (ivec.begin(), ivec.end(), 2);
+    if (ite) ivec. insert(ite,3,7);
+    cout << "size=" << iv.size() << endl; // size=6
+    cout << "capacity=" << iv.capacity() << endl; // capacity=8
+
+    for(int i=0; i<ivec.size(); ++i)
+        cout << ivec[i] << ' '; // 9 9 7 7 7 2
+    cout << endl;
+
+    iv.clear();
+    cout << "size=" << iv.size() << endl; // size=0
+    cout << "capacity=" << iv.capacity() << endl; // capacity=8
+}
+```
+
+vector 预设使用 alloc （第二章）做为空间配置器，并据此另外定义了一个data_allocator ，为的是更方便以元素大小为配置单位
+
+```c++
+template <class T, class Alloc = alloc>
+class vector {
+protected:
+    // simple_alloc<> 见 2.2.4 节
+    typedef simple_alloc<value_type,Alloc>data_allocator;
+...
+};
+```
+
+于是， data_allocator::allocate(n) 表示配置 n 个元素空间。vector 提供许多constructors，其中一个允许我们指定空间大小及初值：
+
+```c++
+// 建构式，允许指定 vector 大小 n和初值 value
+vector (size_type n, const T& value) {fill_initialize(n, value); }
+// 充填并予初始化
+void fill_initialize (size_type n, const T& value) {
+    start =allocate_and_fill (n, value);
+    finish = start + n;
+    end_of_storage = finish;
+}
+// 配置而后充填
+iterator allocate_and_fill (size_type n, const T& x) {
+iterator result =data_allocator::allocate(n) ; // 配置 n 个元素空间
+uninitialized_fill_n(result, n, x); // 全域函式，见 2.3 节
+return result;
+}
+```
+
+uninitialized_fill_n() 会根据第一参数的型别特性（type traits，3.7 节），决定使用算法 fill_n() 或反复呼叫 construct() 来完成任务（见 2.3 节描述）。当我们以 push_back() 将新元素安插于 vector 尾端，该函式首先检查是否还有备用空间？如果有就直接在备用空间上建构元素，并调整迭代器 finish ，使 vector变大。如果没有备用空间了，就扩充空间（重新配置、搬移数据、释放原空间）：
+
+```c++
+void push_back (const T& x) {
+    if (finish != end_of_storage) { //还有备用空间
+        construct (finish, x);//全域函式，见 2.2.3节。
+        ++finish;//调整水位高度
+}
+else
+    //已无备用空间
+    insert_aux(end(), x); // vector member function ，见以下列表
+}
+
+template <class T, class Alloc>
+void vector<T, Alloc>:: insert_aux (iterator position, const T& x) {
+    if (finish != end_of_storage) { //还有备用空间
+        // 在备用空间起始处建构一个元素，并以 vector 最后一个元素值为其初值。
+        construct (finish, *(finish - 1));
+        // 调整水位。
+        ++finish;
+        T x_copy = x;
+        copy_backward(position, finish - 2, finish - 1);
+        *position = x_copy;
+    }
+    else { //已无备用空间
+        const size_type old_size = size();
+        const size_type len = old_size != 0 ? 2 * old_size : 1;
+        // 以上配置原则：如果原大小为 0，则配置 1（个元素大小）；
+        // 如果原大小不为 0，则配置原大小的两倍，
+        // 前半段用来放置原资料，后半段准备用来放置新资料。
+        iterator new_start =data_allocator::allocate (len); //实际配置
+        iterator new_finish = new_start;
+        try {
+            // 将原 vector 的内容拷贝到新 vector。start是vector的成员，是一个iterator，new_start也是一个iterator，指向刚allocate出来的地址空间首位
+            new_finish = uninitialized_copy(start, position, new_start);
+            // 为新元素设定初值 x
+            construct (new_finish, x);
+            // 调整水位。
+            ++new_finish;
+            // 将原 vector 的备用空间中的内容也忠实拷贝过来（侯捷疑惑：啥用途？）（简体书解答：本函数有可能被insert(p,x)调用）（个人理解：如果插入位置position不等于finish，则会用到这里，需要把position后面的元素copy到新地址去）
+            new_finish =uninitialized_copy(position, finish, new_finish);
+        }
+        catch(...) {
+            // "commit or rollback" semantics.
+            destroy (new_start, new_finish);
+            data_allocator::deallocate(new_start, len);
+            throw;
+        }
+        // 解构并释放原 vector
+        destroy (begin(), end());
+        deallocate();
+        // 调整迭代器，指向新 vector
+        start = new_start;
+        finish = new_finish;
+        end_of_storage = new_start + len;
+    }
+}
+```
+
+注意，所谓动态增加大小，并不是在原空间之后接续新空间（因为无法保证原空间之后尚有可供配置的空间），而是以原大小的两倍另外配置一块较大空间，然后将原内容拷贝过来，然后才开始在原内容之后建构新元素，并释放原空间。因此，对 vector 的任何操作，一旦引起空间重新配置，指向原 vector 的所有迭代器就都失效了。这是程序员易犯的一个错误，务需小心。
+
+#### 4.2.6 vector 的元素操作 ： pop_back, erase, clear, insert
+
+vector 所提供的元素操作动作很多，无法在有限篇幅中一一讲解—其实也没有这种必要。为搭配先前对空间配置的讨论，我挑选数个相关函式做为解说对象。这些函式也出现在先前的测试程序中。
+
+```c++
+// 将尾端元素拿掉，并调整大小。
+void pop_back () {
+    --finish; //将尾端标记往前移一格，表示将放弃尾端元素。
+    destroy(finish); // destroy是全域函式，见第 2 章
+}
+// 清除 [first,last) 中的所有元素
+iterator erase (iterator first, iterator last) {
+    iterator i = copy (last, finish, first); // copy 是全域函式，第 6 章
+    destroy(i, finish);// destroy是全域函式，第 2 章
+    finish = finish - (last - first);
+    return first;
+}
+// 清除某个位置上的元素
+iterator erase (iterator position) {
+    if (position + 1 != end())
+        copy (position + 1, finish, position); // copy 是全域函式，第 6 章
+    --finish;
+    destroy(finish); // destroy是全域函式，2.2.3 节
+    return position;
+}
+void clear () { erase (begin(), end()); } // erase()就定义在上面
+```
+
+图 4-3a 展示 erase(first, last) 的动作。
+
+![《STL源码剖析》的笔记-vectoreraserange.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-vectoreraserange.png)
+
+下面是 vector::insert() 实作内容：
+
+```c++
+//从 position 开始，安插 n个元素，元素初值为 x
+template <class T, class Alloc>
+void vector<T, Alloc>:: insert (iterator position, size_type n, const T& x)
+{
+    if (n != 0) { // 当 n != 0 才进行以下所有动作
+        if (size_type(end_of_storage - finish) >= n)
+            // 备用空间大于等于「新增元素个数」
+            T x_copy = x;
+            // 以下计算安插点之后的现有元素个数
+            const size_type elems_after = finish - position;
+            iterator old_finish = finish;
+            if (elems_after > n)
+                // 「安插点之后的现有元素个数」大于「新增元素个数」
+                uninitialized_copy(finish - n, finish, finish);
+                finish += n; //将 vector 尾端标记后移
+                copy_backward(position, old_finish - n, old_finish);
+                fill (position, position + n, x_copy); //从安插点开始填入新值
+            }
+            else {
+                // 「安插点之后的现有元素个数」小于等于「新增元素个数」
+                uninitialized_fill_n(finish, n - elems_after, x_copy);
+                finish += n - elems_after;
+                uninitialized_copy(position, old_finish, finish);
+                finish += elems_after;
+                fill (position, old_finish, x_copy);
+            }
+        }
+        else {
+            // 备用空间小于「新增元素个数」（那就必须配置额外的内存）
+            // 首先决定新长度：旧长度的两倍，或旧长度+新增元素个数。
+            const size_type old_size = size();
+            const size_type len = old_size + max(old_size, n);
+            // 以下配置新的 vector 空间
+            iterator new_start = data_allocator::allocate (len);
+            iterator new_finish = new_start;
+            __STL_TRY {
+                // 以下首先将旧 vector的安插点之前的元素复制到新空间。
+                new_finish = uninitialized_copy(start, position, new_start);
+                // 以下再将新增元素（初值皆为 n）填入新空间。
+                new_finish = uninitialized_fill_n(new_finish, n, x);
+                // 以下再将旧 vector 的安插点之后的元素复制到新空间。
+                new_finish = uninitialized_copy(position, finish, new_finish);
+            }
+            # ifdef __STL_USE_EXCEPTIONS
+                catch(...) {
+                // 如有异常发生，实现 "commit or rollback" semantics.
+                destroy (new_start, new_finish);
+                data_allocator::deallocate(new_start, len);
+                throw;
+            }
+            # endif /* __STL_USE_EXCEPTIONS */
+            // 以下清除并释放旧的 vector
+            destroy (start, finish);
+            deallocate();
+            // 以下调整水位标记
+            start = new_start;
+            finish = new_finish;
+            end_of_storage = new_start + len;
+        }
+    }
+}
+```
+
+注意，安插完成后，新节点将位于标兵迭代器（上例之 position ，标示出安插点）所指之节点的前方—这是STL对于「安插动作」的标准规范。图4-3b展示insert(position,n,x) 的动作。
+
+![《STL源码剖析》的笔记-vectorinsert1.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-vectorinsert1.png)
+
+![《STL源码剖析》的笔记-vectorinsert2.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-vectorinsert2.png)
+
+![《STL源码剖析》的笔记-vectorinsert3.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-vectorinsert3.png)
+
+#### 拓展：copy_backward
+
+std::copy_backward
+
+Copy range of elements backward
+Copies the elements in the range [first,last) starting from the end into the range terminating at result.
+
+The function returns an iterator to the first element in the destination range.
+
+The resulting range has the elements in the exact same order as [first,last). To reverse their order, see reverse_copy.
+
+The function begins by copying *(last-1) into *(result-1), and then follows backward by the elements preceding these, until first is reached (and including it).
+
+The ranges shall not overlap in such a way that result (which is the past-the-end element in the destination range) points to an element in the range (first,last]. For such cases, see copy.
+
+The behavior of this function template is equivalent to:
+
+```c++
+template<class BidirectionalIterator1, class BidirectionalIterator2>
+  BidirectionalIterator2 copy_backward ( BidirectionalIterator1 first,
+                                         BidirectionalIterator1 last,
+                                         BidirectionalIterator2 result )
+{
+  while (last!=first) *(--result) = *(--last);
+  return result;
+}
+```
+
+### 4.3 list
 
 
+全域 - 全局
+弹性 - 灵活性
+实作 - 实现
+映像 - 映射
+杂凑表 - 哈希表
+串行 - 链表
 指标 - 指针
 配接器 - 适配器
 提领 - 解引用
