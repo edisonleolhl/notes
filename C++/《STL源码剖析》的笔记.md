@@ -244,7 +244,7 @@ typedef __default_alloc_template<__NODE_ALLOCATOR_THREADS, 0> alloc;
 
 其 中 __malloc_alloc_template 就 是 第 一 级 配 置 器 ， __default_alloc_template 就是第二级配置器。稍后分别有详细介绍。再次提醒你注意， alloc 并不接受任何 template 型别参数。
 
-无论 alloc 被定义为第一级或第二级配置器，SGI 还为它再包装一个接口如下，使配置器的接口能够符合 STL规格
+无论 alloc 被定义为第一级或第二级配置器，SGI 还为它再包装一个接口如下，使配置器的接口能够符合 STL规格，（个人认为这个接口的目的是方便容器配置以容器元素大小为单位的空间）
 
 ```c++
 template<class T, class Alloc>
@@ -1028,7 +1028,7 @@ voidadvance_RAI (RandomAccessIterator& i, Distance n)
 
 ```c++
 template <class InputIterator, class Distance>
-voidadvance (InputIterator& i, Distance n)
+void advance (InputIterator& i, Distance n)
 {
     if (is_random_access_iterator(i))
         advance_RAI(i, n); // 此函式有待设计
@@ -1876,7 +1876,464 @@ template<class BidirectionalIterator1, class BidirectionalIterator2>
 
 ### 4.3 list
 
+#### 4.3.1 list 概述
 
+相较于 vector 的连续线性空间， list 就显得复杂许多，它的好处是每次安插
+或删除一个元素，就配置或释放一个元素空间。因此， list 对于空间的运用有绝
+对的精准，一点也不浪费。而且，对于任何位置的元素安插或元素移除， list 永
+远是常数时间。
+
+#### 4.3.2 list 的节点 （node ）
+
+每一个设计过 list的人都知道，list本身和 list的节点是不同的结构，需要分开
+设计。以下是 STL list 的节点（node）结构：
+
+```c++
+template <class T>
+struct__list_node {
+typedef void* void_pointer;
+void_pointer prev; //型别为 void*。其实可设为 __list_node<T>*
+void_pointer next;
+Tdata;
+};
+```
+
+显然这是一个双向串行
+
+#### 4.3.3 list 的迭代器
+
+list 不再能够像 vector 一样以原生指标做为迭代器，因为其节点不保证在储存空间中连续存在。 list 迭代器必须有能力指向 list 的节点，并有能力做正确的递增、递减、取值、成员存取…等动作。所谓「 list 迭代器正确的递增、递减、取值、成员取用」动作是指，递增时指向下一个节点，递减时指向上一个节点，取值时取的是节点的资料值，成员取用时取用的是节点的成员，如图 4-4。由于STL list 是一个双向串行（double linked-list），迭代器必须具备前移、后移的能力。**所以 list 提供的是Bidirectional Iterators**。list 有一个重要性质：安插动作（insert）和接合动作（splice）都不会造成原有的 list 迭代器失效。这在 vector 是不成立的，因为 vector 的安插动作可能造成记忆体重新配置，导致原有的迭代器全部失效。甚至 list 的元素删除动作（erase），也只有「指向被删除元素」的那个迭代器失效，其它迭代器不受任何影响。
+
+![《STL源码剖析》的笔记-listiterator.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-listiterator.png)
+
+以下是 list 迭代器的设计：
+
+```c++
+template<class T, class Ref, class Ptr>
+struct__list_iterator {
+    typedef __list_iterator<T, T&, T*> iterator;
+    typedef __list_iterator<T, Ref, Ptr> self;
+    typedef bidirectional_iterator_tag iterator_category ;
+    typedef T value_type;
+    typedef Ptr pointer;
+    typedef Ref reference;
+    typedef __list_node<T>* link_type;
+    typedef size_t size_type;
+    typedef ptrdiff_tdifference_type ;
+    link_type node; //迭代器内部当然要有一个原生指标，指向 list 的节点
+    // constructor
+    __list_iterator(link_type x) : node(x) {}
+    __list_iterator() {}
+    __list_iterator(const iterator& x) : node(x.node) {}
+    bool operator== (const self& x) const { return node == x.node; }
+    bool operator!= (const self& x) const { return node != x.node; }
+    // 以下对迭代器取值（ dereference ），取的是节点的资料值。
+    reference operator* () const { return (*node). data ; }
+    // 以下是迭代器的成员存取（ member access ）运算子的标准作法。
+    pointer operator-> () const { return &(operator*()); }
+    // 对迭代器累加 1，就是前进一个节点
+    self& operator++()
+        node = (link_type)((*node). next);
+        return *this;
+    }
+    self operator++(int)
+        self tmp = *this;
+        ++*this;
+        return tmp;
+    }
+    // 对迭代器递减 1，就是后退一个节点
+    self& operator--()
+        node = (link_type)((*node). prev);
+        return *this;
+    }
+    self operator--(int)
+        self tmp = *this;
+        --*this;
+        return tmp;
+    }
+};
+```
+
+#### 4.3.4 list 的数据结构
+
+SGI list 不仅是一个双向串行，而且还是一个环状双向串行。所以它只需要一个指标，便可以完整表现整个串行：
+
+```c++
+template <class T, class Alloc = alloc>// 预设使用 alloc 为配置器
+class list {
+protected:
+    typedef __list_node <T>list_node;
+public:
+    typedef list_node* link_type;
+protected:
+    link_type node;// 只要一个指标，便可表示整个环状双向串行
+    ...
+};
+```
+
+如果让指标 node 指向刻意置于尾端的一个空白节点， node 便能符合 STL对于
+「前闭后开」区间的要求，成为 last 迭代器，如图 4-5。这么一来，以下几个函
+式便都可以轻易完成：
+
+```c++
+iterator begin () { return (link_type)((*node).next); }
+iterator end () { return node; }
+bool empty () const { return node->next == node; }
+size_type size () const {
+    size_type result = 0;
+    distance (begin(), end(), result); // 全域函式，第 3 章。
+    return result;
+}
+// 取头节点的内容（元素值）。
+reference front () { return *begin(); }
+// 取尾节点的内容（元素值）。
+reference back () { return *(--end()); }
+```
+
+![《STL源码剖析》的笔记-listcircle.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-listcircle.png)
+
+#### 4.3.5 list 的建构与内存管理 ：constructor, push_back, insert
+
+下面是一个测试程序，我的观察重点在建构的方式以及大小的变化：
+
+```c++
+// filename : 4list-test.cpp
+#include <list>
+#include <iostream>
+#include <algorithm>
+using namespace std;
+int main()
+{
+    int i;
+    list<int> ilist;
+    cout << "size=" << ilist. size () << endl; // size=0
+    ilist. push_back(0);
+    ilist.push_back(1);
+    ilist.push_back(2);
+    ilist.push_back(3);
+    ilist.push_back(4);
+    cout << "size=" << ilist.size() << endl; // size=5
+    list<int>::iterator ite;
+    for(ite = ilist. begin (); ite != ilist. end(); ++ite)
+        cout << * ite << ' '; // 0 1 2 3 4
+    cout << endl;
+    ite = find (ilist.begin(), ilist.end(), 3);
+    if (ite!=0)
+        ilist. insert(ite, 99);
+    cout << "size=" << ilist.size() << endl; // size=6
+    cout << *ite << endl; // 3  insert之后，ite仍指向3，这里没用到insert的返回值（指向9的迭代器）
+    for(ite = ilist.begin(); ite != ilist.end(); ++ite)
+        cout << *ite << ' '; // 0 1 2 99 3 4
+    cout << endl;
+    ite = find (ilist.begin(), ilist.end(), 1);
+    if (ite!=0)
+        cout << *(ilist. erase (ite)) << endl; // 2 这里用到了erase的返回值，返回待删除节点后面那个节点
+    for(ite = ilist.begin(); ite != ilist.end(); ++ite)
+        cout << *ite << ' '; // 0 2 99 3 4
+    cout << endl;
+}
+```
+
+list 预设 使用 alloc （2.2.4节 ）做为 空间 配置 器 ， 并据此 另外 定义 了一 个list_node_allocator ，为的是更方便地以节点大小为配置单位：
+
+```c++
+template <class T, class Alloc = alloc>// 预设使用 alloc 为配置器
+class list {
+protected:
+    typedef __list_node<T>list_node;
+    // 专属之空间配置器，每次配置一个节点大小：
+    typedef simple_alloc<list_node, Alloc>list_node_allocator;
+    ...
+};
+```
+
+于是， list_node_allocator(n) 表示配置n个节点空间。以下㆕个函式，分别
+用来配置、释放、建构、摧毁一个节点：
+
+```c++
+protected:
+// 配置一个节点并传回
+link_type get_node () { return list_node_allocator::allocate(); }
+// 释放一个节点
+void put_node (link_type p) { list_node_allocator::deallocate(p); }
+// 产生（配置并建构）一个节点，带有元素值
+link_type create_node (const T& x) {
+    link_type p = get_node();
+    construct (&p->data, x); //全域函式，建构/解构基本工具。
+    return p;
+}
+// 摧毁（解构并释放）一个节点
+void destroy_node (link_type p) {
+}
+destroy(&p->data); //全域函式，建构/解构基本工具。
+put_node(p);
+}
+```
+
+list 提供有许多constructors，其中一个是default constructor，允许我们不指定任何参数做出一个空的 list 出来：
+
+```c++
+public:
+list() {empty_initialize(); } //产生一个空串行。
+protected:
+void empty_initialize()
+    node =get_node(); //配置一个节点空间，令 node 指向它。
+    node ->next = node; //令 node头尾都指向自己，不设元素值。
+    node ->prev = node;
+}
+```
+
+![《STL源码剖析》的笔记-emptylist.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-emptylist.png)
+
+当我们以 push_back() 将新元素安插于 list 尾端，此函式内部呼叫 insert() ：
+
+```c++
+void push_back (const T& x) { insert (end(), x); }
+```
+
+insert() 是一个多载化函式，有多种型式，其中最简单的一种如下，符合以上所需。首先配置并建构一个节点，然后在尾端做适当的指标动作，将新节点安插进去，**注意返回值指向新插入的节点**：
+
+```c++
+// 函式目的：在迭代器 position 所指位置安插一个节点，内容为 x。
+iterator insert (iterator position, const T& x) {
+    link_type tmp = create_node(x); //产生一个节点（设妥内容为 x）
+    // 调整双向指标，使 tmp安插进去。
+    tmp->next = position.node;
+    tmp->prev = position.node->prev;
+    (link_type(position.node->prev))->next = tmp;
+    position.node->prev = tmp;
+    return tmp;
+}
+```
+
+于是，先前测试程序连续安插了五个节点（其值为 0 1 2 3 4）之后， list 的状态如图 4-5。如果我们希望在 list 内的某处安插新节点，首先必须确定安插位置，例如我希望在资料值为 3的节点处安插一个数据值为 99 的节点，可以这么做：
+
+```c++
+ilite = find (il.begin(), il.end(), 3);
+if (ilite!=0)
+il. insert(ilite, 99);
+```
+
+find() 动作稍后再做说明。安插之后的 list 状态如图 4-6。注意，安插完成后，新节点将位于标兵迭代器（标示出安插点）所指之节点的前方—这是STL对于「安插动作」的标准规范。由于 list 不像 vector 那样有可能在空间不足时做重新配置、数据搬移的动作，所以安插前的所有迭代器在安插动作之后都仍然有效。
+
+![《STL源码剖析》的笔记-listinsert.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-listinsert.png)
+
+#### 4.3.6 list 的元素操作 ：push_front, push_back, erase, pop_front, pop_back, clear, remove, unique, splice, merge, reverse, sort
+
+list 所提供的元素操作动作很多，无法在有限的篇幅中一一讲解—其实也没有这种必要。
+
+```c++
+// 安插一个节点，做为头节点
+void push_front (const T& x) { insert (begin(), x); }
+// 安插一个节点，做为尾节点（上一小节才介绍过）
+void push_back (const T& x) { insert (end(), x); }
+// 移除迭代器 position 所指节点
+iterator erase (iterator position) {
+    link_type next_node = link_type(position.node->next);
+    link_type prev_node = link_type(position.node->prev);
+    prev_node->next = next_node;
+    next_node->prev = prev_node;
+    destroy_node (position.node);
+    return iterator(next_node);
+}
+// 移除头节点
+void pop_front () { erase (begin()); }
+// 移除尾节点
+void pop_back()
+    iterator tmp = end();
+    erase(--tmp);
+}
+
+//清除所有节点（整个串行）
+template <class T, class Alloc>
+void list<T, Alloc>:: clear()
+{
+    link_type cur = (link_type) node->next; // begin()
+    while (cur != node ) { //巡访每一个节点
+        link_type tmp = cur;
+        cur = (link_type) cur->next;
+        destroy_node(tmp); //摧毁（解构并释放）一个节点
+    }
+    // 恢复 node 原始状态
+    node->next = node;
+    node->prev = node;
+}
+
+//将数值为 value之所有元素移除
+template <class T, class Alloc>
+void list<T, Alloc>:: remove (const T& value) {
+    iterator first = begin();
+    iterator last = end();
+    while (first != last) { //巡访每一个节点
+        iterator next = first;
+        ++next;
+        if (*first == value) erase(first); //找到就移除
+        first = next;
+    }
+}
+//移除数值相同的连续元素。注意，只有「连续而相同的元素」，才会被移除剩一个。
+template <class T, class Alloc>
+void list<T, Alloc>:: unique () {
+    iterator first = begin();
+    iterator last = end();
+    if (first == last) return; //空串行，什么都不必做。
+    iterator next = first;
+    while (++next != last) { //巡访每一个节点
+        if (*first == *next) //如果在此区段中有相同的元素
+            erase(next);        //移除之
+        else
+            first = next; // 调整指针
+        next = first; // 修正区段范围
+    }
+}
+```
+
+由于 list 是一个双向环状串行，只要我们把边际条件处理好，那么，在头部或尾部安插元素（ push_front 和 push_back ），动作几乎是一样的，在头部或尾部移除元素（ pop_front 和 pop_back ），动作也几乎是一样的。移除（ erase ）某个迭代器所指元素，只是做一些指标搬移动作而已，并不复杂。如果图4-6再经以下搜寻并移除的动作，状况将如图 4-7。
+
+```c++
+ite = find(ilist.begin(), ilist.end(), 1);
+if (ite!=0)
+    cout << *(ilist.erase(ite)) << endl;
+```
+
+![《STL源码剖析》的笔记-listerase.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-listerase.png)
+
+list 内部提供一个所谓的迁移动作（ transfer ）：将某连续范围的元素迁移到某个特定位置之前（好像C++标准中没有这个函数）。技术上很简单，节点间的指标移动而已。这个动作为其它的复杂动作如 splice, sort, merge 等奠定良好的基础。下面是 transfer 的源码：
+
+```c++
+protected:
+// 将 [first,last) 内的所有元素搬移到 position 之前。
+void transfer (iterator position, iterator first, iterator last) {
+    if (position != last) {
+        (*(link_type((*last.node).prev))).next = position.node;    // (1)
+        (*(link_type((*first.node).prev))).next = last.node;    // (2)
+        (*(link_type((*position.node).prev))).next = first.node; // (3)
+        link_type tmp = link_type((*position.node).prev);       // (4)
+        (*position.node).prev = (*last.node).prev;              // (5)
+        (*last.node).prev = (*first.node).prev;                 // (6)
+        (*first.node).prev = tmp;                               // (7)
+    }
+}
+```
+
+以上七个动作，一步一步地显示于图 4-8a。
+
+![《STL源码剖析》的笔记-listtransfer.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-listtransfer.png)
+
+transfer 所接受的 [first,last) 区间，是否可以在同一个 list 之中呢？答案是可以。你只要想象图4-8a所画的两条 lists其实是同一个 list 的两个区段，就不难得到答案了。
+
+上述的 transfer 并非公开界面。 list 公开提供的是所谓的接合动作（ splice ）：将某连续范围的元素从一个 list 搬移到另一个（或同一个） list 的某个定点。如果接续先前 4list-test.cpp 程序的最后执行点，继续执行以下 splice 动作：
+
+```c++
+int iv[5] = { 5,6,7,8,9 };
+list<int> ilist2(iv, iv+5);
+// 目前，ilist的内容为 0 2 99 3 4
+ite = find(ilist.begin(), ilist.end(), 99);
+ilist. splice (ite,ilist2); // 0 2 5 6 7 8 9 99 3 4
+ilist. reverse();           // 4 3 99 9 8 7 6 5 2 0
+ilist. sort();              // 0 2 3 4 5 6 7 8 9 99
+```
+
+很容易便可看出效果。图4-8b显示接合动作。技术上很简单，只是节点间的指标移动而已，这些动作已完全由 transfer() 做掉了。
+
+![《STL源码剖析》的笔记-listsplice.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-listsplice.png)
+
+为了提供各种接口弹性， list<T>::splice 有许多版本：
+
+```c++
+public:
+// 将 x接合于 position 所指位置之前。x必须不同于 *this。
+void splice (iterator position, list& x) {
+    if (!x.empty())
+        transfer (position, x.begin(), x.end());
+}
+// 将 i 所指元素接合于 position 所指位置之前。position 和 i 可指向同一个 list。
+void splice (iterator position, list&, iterator i) {
+    iterator j = i;
+    ++j;
+    if (position == i || position == j) return;
+    transfer (position, i, j);
+}
+// 将 [first,last) 内的所有元素接合于 position 所指位置之前。
+// position 和[first,last)可指向同一个 list，
+// 但 position 不能位于[first,last)之内。
+void splice (iterator position, list&, iterator first, iterator last) {
+    if (first != last)
+        transfer (position, first, last);
+}
+```
+
+以下是 merge(), reverse(), sort() 的源码。有了 transfer() 在手，这些
+动作都不难完成。
+
+```c++
+// merge()将 x合并到 *this身上。两个 lists 的内容都必须先经过递增排序。
+template <class T, class Alloc>
+void list<T, Alloc>:: merge (list<T, Alloc>& x) {
+    iterator first1 = begin();
+    iterator last1 = end();
+    iterator first2 = x.begin();
+    iterator last2 = x.end();
+    // 注意：前提是，两个 lists都已经过递增排序，
+    while (first1 != last1 && first2 != last2)
+        if (*first2 < *first1) {
+            iterator next = first2;
+            transfer (first1, first2, ++next);
+            first2 = next;
+        }
+        else
+            ++first1;
+    if (first2 != last2) transfer (last1, first2, last2);
+}
+
+// reverse()将 *this的内容逆向重置
+template <class T, class Alloc>
+void list<T, Alloc>:: reverse () {
+    // 以下判断，如果是空白串行，或仅有一个元素，就不做任何动作。
+    // 使用 size() == 0 || size() == 1 来判断，虽然也可以，但是比较慢。
+    if (node->next == node || link_type(node->next)->next == node) return;
+    iterator first = begin();
+    ++first;
+    while (first != end()) {
+        iterator old = first;
+        ++first;
+        transfer (begin(), old, first);
+    }
+}
+
+// list 不能使用 STL 算法 sort()，必须使用自己的 sort() member function ，
+//因为 STL 算法 sort() 只接受 RamdonAccessIterator.
+//本函式采用 quick sort.
+template <class T, class Alloc>
+void list<T, Alloc>:: sort () {
+    // 以下判断，如果是空白串行，或仅有一个元素，就不做任何动作。
+    // 使用 size() == 0 || size() == 1 来判断，虽然也可以，但是比较慢。
+    if (node->next == node || link_type(node->next)->next == node) return;
+    // 一些新的 lists，做为中介数据存放区
+    list<T, Alloc> carry;
+    list<T, Alloc> counter[64];
+    int fill = 0;
+    while (!empty()) {
+        carry. splice (carry.begin(), *this, begin());
+        int i = 0;
+        while(i < fill && !counter[i].empty()) {
+            counter[i]. merge(carry);
+            carry. swap (counter[i++]);
+        }
+        carry. swap (counter[i]);
+        if (i == fill) ++fill;
+    }
+    for (int i = 1; i < fill; ++i)
+        counter[i]. merge (counter[i-1]);
+    swap (counter[fill-1]);
+}
+```
+
+### deque
+
+
+巡访 - 遍历
+资料 - 数据
 全域 - 全局
 弹性 - 灵活性
 实作 - 实现
@@ -1893,3 +2350,4 @@ template<class BidirectionalIterator1, class BidirectionalIterator2>
 函式 - 函数
 型别 - 类型
 巢状 - 内嵌
+安插 - 插入
