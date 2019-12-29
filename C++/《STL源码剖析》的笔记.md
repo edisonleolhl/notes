@@ -2696,6 +2696,117 @@ int main()
 
 ## 4.7 heap （ 隐性表述 ，implicit representation ）
 
+### 4.7.1 heap 概述
+
+heap 并不归属于STL 容器组件，它是个幕后英雄，扮演 priority queue （4.8节）的推手。顾名思义， priority queue 允许使用者以任何次序将任何元素推入容器内，但取出时一定是从优先权最高（也就是数值最高）之元素开始取。 binary max heap 正是具有这样的特性，适合做为 priority queue 的底层机制。让我们做点分析。如果使用 4.3 节的 list 做为 priorityqueue 的底层机制，元素安插动作可享常数时间。但是要找到 list 中的极值，却需要对整个 list 进行线性扫描。我们也可以改个作法，让元素安插前先经过排序这一关，使得 list 的元素值总是由小到大（或由大到小），但这么一来，收之东隅却失之桑榆：虽然取得极值以及元素删除动作达到最高效率，元素的安插却只有线性表现。
+
+比较麻辣的作法是以binary search tree（如5.1节的 RB-tree ）做为 priority queue 的底层机制。这么一来元素的安插和极值的取得就有O(logN)的表现。但杀鸡用牛刀，未免小题大作，一来binary search tree的输入需要足够的随机性，二来binary search tree并不容易实作。 priorityqueue 的复杂度，最好介于queue 和binary search tree之间，才算适得其所。binary heap便是这种条件下的适当候选人。
+
+所谓binary heap就是一种complete binary tree（完全二元树） ，也就是说，整棵binary tree除了最底层的叶节点 (s) 之外，是填满的，而最底层的叶节点 (s) 由左至右又不得有空隙。图 4-20 是一个 complete binary tree。
+
+![《STL源码剖析》的笔记-completebinarytreeandarray.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-completebinarytreeandarray.png)
+
+complete binary tree整棵树内没有任何节点漏洞，这带来一个极大好处：我们可以利用 array 来储存所有节点。假设动用一个小技巧（SGI STL 提供的 heap 并未使用此一小技巧） ，将 array 的 #0元素保留（或设为无限大值或无限小值），那么当complete binary tree中的某个节点位于 array 的 i 处，其左子节点必位于 array 的 2i 处，其右子节点必位于 array 的2i+1 处，其父节点必位于「 i/2 」处（此处的「」权且代表高斯符号，取其整数）。通过这么简单的位置规则， array 可以轻易实作出complete binary tree。这种以array 表述 tree 的方式，我们称为**隐式表述法（implicit representation）**。
+
+这么一来，我们需要的工具就很简单了：一个 array 和一组 heap 算法（用来安插元素、删除元素、取极值、将某一整组数据排列成一个 heap ）。 array 的缺点是无法动态改变大小，而 heap 却需要这项功能，因此以 vector （4.2节）代替 array 是更好的选择。
+
+根据元素排列方式， heap 可分为 max-heap 和 min-heap 两种，前者每个节点的键值（key）都大于或等于其子节点键值，后者的每个节点键值（key）都小于或等于其子节点键值。因此， max-heap 的最大值在根节点，并总是位于底层 array 或vector 的起头处； min-heap 的最小值在根节点，亦总是位于底层 array 或vector 的起头处。STL 供应的是 max-heap ，因此以下我说 heap 时，指的是max-heap 。
+
+#### 4.7.2 heap 算法
+
+##### push_heap 算法
+
+为了满足 complete binary tree的条件，新加入的元素一定要放在最下一层做为叶节点，并填补在由左至右的第一个空格，也就是把新元素安插在底层 vector 的 end() 处。
+
+新元素是否适合于其现有位置呢？为满足 max-heap 的条件（每个节点的键值都大于或等于其子节点键值），我们执行一个所谓的percolate up（上溯）程序：将新节点拿来与其父节点比较，如果其键值（key）比父节点大，就父子对换位置。如此一直上溯，直到不需对换或直到根节点为止。
+
+![《STL源码剖析》的笔记-pushheap.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-pushheap.png)
+
+##### pop_heap 算法
+
+图4-22是 pop_heap 算法的实际操演情况。既然身为 max-heap ，最大值必然在根节点。 pop 动作取走根节点（其实是移至底部容器 vector 的最后一个元素）之后，为了满足 complete binary tree的条件，必须将最下一层最右边的叶节点拿掉，现在我们的任务是为这个被拿掉的节点找一个适当的位置。
+
+为满足 max-heap 的条件（每个节点的键值都大于或等于其子节点键值），我们执行一个所谓的percolate down（下放）程序：将根节点（最大值被取走后，形成一个「洞」）填入上述那个失去生存空间的叶节点值，再将它拿来和其两个子节点比较键值（key），并与较大子节点对调位置。如此一直下放，直到这个「洞」的键值大于左右两个子节点，或直到下放至叶节点为止。
+
+注意， pop_heap 之后，最大元素只是被置放于底部容器的最尾端，尚未被取走。如果要取其值，可使用底部容器（ vector ）所提供的 back() 操作函式。如果要移除它，可使用底部容器（ vector ）所提供的 pop_back() 操作函式。
+
+![《STL源码剖析》的笔记-popheap.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-popheap.png)
+
+##### sort_heap 算法
+
+既然每次 pop_heap 可获得 heap 之中键值最大的元素，如果持续对整个 heap 做pop_heap 动作，每次将操作范围从后向前缩减一个元素（因为 pop_heap 会把键值最大的元素放在底部容器的最尾端），当整个程序执行完毕，我们便有了一个递增序列，显然排序过后原来的heap就不再是合法的heap了。图 4-23 是 sort_heap 的实际操演情况。
+
+![《STL源码剖析》的笔记-sortheap.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-sortheap.png)
+
+#### 4.7.3 heap 没有迭代器
+
+heap 的所有元素都必须遵循特别的（complete binary tree）排列规则，所以 heap 不提供走访功能，也不提供迭代器。
+
+#### 4.7.4 heap 测试实例
+
+```c++
+// file: 4heap-test.cpp
+#include <vector>
+#include <iostream>
+#include <algorithm> // heap algorithms
+using namespace std;
+int main()
+{
+    {
+    // test heap ( 底层以 vector完成)
+    int ia[9] = {0,1,2,3,4,8,9,3,5};
+    vector<int> ivec(ia, ia+9);
+    make_heap (ivec.begin(), ivec.end());
+    for(int i=0; i<ivec.size(); ++i)
+        cout << ivec[i] << ' '; // 9 5 8 3 4 0 2 3 1
+    cout << endl;
+    ivec.push_back(7);
+    push_heap (ivec.begin(), ivec.end()); // 新元素7已经位于vector尾端
+    for(int i=0; i<ivec.size(); ++i)
+        cout << ivec[i] << ' '; // 9 7 8 3 5 0 2 3 1 4
+    cout << endl;
+    pop_heap (ivec.begin(), ivec.end());
+    cout << ivec.back() << endl; // 9. return but no remove.仍在vector中，处于尾端
+    ivec.pop_back(); // remove last elem and no return
+    for(int i=0; i<ivec.size(); ++i)
+        cout << ivec[i] << ' '; // 8 7 4 3 5 0 2 3 1
+    cout << endl;
+    sort_heap (ivec.begin(), ivec.end());
+    for(int i=0; i<ivec.size(); ++i)
+        cout << ivec[i] << ' '; // 0 1 2 3 3 4 5 7 8
+    cout << endl;
+    }
+    {
+    // test heap ( 底层以 array 完成)
+    int ia[9] = {0,1,2,3,4,8,9,3,5};
+    make_heap(ia, ia+9);
+    // array 无法动态改变大小，因此不可以对满载的 array 做 push_heap() 动作。
+    // 因为那得先在 array尾端增加一个元素。
+    // 如果对于一个满载的array执行push_heap()，该函数会将最后一个元素视为新增元素，
+    // 并将其余元素视为一个完整的heap结构（实际上它们的确是），因此执行结果等于原先的heap
+    sort_heap(ia, ia+9);
+    for(int i=0; i<9; ++i)
+    cout << ia[i] << ' '; // 0 1 2 3 3 4 5 8 9
+    cout << endl;
+    // 经过排序之后的 heap，不再是个合法的 heap
+    // 重新再做一个 heap
+    make_heap(ia, ia+9);
+    pop_heap(ia, ia+9);
+    cout << ia[8] << endl; // 9
+    }
+    {
+    // test heap ( 底层以 array 完成)
+    int ia[6] = {4,1,7,6,2,5};
+    make_heap(ia, ia+6);
+    for(int i=0; i<6; ++i)
+    cout << ia[i] << ' '; // 7 6 5 1 2 4
+    cout << endl;
+    }
+}
+```
+
+## 4.8 priority_queue
+
 机能 - 功能（函数）
 走访/巡访 - 遍历
 资料 - 数据
