@@ -2238,7 +2238,7 @@ ilist. sort();              // 0 2 3 4 5 6 7 8 9 99
 
 ![《STL源码剖析》的笔记-listsplice.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-listsplice.png)
 
-为了提供各种接口弹性， list<T>::splice 有许多版本：
+为了提供各种接口弹性， `list<T>::splice` 有许多版本：
 
 ```c++
 public:
@@ -2331,8 +2331,373 @@ void list<T, Alloc>:: sort () {
 
 ### deque
 
+vector 是单向开口的连续线性空间， deque 则是一种双向开口的连续线性空间。所谓双向开口，意思是可以在头尾两端分别做元素的安插和删除动作，如图4-9。vector 当然也可以在头尾两端做动作（从技术观点），但是其头部动作效率奇差，无法被接受。
 
-巡访 - 遍历
+![《STL源码剖析》的笔记-deque.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-deque.png)
+
+deque 和 vector 的最大差异，一在于 deque 允许于常数时间内对起头端进行元素的安插或移除动作，二在于 deque 没有所谓容量（ capacity ）观念，因为它是动态地以分段连续空间组合而成，随时可以增加一段新的空间并链接起来。换句话说，像 vector 那样「因旧空间不足而重新配置一块更大空间，然后复制元素，再释放旧空间」这样的事情在 deque 是不会发生的。也因此， deque 没有必要提供所谓的空间保留（ reserve ）功能。虽然 deque 也提供Ramdon Access Iterator，但它的迭代器并不是原生指标，其复杂度和 vector 不可以道里计（稍后看到源码，你便知道），这当然在在影响了各个运算层面。因此，除非必要，我们应尽可能选择使用 vector 而非 deque 。对 deque 进行的排序动作，为了最高效率，可将 deque 先完整复制到一个 vector身上，将 vector 排序后（利用 STL sort 算法），再复制回 deque 。
+
+#### deque的中控器
+
+deque 是连续空间（至少逻辑看来如此），连续线性空间总令我们联想到 array或 vector 。 array 无法成长， vector 虽可成长，却只能向尾端成长，而且其所谓成长原是个假象，事实上是 (1)另觅更大空间、(2)将原数据复制过去、(3)释放原空间三部曲。如果不是 vector 每次配置新空间时都有留下一些余裕，其「成长」假象所带来的代价将是相当高昂。
+
+deque 系由一段一段的定量连续空间构成。一旦有必要在 deque 的前端或尾端增加新空间，便配置一段定量连续空间，串接在整个 deque 的头端或尾端。 deque 的最大任务，便是在这些分段的定量连续空间上，维护其整体连续的假象，并提供随机存取的界面。避开了「重新配置、复制、释放」的轮回，代价则是复杂的迭代器架构。
+
+受 到 分 段 连 续 线 性 空 间 的 字 面 影 响 ， 我 们 可 能 以 为 deque 的 实 作 复 杂 度 和vector 相比虽不中亦不远矣，其实不然。主要因为，既曰分段连续线性空间，就必须有中央控制，而为了维护整体连续的假象，数据结构的设计及迭代器前进后退等动作都颇为繁琐。 deque 的实作码份量远比 vector 或 list 都多得多。deque 采用一块所谓的map（注意，不是 STL 的 map 容器）做为主控。这里所谓map是一小块连续空间，其中每个元素（此处称为一个节点，node）都是指标，指向另一段（较大的）连续线性空间，称为缓冲区。缓冲区才是 deque 的储存空间主体。SGI STL允许我们指定缓冲区大小，默认值 0表示将使用 512 bytes缓冲区。
+
+```c++
+template <class T, class Alloc = alloc, size_t BufSiz = 0>
+class deque {
+public: // Basic types
+    typedef T value_type;
+    typedef value_type* pointer;
+    ...
+protected: // Internal typedefs
+    // 元素的指针的指针（ pointer of pointer of T ）
+    typedef pointer* map_pointer;
+protected: // Data members
+    map_pointer map; //指向 map，map 是块连续空间，其内的每个元素
+            // 都是一个指标（称为节点），指向一块缓冲区。
+    size_type map_size;// map 内可容纳多少指标。
+    ...
+};
+```
+
+map 其实是一个 T** ，也就是说它是一个指标，所指之物又是一个指标，指向型别为 T 的一块空间，如图 4-10。
+
+![《STL源码剖析》的笔记-dequemap.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-dequemap.png)
+
+#### 4.4.3 deque 的迭代器
+
+deque 是 分段连续空间 。维 护其「整体连续」假象 的任务 ，着落在迭代器的operator++ 和 operator-- 两个运算子身上。
+
+让我们思考一下， deque 迭代器应该具备什么结构。首先，它必须能够指出分段连续空间（亦即缓冲区）在哪里，其次它必须能够判断自己是否已经处于其所在缓冲区的边缘，如果是，一旦前进或后退时就必须跳跃至下一个或上一个缓冲区。为了能够正确跳跃， deque 必须随时掌握管控中心（map）。下面这种实作方式符合需求：
+
+```c++
+template <class T, class Ref, class Ptr, size_t BufSiz >
+struct__deque_iterator { //未继承 std::iterator
+    typedef __deque_iterator<T, T&, T*, BufSiz> iterator;
+    typedef __deque_iterator<T, const T&, const T*, BufSiz> const_iterator;
+    static size_t buffer_size () {return__deque_buf_size (BufSiz , sizeof(T)); }
+    // 未继承 std::iterator ，所以必须自行撰写五个必要的迭代器相应型别（第 3 章）
+    typedef random_access _iterator_tagiterator_category ; // (1)
+    typedef T value_type;    // (2)
+    typedef Ptr pointer;    // (3)
+    typedef Ref reference;    // (4)
+    typedef size_t size_type;
+    typedef ptrdiff_tdifference_type ;// (5)
+    typedef T** map_pointer;
+    typedef __deque_iterator self;
+    // 保持与容器的联结
+    T* cur;//此迭代器所指之缓冲区中的现行（current）元素
+    T* first;//此迭代器所指之缓冲区的头
+    T* last;//此迭代器所指之缓冲区的尾（含备用空间）
+    map_pointernode;//指向管控中心
+    ...
+};
+```
+
+其中用来决定缓冲区大小的函式 buffer_size() ，呼叫 __deque_buf_size() ，后者是个全域函式，定义如下：
+
+```c++
+//如果 n不为 0，传回 n，表示 buffer size 由使用者自定。
+//如果 n为 0，表示 buffer size使用默认值，那么
+// 如果 sz（元素大小， sizeof(value_type) ）小于 512，传回 512/sz，
+// 如果 sz 不小于 512，传回 1。
+inlinesize_t __deque_buf_size (size_t n, size_t sz)
+{
+    return n != 0 ? n : (sz < 512 ? size_t(512 / sz) : size_t(1));
+}
+```
+
+![《STL源码剖析》的笔记-dequemapbufferiterator.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-dequemapbufferiterator.png)
+
+假设现在我们产生一个 `deque<int>` ，并令其缓冲区大小为32，于是每个缓冲区可容纳 32/sizeof(int)=4 个元素。经过某些操作之后， deque 拥有 20 个元素，那么其 begin() 和 end() 所传回的两个迭代器应该如图4-12。这两个迭代器事实上一直保持在 deque 内，名为 start 和 finish ，稍后在 deque 数据结构中便可看到）。
+
+20个元素需要 20/8 = 3 个缓冲区，所以map之内运用了三个节点。迭代器 start内的 cur 指标当然指向缓冲区的第一个元素，迭代器 finish 内的 cur 指标当然指向缓冲区的最后元素（的下一位置）。注意，最后一个缓冲区尚有备用空间。稍后如果有新元素要安插于尾端，可直接拿此备用空间来使用。
+
+![《STL源码剖析》的笔记-dequebeginend.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-dequebeginend.png)
+
+下面是 deque 迭代器的几个关键行为。由于迭代器内对各种指标运算都做了多载化动作，所以各种指标运算如加、减、前进、后退…都不能直观视之。其中最重点的关键就是：一旦行进时遇到缓冲区边缘，要特别当心，视前进或后退而定，可能需要呼叫 set_node() 跳一个缓冲区：
+
+```c++
+void set_node (map_pointer new_node) {
+    node = new_node;
+    first = *new_node;
+    last = first + difference_type(buffer_size());
+}
+//以下各个多载化运算子是 __deque_iterator<> 成功运作的关键。
+reference operator* () const { return *cur ; }
+pointer operator-> () const { return &( operator* ()); }
+difference_type operator- (const self& x) const {
+    return difference_type(buffer_size()) * (node - x.node - 1) +
+        (cur - first) + (x.last - x.cur);
+}
+// 参考 More Effective C++ , item6: Distinguish between prefix and
+// postfix forms of increment and decrement operators.
+self& operator++ () {
+    ++cur;
+    if (cur == last) {
+        //切换至下一个元素。
+        //如果已达所在缓冲区的尾端，
+        set_node(node + 1);//就切换至下一节点（亦即缓冲区）
+        cur = first;        // 的第一个元素。
+    }
+    return *this;
+}
+self operator++ (int) { //后置式，标准写法
+    self tmp = *this;
+    ++*this;
+    return tmp;
+}
+self& operator-- () {
+    if (cur == first) { //如果已达所在缓冲区的头端，
+        set_node(node - 1);//就切换至前一节点（亦即缓冲区）
+        cur = last;
+    }
+    --cur;
+    return *this;
+}
+// 的最后一个元素。
+//切换至前一个元素。
+self operator-- (int) { //后置式，标准写法
+    self tmp = *this;
+    --*this;
+    return tmp;
+}
+// 以下实现随机存取。迭代器可以直接跳跃 n个距离。
+self& operator+= (difference_type n) {
+    difference_type offset = n + (cur - first);
+    if (offset >= 0 && offset < difference_type(buffer_size()))
+        // 标的位置在同一缓冲区内
+        cur += n;
+    else {
+        // 标的位置不在同一缓冲区内
+        difference_type node_offset =
+            offset > 0 ? offset / difference_type(buffer_size()) : -difference_type((-offset - 1) / buffer_size()) - 1;
+        // 切换至正确的节点（亦即缓冲区）
+        set_node (node + node_offset);
+        // 切换至正确的元素
+        cur = first + (offset - node_offset * difference_type( buffer_size()));
+    }
+    return *this;
+}
+// 参考 More Effective C++ , item22: Consider using op= instead of
+// stand-alone op.
+self operator+ (difference_type n) const {
+    self tmp = *this;
+    return tmp += n; // 唤起 operator+=
+}
+self& operator-= (difference_type n) { return *this += -n; }
+// 以上利用 operator+= 来完成 operator-=
+
+// 参考 More Effective C++ , item22: Consider using op= instead of
+// stand-alone op.
+self operator- (difference_type n) const {
+    self tmp = *this;
+    return tmp -= n; // 唤起 operator-=
+}
+// 以下实现随机存取。迭代器可以直接跳跃 n个距离。
+reference operator[] (difference_type n) const { return *( *this + n); }
+// 以上唤起 operator*, operator+
+bool operator== (const self& x) const { return cur == x.cur; }
+bool operator!= (const self& x) const { return !(*this == x); }
+bool operator< (const self& x) const {
+    return (node == x.node) ? (cur < x.cur) : (node < x.node);
+}
+```
+
+#### 4.4.4 deque 的数据结构
+
+deque 除了维护一个先前说过的指向map的指标外，也维护 start, finish 两个迭代器，分别指向第一缓冲区的第一个元素和最后缓冲区的最后一个元素（的下一位置）。此外它当然也必须记住目前的map大小。因为一旦map所提供的节点不足，就必须重新配置更大的一块map。
+
+deque 除了维护一个先前说过的指向map的指标外，也维护 start, finish 两个迭代器，分别指向第一缓冲区的第一个元素和最后缓冲区的最后一个元素（的下一位置）。此外它当然也必须记住目前的map大小。因为一旦map所提供的节点不足，就必须重新配置更大的一块map。
+
+```c++
+//见 __deque_buf_size() 。BufSize 默认值为 0的唯一理由是为了闪避某些
+//编译器在处理常数算式（ constant expressions ）时的臭虫。
+//预设使用 alloc为配置器。
+template <class T, class Alloc = alloc, size_t BufSiz = 0>
+class deque {
+public: // Basic types
+    typedef T value_type;
+    typedef value_type* pointer;
+    typedef size_t size_type;
+public: // Iterators
+    typedef__deque_iterator <T, T&, T*,BufSiz> iterator;
+protected: // Internal typedefs
+    // 元素的指针的指针（ pointer of pointer of T ）
+    typedef pointer* map_pointer;
+protected: // Data members
+    iterator start;
+    iterator finish;
+    map_pointer map;
+    //表现第一个节点。
+    //表现最后一个节点。
+    //指向 map，map 是块连续空间，
+    // 其每个元素都是个指针，指向一个节点（缓冲区）。
+    size_type map_size;// map 内有多少指标。
+    ...
+};
+```
+
+有了上述结构，以下数个机能便可轻易完成：
+
+```c++
+public: // Basic accessors
+iterator begin () { return start ; }
+iterator end () { return finish ; }
+reference operator[] (size_type n) {
+    return start [difference_type(n)]; //唤起 __deque_iterator<>::operator[]
+}
+reference front () { return *start ; } // 唤起 __deque_iterator<>::operator*
+reference back () {
+    iterator tmp = finish;
+    --tmp; //唤起 __deque_iterator<>::operator--
+    return *tmp; //唤起 __deque_iterator<>::operator*
+    // 以上三行何不改为： return *(finish-1);
+    // 因为 __deque_iterator<> 没有为 (finish-1) 定义运算子?!（个人疑惑：不是定义了op-吗？？？？）
+}
+// 下行最后有两个 ‘;’，虽奇怪但合乎语法。
+size_type size () const { return finish - start;; }
+// 以上唤起 iterator::operator-
+size_type max_size () const { return size_type(-1); }
+bool empty () const { return finish == start; }
+```
+
+#### 4.4.5 deque 的建构与内存管理 ctor, push_back, push_front
+
+deque 的缓冲区扩充动作相当琐碎繁杂，以下将以分解动作的方式一步一步图解说明。程序一开始宣告了一个 deque ：
+
+```c++
+deque<int,alloc,32> ideq(20,9);
+```
+
+其缓冲区大小为 32 bytes，并令其保留 20 个元素空间，每个元素初值为 9。为了指定 deque 的第三个 template参数（缓冲区大小），我们必须将前两个参数都指明出来（这是 C++语法规则），因此必须明确指定 alloc （第二章）为空间配置器。
+
+在尾部新增元素的deque示意图如下
+
+![《STL源码剖析》的笔记-dequepushback.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-dequepushback.png)
+
+再加一个元素，则要引发新缓冲区的配置
+
+![《STL源码剖析》的笔记-dequepushbacknewbuffer.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-dequepushbacknewbuffer.png)
+
+在头部插入也是类似的
+
+![《STL源码剖析》的笔记-dequepushfrontnewbuffer.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-dequepushfrontnewbuffer.png)
+
+如果头部缓冲区仍有备用空间，则直接往前加即可
+
+![《STL源码剖析》的笔记-20191229194315.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-20191229194315.png)
+
+#### 4.4.6 deque 的元素操作：pop_back, pop_front, clear, erase, insert
+
+pop操作正好是push操作的相反，不赘述，对deque进行find，返回的是deque的迭代器（类），该迭代器（类）主要有四个迭代器（指针）构成
+
+![《STL源码剖析》的笔记-dequefind.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-dequefind.png)
+
+对于erase和insert操作，涉及到元素的移动，不同于vector只对position后面的元素移动，deque的移动可以双向的，如果position离start更近，则移动pisition之前的元素，如果position离finish更近，则移动position之后的元素
+
+## 4.5 stack
+
+### 4.5.1 stack 概述
+
+stack 是一种先进后出（First In Last Out，FILO）的数据结构。它只有一个出口，型式如图4-18。 stack 允许新增元素、移除元素、取得最顶端元素。但除了最顶端外，没有任何其它方法可以存取 stack 的其它元素。换言之 stack 不允许有走访行为。将元素推入 stack 的动作称为 push，将元素推出 stack 的动作称为pop。
+
+![《STL源码剖析》的笔记-stack.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-stack.png)
+
+### 4.5.2 stack 定义式完整列表
+
+以某种既有容器做为底部结构，将其接口改变，使符合「先进后出」的特性，形成一个 stack ，是很容易做到的。 deque 是双向开口的数据结构，若以 deque 为底部结构并封闭其头端开口，便轻而易举地形成了一个 stack 。因此，SGI STL 便以 deque 做为预设情况下的 stack 底部结构， stack 的实作因而非常简单，源码十分简短，本处完整列出。
+
+由于 stack 系以底部容器完成其所有工作，而具有这种「修改某物接口，形成另一种风貌」之性质者，称为adapter（配接器），因此 STL stack 往往不被归类为 container（容器），而被归类为container adapter。
+
+### 4.5.3 stack 没有迭代器
+
+stack 所有元素的进出都必须符合「先进后出」的条件，只有 stack 顶端的元素，才有机会被外界取用。 stack 不提供走访功能，也不提供迭代器。
+
+### 4.5.4 以 list 做为 stack 的底层容器
+
+除了 deque 之外， list 也是双向开口的数据结构。上述 stack 源码中使用的底层容器的函式有 empty, size, back, push_back, pop_back ，凡此种种 list都具备。因此若以 list 为底部结构并封闭其头端开口，一样能够轻易形成一个stack 。
+
+```c++
+// file : 4stack-test.cpp
+#include <stack>
+#include <list>
+#include <iostream>
+#include <algorithm>
+using namespace std;
+int main()
+{
+    stack<int, list<int> > istack;
+    istack.push(1);
+    istack.push(3);
+    istack.push(5);
+    istack.push(7);
+    cout << istack.size() << endl; // 4
+    cout << istack.top() << endl; // 7
+    istack.pop(); cout << istack.top() << endl; // 5
+    istack.pop(); cout << istack.top() << endl; // 3
+    istack.pop(); cout << istack.top() << endl; // 1
+    cout << istack.size() << endl; // 1
+}
+```
+
+## 4.6 queue
+
+### 4.6.1 queue 概述
+
+queue 是一种先进先出（First In First Out，FIFO）的数据结构。它有两个出口，
+型式如图4-19。 queue 允许新增元素、移除元素、从最底端加入元素、取得最顶
+端元素。但除了最底端可以加入、最顶端可以取出，没有任何其它方法可以存取
+queue 的其它元素。换言之 queue 不允许有走访行为。
+
+将元素推入 queue 的动作称为 push，将元素推出 queue 的动作称为pop。
+
+![《STL源码剖析》的笔记-queue.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-queue.png)
+
+### 4.6.2 queue 定义式完整列表
+
+以某种既有容器为底部结构，将其接口改变，使符合「先进先出」的特性，形成一个 queue ，是很容易做到的。 deque 是双向开口的数据结构，若以 deque 为底部结构并封闭其底端的出口和前端的入口，便轻而易举地形成了一个 queue 。因此，SGI STL 便以 deque 做为预设情况下的 queue 底部结构， queue 的实作因而非常简单，源码十分简短，本处完整列出。
+
+由于 queue 系以底部容器完成其所有工作，而具有这种「修改某物接口，形成另一种风貌」之性质者，称为adapter（配接器），因此 STL queue 往往不被归类为 container（容器），而被归类为container adapter。
+
+### 4.6.3 queue 没有迭代器
+
+queue 所有元素的进出都必须符合「先进先出」的条件，只有 queue 顶端的元素，才有机会被外界取用。 queue 不提供走访功能，也不提供迭代器。
+
+### 4.6.4 以 list 做为 queue 的底层容器
+
+除了 deque 之外， list 也是双向开口的数据结构。上述 queue 源码中使用的底层容器的函式有 empty, size, back, push_back, pop_back ，凡此种种 list都具备。因此若以 list 为底部结构并封闭其头端开口，一样能够轻易形成一个queue 。下面是作法示范。
+
+```c++
+// file : 4queue-test.cpp
+#include <queue>
+#include <list>
+#include <iostream>
+#include <algorithm>
+using namespace std;
+int main()
+{
+    queue<int, list<int> > iqueue;
+    iqueue.push(1);
+    iqueue.push(3);
+    iqueue.push(5);
+    iqueue.push(7);
+    cout << iqueue.size() << endl; // 4
+    cout << iqueue.front() << endl; // 1
+    iqueue.pop(); cout << iqueue.front() << endl; // 3
+    iqueue.pop(); cout << iqueue.front() << endl; // 5
+    iqueue.pop(); cout << iqueue.front() << endl; // 7
+    cout << iqueue.size() << endl; // 1
+}
+```
+
+## 4.7 heap （ 隐性表述 ，implicit representation ）
+
+机能 - 功能（函数）
+走访/巡访 - 遍历
 资料 - 数据
 全域 - 全局
 弹性 - 灵活性
