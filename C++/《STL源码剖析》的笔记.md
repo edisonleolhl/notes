@@ -2329,7 +2329,7 @@ void list<T, Alloc>:: sort () {
 }
 ```
 
-### deque
+### 4.4 deque
 
 vector 是单向开口的连续线性空间， deque 则是一种双向开口的连续线性空间。所谓双向开口，意思是可以在头尾两端分别做元素的安插和删除动作，如图4-9。vector 当然也可以在头尾两端做动作（从技术观点），但是其头部动作效率奇差，无法被接受。
 
@@ -2599,25 +2599,25 @@ pop操作正好是push操作的相反，不赘述，对deque进行find，返回�
 
 对于erase和insert操作，涉及到元素的移动，不同于vector只对position后面的元素移动，deque的移动可以双向的，如果position离start更近，则移动pisition之前的元素，如果position离finish更近，则移动position之后的元素
 
-## 4.5 stack
+### 4.5 stack
 
-### 4.5.1 stack 概述
+#### 4.5.1 stack 概述
 
 stack 是一种先进后出（First In Last Out，FILO）的数据结构。它只有一个出口，型式如图4-18。 stack 允许新增元素、移除元素、取得最顶端元素。但除了最顶端外，没有任何其它方法可以存取 stack 的其它元素。换言之 stack 不允许有走访行为。将元素推入 stack 的动作称为 push，将元素推出 stack 的动作称为pop。
 
 ![《STL源码剖析》的笔记-stack.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-stack.png)
 
-### 4.5.2 stack 定义式完整列表
+#### 4.5.2 stack 定义式完整列表
 
 以某种既有容器做为底部结构，将其接口改变，使符合「先进后出」的特性，形成一个 stack ，是很容易做到的。 deque 是双向开口的数据结构，若以 deque 为底部结构并封闭其头端开口，便轻而易举地形成了一个 stack 。因此，SGI STL 便以 deque 做为预设情况下的 stack 底部结构， stack 的实作因而非常简单，源码十分简短，本处完整列出。
 
 由于 stack 系以底部容器完成其所有工作，而具有这种「修改某物接口，形成另一种风貌」之性质者，称为adapter（配接器），因此 STL stack 往往不被归类为 container（容器），而被归类为container adapter。
 
-### 4.5.3 stack 没有迭代器
+#### 4.5.3 stack 没有迭代器
 
 stack 所有元素的进出都必须符合「先进后出」的条件，只有 stack 顶端的元素，才有机会被外界取用。 stack 不提供走访功能，也不提供迭代器。
 
-### 4.5.4 以 list 做为 stack 的底层容器
+#### 4.5.4 以 list 做为 stack 的底层容器
 
 除了 deque 之外， list 也是双向开口的数据结构。上述 stack 源码中使用的底层容器的函式有 empty, size, back, push_back, pop_back ，凡此种种 list都具备。因此若以 list 为底部结构并封闭其头端开口，一样能够轻易形成一个stack 。
 
@@ -2644,9 +2644,9 @@ int main()
 }
 ```
 
-## 4.6 queue
+### 4.6 queue
 
-### 4.6.1 queue 概述
+#### 4.6.1 queue 概述
 
 queue 是一种先进先出（First In First Out，FIFO）的数据结构。它有两个出口，
 型式如图4-19。 queue 允许新增元素、移除元素、从最底端加入元素、取得最顶
@@ -2657,17 +2657,17 @@ queue 的其它元素。换言之 queue 不允许有走访行为。
 
 ![《STL源码剖析》的笔记-queue.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-queue.png)
 
-### 4.6.2 queue 定义式完整列表
+#### 4.6.2 queue 定义式完整列表
 
 以某种既有容器为底部结构，将其接口改变，使符合「先进先出」的特性，形成一个 queue ，是很容易做到的。 deque 是双向开口的数据结构，若以 deque 为底部结构并封闭其底端的出口和前端的入口，便轻而易举地形成了一个 queue 。因此，SGI STL 便以 deque 做为预设情况下的 queue 底部结构， queue 的实作因而非常简单，源码十分简短，本处完整列出。
 
 由于 queue 系以底部容器完成其所有工作，而具有这种「修改某物接口，形成另一种风貌」之性质者，称为adapter（配接器），因此 STL queue 往往不被归类为 container（容器），而被归类为container adapter。
 
-### 4.6.3 queue 没有迭代器
+#### 4.6.3 queue 没有迭代器
 
 queue 所有元素的进出都必须符合「先进先出」的条件，只有 queue 顶端的元素，才有机会被外界取用。 queue 不提供走访功能，也不提供迭代器。
 
-### 4.6.4 以 list 做为 queue 的底层容器
+#### 4.6.4 以 list 做为 queue 的底层容器
 
 除了 deque 之外， list 也是双向开口的数据结构。上述 queue 源码中使用的底层容器的函式有 empty, size, back, push_back, pop_back ，凡此种种 list都具备。因此若以 list 为底部结构并封闭其头端开口，一样能够轻易形成一个queue 。下面是作法示范。
 
@@ -2694,9 +2694,9 @@ int main()
 }
 ```
 
-## 4.7 heap （ 隐性表述 ，implicit representation ）
+### 4.7 heap （ 隐性表述 ，implicit representation ）
 
-### 4.7.1 heap 概述
+#### 4.7.1 heap 概述
 
 heap 并不归属于STL 容器组件，它是个幕后英雄，扮演 priority queue （4.8节）的推手。顾名思义， priority queue 允许使用者以任何次序将任何元素推入容器内，但取出时一定是从优先权最高（也就是数值最高）之元素开始取。 binary max heap 正是具有这样的特性，适合做为 priority queue 的底层机制。让我们做点分析。如果使用 4.3 节的 list 做为 priorityqueue 的底层机制，元素安插动作可享常数时间。但是要找到 list 中的极值，却需要对整个 list 进行线性扫描。我们也可以改个作法，让元素安插前先经过排序这一关，使得 list 的元素值总是由小到大（或由大到小），但这么一来，收之东隅却失之桑榆：虽然取得极值以及元素删除动作达到最高效率，元素的安插却只有线性表现。
 
@@ -2907,7 +2907,7 @@ int main()
 }
 ```
 
-### slist（仅存在于SGI STL）
+### 4.9 slist（仅存在于SGI STL）
 
 #### 4.9.1 slist 概述
 
@@ -3187,6 +3187,202 @@ node(0);
 ```
 
 因此我在图 4-26、图 4-27、图 4-28 中皆以悬空的方式表现 end()
+
+## Chapter5 关联式容器（associative containers）
+
+[C++ STL 中的 map 用红黑树实现，搜索效率是 O (lgN), 为什么不像 python 一样用散列表从而获得常数级搜索效率呢？](https://www.zhihu.com/question/24506208)
+
+标准的STL关联式容器分为set（集合）和map（映射表）两大类，以及这两大类的衍生体 multiset（多键集合）和multimap（多键映射表）。这些容器的底层机制均以RB-tree（红黑树）完成，RB-tree也是一个独立容器，但并不开放给外界使用。
+
+此外，SGI STL还提供了一个不在标准规格之列的关联式容器：hash table（散列表），以及以此 hashtable为底层机制而完成的 hash_set（散列集合）、hash_map（散列映射表）、hash_multiset（散列多键集合）、hash_multimap（散列多键映射表）
+
+注：散列表很重要，它们在C++98未被纳入标准的原因是太迟了，C++11已经有了以散列表为基础的unordered_set和unordered_map，对应SGI STL的hash_set和hash_map
+
+![《STL源码剖析》的笔记-sgistlcontainers.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-sgistlcontainers.png)
+
+所谓关联式容器，观念上类似关联式数据库（实际上则简单许多）：每笔数据（每个元素）都有一个键值（key）和一个实值（value），set的键就是就是值，map可以键值分开，形成一种映射关系。当元素被插入到关联式容器中时，容器内部结构（可能是RB-tree，也可能是hash-table）便依照其键值大小，以某种特定规则将这个元素放置于适当位置。关联式容器没有所谓头尾（只有最大元素和最小元素），所以不会有所谓 push_back（）、push front（）、pop back（）、pop_front（）、begin（）、end（）这样的操作行为。
+
+一般而言，关联式容器的内部结构是一个 balanced binary tree（平衡二又树），以便获得良好的搜寻效率。balanced binary tree有许多种类型，包括AvL-tree、RB-tree、AA-tree，其中最广泛应用于STL中的是RB-tree
+
+### 5.1 树的导览
+
+> 以下数据结构知识可以在专门讲数据结构的书中找到
+
+树的定义与术语
+
+二叉查找树
+
+AVL树
+
+单旋转与双旋转
+
+### 5.2 RB-tree（红黑树）
+
+红黑树满足的四条规则：
+
+1. 每个节点不是红色就是黑色。
+2. 根节点为黑色，NULL节点为黑色（有时也成NULL节点为树叶节点）
+3. 如果节点为红，其子节点必须为黑
+4. 任一节点至NULL（树尾端）的任何路径，所含之黑节点数必须相同。
+
+#### 5.2.1 插入节点
+
+假设插入节点是红色的，这样就不会违背规则：任意节点至NULL节点的任何路径所含黑色节点数目相同，这样只需要考虑是否违背规则：如果节点为红，其子节点必须为黑
+
+RB-tree的插入后的旋转与AVL树的旋转很像，分为外侧和内侧，在内侧有需要双旋转，旋转不外乎左旋和右旋，旋转完之后重新染色，有可能会上溯至祖父节点，甚至更高
+
+#### 5.2.4 RB-tree的迭代器
+
+要成功地将RB-tree实现为一个泛型容器，迭代器的设计是一个关键。首先我们要考虑它的类别（category），然后要考虑它的前进（increment）、后退（decrement）、提领（dereference）、成员访问（member access）等操作
+
+RB-tree迭代器属于双向迭代器，但不具备随机定位能力，其提领操作和成员访问操作与1st十分近似，较为特殊的是其前进和后退操作。注意，RB-tree迭代器的前进操作 operator++（）调用了基层迭代器的 increment（），RB-tree迭代器的后退操作 operator-（）则调用了基层迭代器的 decrement（），前进或后退的举止行为完全依据二叉搜索树的节点排列法则。比如某节点的increment()是找那个比当前节点更大的最小节点，它有可能在当前节点的右子树里面，也有可能某位祖先的右子树里面
+
+#### 5.2.7 RB-tree的元素操作
+
+本节主要只谈元素（节点）的插入和搜寻。
+
+RB-tree提供两种插入操作insert_unique（）和 insert_equal（），前者表示被插入节点的键值（key）在整棵树中必须独一无二（因此，如果树中已存在相同的键值，插人操作就不会真正进行），后者表示被插入节点的键值在整棵树中可以重复，因此，无论如何插入都会成功（除非空间不足导致配置失败）。这里的insert_unique（）和 insert_equal（）就是STL中的set/map与multiset/multimap的实现基础。这两个函数都有数个版本，所有版本在插入完之后，会再调用一个平衡操作，用来旋转和改变颜色。
+
+RB-tree是一个二叉搜索树，元素的搜寻正是其拿手项目。所以搜寻起来非常迅速，只需要在二叉搜索树中不断搜索即可，用时O(logN)
+
+### 5.3 set
+
+set的特性是，所有元素都会根据元素的键值自动被排序。这是因为RB-tree是二叉搜索树，迭代器的递增会指向比当前节点更大的最小节点，当用迭代器遍历整个set时，即为有序（升序）
+
+set的元素不像map那样可以同时拥有实值（value）和键值（key），set元素的键值就是实值，实值就是键值。set不允许两个元素有相同的键值（而multiset允许）。
+
+我们可以通过set的迭代器改变set的元素值吗？不行，因为set元素值就是其键值，关系到set元素的排列规则。如果任意改变set元素值，会严重破坏set组织。这就像我们不能在RB-tree中修改某节点的值一样，的确我们没有在哪篇教程中看到修改操作，一般只会说insert与erase操作。
+
+稍后你会在set源代码之中看到，`set<T>::iterator`被定义为底层RB-tree的 const iterator，杜绝写人操作。换句话说，set iterators是一种constant iterators（相对于 mutable iterators）
+
+set拥有与1ist相同的某些性质：当客户端对它进行元素新增操作（insert）或删除操作（erase）时，操作之前的所有迭代器，在操作完成之后都依然有效。当然，被删除的那个元素的迭代器必然是个例外。
+
+由于RB-tree是一种平衡二又搜索树自动排序的效果很不错，所以标准的STL set即以RB-tree为底层机制。又由于set所开放的各种操作接口，RB-tree也都提供了，所以几乎所有的set操作行为，都只是转调用RB-tree的操作行为而已
+
+**我们一般用set内部的find()成员方法，而不用泛型算法find()**，因为泛型算法find()内使用迭代器遍历，而set底层的RB-tree的迭代器的increment()略微复杂，从根节点开始，每次都需要找比当前节点更大的最小节点，用时O(n)，而find()成员方法从根节点开始，类似二分查找，用时O(logn)
+
+下面是小小的set测试程序，
+
+```c++
+int main(){
+    int i;
+    int ia[5] = {0,2,3,4,5};
+    set<int>::iterator ite1 = iset.begin();
+    set<int>::iterator ite2 = iset.end();
+    for(; ite1 != ite2; ++ite1){
+        cout << *ite1;  // 0  2  3  4  5
+    }
+    //使用STL算法find（）来搜寻元素，可以有效运作，但不是好办法
+    if(find(iset.begin(), iset.end(), 3) != iset.end()){
+        cout << "3 found" << endl;  // 3 found
+    }
+    //面对关联式容器，应该使用其所提供的find函数来搜寻元素，会比
+    //使用STL算法find（）更有效率，因为STL算法find（）只是循序搜寻
+    if(iset.find(3) != iset.end()){
+        cout << "3 found" << endl;  // 3 found
+    }
+    //企图通过迭代器来改变set元素，是不被允许的
+    *iset.find(3) = 9;  //error，assignment of read-only location
+}
+```
+
+### 5.4 map
+
+map的特性是，所有元素都会根据元素的键值自动被排序。map的所有元素都是pair，同时拥有实值（value）和键值（key）。pair的第一元素被视为键值，第二元素被视为实值，map不允许两个元素拥有相同的键值（而multimap允许）。
+
+我们可以通过map的迭代器改变map的元素内容吗？如果想要修正元素的键值，答案是不行，因为map元素的键值关系到map元素的排列规则。任意改变map元素键值将会严重破坏map组织。这就像我们不能在RB-tree中修改某节点的值一样，的确我们没有在哪篇教程中看到修改操作，一般只会说insert与erase操作。**但如果想要修正元素的实值，答案是可以，因为map元素的实值并不影响map元素的排列规则**。因此，map iterators既不是一种constant iterators，也不是一种 mutable iterators。
+
+与set一样，map拥有和list相同的某些性质：当客户端对它进行元素新增操作（insert）或删除操作（erase）时，操作之前的所有迭代器，在操作完成之后都依然有效。当然，被删除的那个元素的迭代器必然是个例外。
+
+与set一样，由于RB-tree是一种平衡二叉搜索树，自动排序的效果很不错，所以标准的STL map即以RB-tree为底层机制.又由于map所开放的各种操作接口，RB-tree也都提供了、所以几乎所有的map操作行为，都只是转调用RB-tree的操作行为而已。
+
+**与set一样，我们一般用map内部的find()成员方法，而不用泛型算法find()**，因为泛型算法find()内使用迭代器遍历，而map底层的RB-tree的迭代器的increment()略微复杂，从根节点开始，每次都需要找比当前节点更大的最小节点，用时O(n)，而find()成员方法从根节点开始，类似二分查找，用时O(logn)
+
+这里着重强调map的subscript（下标）操作，用法有两种，可能作为左值运用（内容可被修改），也可能作为右值运用（内容不可被修改），左值右值都适用的关键在于，返回值采用by reference传递形式。下标操作底层调用insert函数，若没有这个键，则直接创建，把键值对插入map中，并返回值，若有这个键，则返回值
+
+### 5.5 multiset
+
+multiset的特性以及用法和set完全相同，唯一的差别在于它允许键值重复，因此它的插入操作采用的是底层机制RB-tree的 lnsert equa1（）而非insert unique（）。
+
+### 5.6 multimap
+
+multimap的特性以及用法与map完全相同，唯一的差别在于它允许键值重复，因此它的插人操作采用的是底层机制RB-tree的 insert equa1（）而非insert unique（）。
+
+### 5.7 hashtable
+
+二又搜索树具有对数平均时间（logarithmic average time）的表现，但这样的表现构造在一个假设上：输入数据有足够的随机性。这一节要介绍一种名为hashtable（散列表）的数据结构，这种结构在插人、删除、搜寻等操作上也具有“常数平均时间”的表现，而且这种表现是以统计为基础，不需仰赖输入元素的随机性
+
+#### 5.7.1 hashtable概述
+
+使用某种映射函数，将大数映射为小数，散列函数就是这个作用，负责将某一元素映射为一个“大小可接受之索引”，使用散列函数会带来散列冲突/碰撞的问题
+
+负载系数
+
+线性探测，主集团/一次聚集
+
+平方探测，次集团/二次聚集
+
+双散列，消除次集团问题
+
+再散列，一般取大于原来散列表两倍的第一个质数
+
+开链/分离链表法，负载系数大于1
+
+SGI STL的hashtable用的就是开链法
+
+![《STL源码剖析》的笔记-separatechaining.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-separatechaining.png)
+
+#### 5.7.2 hashtable的桶子（buckets）与节点（nodes）
+
+SGI STL将hashtable的元素成为桶子，因为桶子里面可能会有多个元素（开链法），buckets是用vector实现的，桶子内的linked list并不是STL的list，而是自己实现并且维护的list。
+
+#### 5.7.3 hashtable的迭代器
+
+#### 5.7.4 hashtable的数据结构
+
+虽然开链法并不要求哈希表大小必须为质数，但是SGI STL仍以质数设计大小，并且将28个质数（逐渐呈现大约两倍的关系）计算好了，存在于源码中，并提供了函数，用来查询在这28个质数中，最接近某数并大于某数的质数
+
+#### 5.7.4 hashtable的构造与内存管理
+
+resize即为再散列（rehashing），SGI STL对于resize的实现略微奇特，如果总元素个数（把新增元素也计入）大于buckets vector的大小，就resize，新的buckets vector大小为下一个质数（在28个质数中的）
+
+resize的主要流程如下：
+
+1. 建立下一个质数大小的tmp hashtable
+2. 对原hashtable中的每个元素，重新哈希（rehashing），放入tmp中
+3. swap原hashtable与tmp hashtable，
+
+#### 5.7.7 hash functions
+
+对于 string、double、float等类型，SGI hashtable没有定义散列函数，所以要用的话必须自己设计
+
+### 5.8 hash_set
+
+虽然STL只规范复杂度与接口，并不规范实现方法，但 STL set多半以RB-tree为底层机制.SGI则是在STL标准规格之外另又提供了一个所谓的hash set，以 hashtable为底层机制。由于 hash set所供应的操作接口hashtable都提供了，所以几乎所有的 hash set操作行为，都只是转调用hashtab1e的操作行为而已。
+
+运用set，为的是能够快速搜寻元素。这一点，不论其底层是RB-tree或是hash table，都可以达成任务。但是请注意，RB-tree有自动排序功能而 hashtab1e没有，反应出来的结果就是，set的元素有自动排序功能而 hash set没有
+
+set的元素不像map那样可以同时拥有实值（value）和键值（key），set元素的键值就是实值，实值就是键值。这一点在 hash set中也是一样的hash set的使用方式，与set完全相同。
+
+### 5.9 hash_map
+
+sGI在STL标准规格之外，另提供了一个所谓的hash_map，以 hashtab1e为底层机制。由于 hash_map所供应的操作接口，hashtable都提供了，所以几乎所有的hash_map操作行为，都只是转调用 hashtable的操作行为而已。
+
+运用map，为的是能够根据键值快速搜寻元素这一点，不论其底层是 RB-tree或是 hashtab1e，都可以达成任务。但是请注意，RB-tree有自动排序功能而hashtable没有，反应出来的结果就是，map的元素有自动排序功能而 hash_map没有
+
+map的特性是，每一个元素都同时拥有一个实值（value）和一个键值（key）。这一点在 hash_map中也是一样的 hash_map的使用方式，和map完全相同
+
+### 5.10 hash_multiset
+
+hash multiset的特性与 multiset完全相同，唯一的差别在于它的底层机制是 hashtable。也因此，hash multiset的元素并不会被自动排序
+
+hash_multiset和 hash set实现上的唯一差别在于，前者的元素插入操作采用底层机制 hashtab1e的 insert_equa1（），后者则是采用 insert.unique（）
+
+### 5.11 hash_multimap
+
+hash_multimap的特性与 multimap完全相同，唯一的差别在于它的底层机制是 hashtab1e。也因此，hash_mu map的元素并不会被自动排序
+
+hash_multimap和 hash_map实现上的唯一差别在于，前者的元素插入操作采用底层机制 hashtable的 insert_equal（），后者则是采用 insert_unique（）
 
 机能 - 功能（函数）
 走访/巡访 - 遍历
