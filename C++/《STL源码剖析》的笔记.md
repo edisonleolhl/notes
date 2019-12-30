@@ -2805,7 +2805,388 @@ int main()
 }
 ```
 
-## 4.8 priority_queue
+### 4.8 priority_queue
+
+#### 4.8.1 priority_queue 概述
+
+顾名思义， priority_queue 是一个拥有权值观念的 queue ，它允许加入新元素、移除旧元素，审视元素值等功能。由于这是一个 queue ，所以只允许在底端加入元素，并从顶端取出元素，除此之外别无其它存取元素的途径。
+
+priority_queue 带有权值观念，其内的元素并非依照被推入的次序排列，而是自动依照元素的权值排列（通常权值以实值表示）。权值最高者，排在最前面。
+
+预设情况下 priority_queue 系利用一个 max-heap 完成，后者是一个以 vector表现的 complete binary tree（4.7 节）。 max-heap 可以满足 priority_queue 所需要的「依权值高低自动递增排序」的特性。
+
+![《STL源码剖析》的笔记-priorityheap.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-priorityheap.png)
+
+###　4.8.2 priority_queue 定义式完整列表
+
+由于 priority_queue 完全以底部容器为根据，再加上 heap 处理规则，所以其
+实作非常简单。预设情况下是以 vector 为底部容器。源码很简短，此处完整列
+出。
+
+queue 以底部容器完成其所有工作。具有这种「修改某物接口，形成另一种风貌」
+之性质者，称为 adapter（配接器），因此 STL priority_queue 往往不被归类为
+container（容器），而被归类为container adapter。
+
+```c++
+template <class T, class Sequence = vector<T>,
+class Compare = less<typename Sequence::value_type> >
+class priority_queue {
+public:
+    typedef typename Sequence::value_type value_type;
+    typedef typename Sequence::size_type size_type;
+    typedef typename Sequence::reference reference;
+    typedef typename Sequence::const_referenceconst_reference ;
+protected:
+    Sequence c; //底层容器
+    Compare comp;//元素大小比较标准
+public:
+    priority_queue () : c() {}
+    explicit priority_queue (const Compare& x) : c(), comp(x) {}
+
+    //以下用到的 make_heap(), push_heap(), pop_heap() 都是泛型算法
+    //注意，任一个建构式都立刻于底层容器内产生一个 implicit representation heap 。
+    template <class InputIterator>
+    priority_queue (InputIterator first, InputIterator last, const Compare& x)
+    : c(first, last), comp(x) { make_heap (c.begin(), c.end(), comp); }
+    template <class InputIterator>
+    priority_queue (InputIterator first, InputIterator last)
+    : c(first, last) { make_heap (c.begin(), c.end(), comp); }
+
+    bool empty () const { return c.empty (); }
+    size_type size () const { return c.size (); }
+    const_reference top () const { return c.front (); }
+
+    void push (const value_type& x) {
+        __STL_TRY {
+            // push_heap是泛型算法，先利用底层容器的 push_back() 将新元素
+            // 推入末端，再重排 heap。见 C++ Primer p.1195 。
+            c.push_back(x);
+            push_heap (c.begin(), c.end(), comp); // push_heap是泛型算法
+        }
+        __STL_UNWIND(c.clear());
+    }
+    void pop () {
+        __STL_TRY {
+            // pop_heap 是泛型算法，从 heap 内取出一个元素。它并不是真正将元素
+            // 弹出，而是重排 heap，然后再以底层容器的 pop_back() 取得被弹出
+            // 的元素。见 C++ Primer p.1195 。
+            pop_heap (c.begin(), c.end(), comp);
+            c.pop_back();
+        }
+        __STL_UNWIND(c.clear());
+    }
+};
+```
+
+#### 4.8.3 priority_queue 没有迭代器
+
+priority_queue 的所有元素，进出都有一定的规则，只有 queue 顶端的元素（权值最高者），才有机会被外界取用。 priority_queue 不提供走访功能，也不提供迭代器。
+
+#### 4.8.4 priority_queue 测试实例
+
+```c++
+// file: 4pqueue-test.cpp
+#include <queue>
+#include <iostream>
+#include <algorithm>
+using namespace std;
+int main()
+{
+    // test priority queue...
+    int ia[9] = {0,1,2,3,4,8,9,3,5};
+    priority_queue <int> ipq(ia, ia+9);
+    cout << "size=" << ipq.size() << endl; // size=9
+    for(int i=0; i<ipq. size(); ++i)
+        cout << ipq. top () << ' '; // 9 9 9 9 9 9 9 9 9
+    cout << endl;
+    while(!ipq.empty()) {
+        cout << ipq. top () << ' '; // 9 8 5 4 3 3 2 1 0
+        ipq. pop();
+    }
+    cout << endl;
+}
+```
+
+### slist（仅存在于SGI STL）
+
+#### 4.9.1 slist 概述
+
+STL list 是个双向串行（double linked list）。SGI STL 另提供了一个单向串行（single linked list），名为 slist 。这个容器并不在标准规格之内，不过多做一些剖析，多看多学一些实作技巧也不错，所以我把它纳入本书范围。slist 和 list 的主要差别在于，前者的迭代器属于单向的 Forward Iterator，后者的迭代器属于双向的Bidirectional Iterator。为此， slist 的功能自然也就受到许多限制。不过，单向串行所耗用的空间更小，某些动作更快，不失为另一种选择。
+
+slist 和 list 共同具有的一个相同特色是，它们的安插（insert）、移除（erase）、接合（splice）等动作并不会造成原有的迭代器失效（当然啦，指向被移除元素的那个迭代器，在移除动作发生之后肯定是会失效的）。注意，根据STL的习惯，**安插动作会将新元素安插于指定位置之前，而非之后**。然而做为一个单向串行， slist 没有任何方便的办法可以回头定出前一个位置，因此它必须从头找起。换句话说，除了 slist 起始处附近的区域之外，在其它位置上采用 insert 或 erase 操作函式，都是不智之举（但还是可以实现的，只是相比于list，slist的insert效率很低，时间O(n)）。这便是 slist 相较于 list之下的大缺点。为此， slist 特别提供了 insert_after() 和 erase_after() 供弹性运用。
+
+基于同样的（效率）考虑， slist 不提供 push_back() ，只提供 push_front() 。因此 slist 的元素次序会和元素安插进来的次序相反。
+
+#### 4.9.2 slist 的节点
+
+slist 节点和其迭代器的设计，架构上比 list 复杂许多，运用了继承关系，因此在型别转换上有复杂的表现。这种设计方式在第5章 RB-tree 将再一次出现 。图 4-25 概述了 slist 节点和其迭代器的设计架构。
+
+![《STL源码剖析》的笔记-slistnodeanditerator.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-slistnodeanditerator.png)
+
+```c++
+//单向串行的节点基本结构
+struct__slist_node_base
+{
+    __slist_node_base* next;
+};
+//单向串行的节点结构
+template <class T>
+struct__slist_node : public __slist_node_base
+{
+    T data;
+};
+//全域函式：已知某一节点，安插新节点于其后。
+inline __slist_node_base* __slist_make_link(
+__slist_node_base* prev_node,
+__slist_node_base* new_node)
+{
+    // 令 new节点的下一节点为 prev节点的下一节点
+    new_node->next = prev_node->next;
+    prev_node->next = new_node; //令 prev 节点的下一节点指向 new 节点
+    return new_node;
+}
+//全域函式：单向串行的大小（元素个数）
+inline size_t __slist_size (__slist_node_base* node)
+{
+    size_t result = 0;
+    for ( ; node != 0; node = node->next)
+    ++result;   //一个一个累计
+    return result;
+}
+```
+
+#### 4.9.3 slist 的迭代器
+
+![《STL源码剖析》的笔记-slistiterator.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-slistiterator.png)
+
+实际构造如下。请注意它和节点的关系（见图 4-25）。
+
+```c++
+//单向串行的迭代器基本结构
+struct__slist_iterator_base
+{
+    typedef size_t size_type;
+    typedef ptrdiff_tdifference_type ;
+    typedef forward_iterator_tag iterator_category ;//注意，单向
+    __slist_node_base* node;//指向节点基本结构
+    __slist_iterator_base (__slist_node_base* x) : node (x) {}
+    void incr () { node = node->next ; } // 前进一个节点
+    bool operator== (const __slist_iterator_base& x) const {
+        return node == x.node ;
+    }
+    bool operator!= (const __slist_iterator_base& x) const {
+        return node != x.node;
+    }
+};
+//单向串行的迭代器结构
+template <class T, class Ref, class Ptr>
+struct__slist_iterator : public __slist_iterator_base
+{
+    typedef __slist_iterator<T, T&, T*> iterator;
+    typedef __slist_iterator<T, const T&, const T*> const_iterator ;
+    typedef __slist_iterator<T, Ref, Ptr> self;
+    typedef T value_type;
+    typedef Ptr pointer;
+    typedef Ref reference;
+    typedef __slist_node<T> list_node;
+    __slist_iterator(list_node* x ) : __slist_iterator_base( x ) {}
+    // 呼叫 slist<T>::end() 时会造成 __slist_iterator(0) ，于是唤起上述函式。
+    __slist_iterator () : __slist_iterator_base(0) {}
+    __slist_iterator(const iterator&x ) : __slist_iterator_base( x.node ) {}
+    reference operator* () const { return ((list_node*) node) ->data ; }
+    pointer operator-> () const { return &( operator*() ); }
+    self& operator++()
+    {
+        incr();//前进一个节点
+        return *this;
+    }
+    self operator++(int)
+    {
+        self tmp = *this;
+        incr(); //前进一个节点
+        return tmp;
+    }
+    //没有实作 operator-- ，因为这是一个 forward iterator
+};
+```
+
+注意，比较两个 slist 迭代器是否等同时（例如我们常在循环中比较某个迭代器是否等同于 slist.end() ），由于 __slist_iterator 并未对 operator== 实施多载化，所以会唤起 __slist_iterator_base::operator== 。根据其中之定义，我们知道，两个 slist 迭代器是否等同，视其 __slist_node_base* node 是否等同而定。
+
+#### 4.9.4 slist 的数据结构
+
+下面是 slist 源码摘要，我把焦点放在「单向串行之形成」的一些关键点上。
+
+```c++
+template <class T, class Alloc = alloc>
+class slist
+{
+public:
+    typedef T value_type;
+    typedef value_type* pointer;
+    typedef const value_type* const_pointer ;
+    typedef value_type& reference;
+    typedef const value_type& const_reference ;
+    typedef size_t size_type;
+    typedef ptrdiff_tdifference_type ;
+    typedef __slist_iterator<T, T&, T*> iterator;
+    typedef __slist_iterator<T, const T&, const T*> const_iterator ;
+private:
+    typedef __slist_node<T> list_node;
+    typedef __slist_node_base list_node_base ;
+    typedef __slist_iterator_base iterator_base ;
+    typedef simple_alloc<list_node, Alloc> list_node_allocator ;
+    static list_node* create_node (const value_type& x) {
+        list_node* node =list_node_allocator::allocate ();//配置空间
+        __STL_TRY {
+            construct (&node->data, x);    //建构元素
+            node->next = 0 ;
+        }
+        __STL_UNWIND(list_node_allocator::deallocate (node));
+        return node;
+    }
+    static void destroy_node (list_node* node) {
+        destroy (&node->data); //将元素解构
+        list_node_allocator::deallocate (node); //释还空间
+    }
+private:
+    list_node_base head ; // 头部。注意，它不是指标，是实物。
+public:
+    slist () { head.next = 0 ; }
+    ~slist () { clear() ; }
+public:
+    iterator begin () { return iterator((list_node*) head.next ); }
+    iterator end () { return iterator(0) ; }
+    size_type size () const { return __slist_size(head.next ); }
+    bool empty () const { return head.next == 0; }
+    // 两个 slist互换：只要将 head 交换互指即可。
+    void swap(slist& L)
+    {
+        list_node_base* tmp = head.next;
+        head.next = L.head.next;
+        L.head.next = tmp;
+    }
+public:
+    // 取头部元素
+    reference front () { return ((list_node*) head.next)->data ; }
+    // 从头部安插元素（新元素成为 slist 的第一个元素）
+    void push_front (const value_type& x) {
+        __slist_make_link (&head,create_node(x));
+    }
+    // 注意，没有 push_back()
+    // 从头部取走元素（删除之）。修改 head。
+    void pop_front () {
+        list_node* node = (list_node*) head.next;
+        head.next = node->next;
+        destroy_node(node);
+    }
+    ...
+};
+```
+
+#### 4.9.5 slist 的元素操作
+
+下面是一个小小练习：
+
+```c++
+// file: 4slist-test.cpp
+#include <slist>
+#include <iostream>
+#include <algorithm>
+using namespace std;
+int main()
+{
+    int i;
+    slist <int> islist;
+    cout << "size=" << islist.size() << endl; // size=0
+    islist. push_front(9);
+    islist.push_front(1);
+    islist.push_front(2);
+    islist.push_front(3);
+    islist.push_front(4);
+    cout << "size=" << islist. size () << endl; // size=5
+    slist<int>::iterator ite =islist. begin();
+    slist<int>::iterator ite2=islist. end();
+    for(; ite != ite2; ++ite)
+        cout << *ite << ' '; // 4 3 2 1 9
+    cout << endl;
+    ite = find (islist.begin(), islist.end(), 1);
+    if (ite!=0)
+        islist. insert(ite, 99);
+    cout << "size=" << islist.size() << endl; // size=6
+    cout << *ite << endl; // 1
+    ite =islist.begin();
+    ite2=islist.end();
+    for(; ite != ite2; ++ite)
+        cout << *ite << ' '; // 4 3 2 99 1 9
+    cout << endl;
+    ite = find(islist.begin(), islist.end(), 3);
+    if (ite!=0)
+    cout << *(islist.erase(ite)) << endl; // 2
+    ite =islist.begin();
+    ite2=islist.end();
+    for(; ite != ite2; ++ite)
+        cout << *ite << ' '; // 4 2 99 1 9
+    cout << endl;
+}
+```
+
+首先依次序把元素 9,1,2,3,4安插到 slist ，实际结构呈现如图 4-26。接下来搜寻元素1，并将新元素 99安插进去，如图 4-27。注意，新元素被安插在插入点（元素 1）的前面而不是后面。接下来搜寻元素 3，并将该元素移除，如图 4-28。
+
+![《STL源码剖析》的笔记-slist91234.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-slist91234.png)
+
+![《STL源码剖析》的笔记-slistinsert.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-slistinsert.png)
+
+![《STL源码剖析》的笔记-slisterase.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-slisterase.png)
+
+如果你对于图4-26、图4-27、图4-28中的 end() 的画法感到奇怪，这里我要做一些说明。请注意，练习程序中一再以循环巡访整个 slist ，并以迭代器是否等于 slist.end() 做为循环结束条件，这其中有一些容易疏忽的地方，我必须特别提醒你。当我们呼叫 end() 企图做出一个指向尾端（下一位置）的迭代器，STL源码是这么进行的：
+
+```c++
+iterator end () { return iterator(0) ; }
+```
+
+这会因为源码中如下的定义：
+
+```c++
+typedef __slist_iterator<T, T&, T*> iterator;
+```
+
+而形成这样的结果：
+
+```c++
+__slist_iterator<T, T&, T*>(0);
+```
+
+从而因为源码中如下的定义：
+
+```c++
+//产生一个暂时对象，引发 ctor
+__slist_iterator(list_node* x ) : __slist_iterator_base( x ) {}
+```
+
+而导致基础类别的建构：
+
+```c++
+__slist_iterator_base(0);
+```
+
+并因为源码中这样的定义：
+
+```c++
+struct__slist_iterator_base
+{
+    __slist_node_base* node;//指向节点基本结构
+    __slist_iterator_base (__slist_node_base* x) : node (x) {}
+    ...
+};
+```
+
+而导致：
+
+```c++
+node(0);
+```
+
+因此我在图 4-26、图 4-27、图 4-28 中皆以悬空的方式表现 end()
 
 机能 - 功能（函数）
 走访/巡访 - 遍历
