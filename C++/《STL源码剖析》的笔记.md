@@ -658,7 +658,11 @@ Placement new只是 operator new 重载的一个版本。它并不分配内存�
 
 在 STL 中空间配置时候 destory（）函数会判断要释放的迭代器的指向的对象有没有 trivial destructor（STL 中有一个 has_trivial_destructor 函数，很容易实现检测），如果有 trivial destructor 则什么都不做，如果没有即需要执行一些操作，则执行真正的 destory 函数。
 
-把trivial翻译为“无关痛痒”，也就是说这个destructor是默认的，是无关痛痒的
+把trivial翻译为“无关痛痒”或“无意义的”，也就是说这个destructor是默认的，是无关痛痒的，是无意义的
+
+#### 拓展：C++中的trivial解释
+
+[C++ 中的 trivial 解释](https://www.cnblogs.com/shuaihanhungry/p/5764019.html)
 
 #### 拓展：volatile
 
@@ -3384,8 +3388,780 @@ hash_multimap的特性与 multimap完全相同，唯一的差别在于它的底�
 
 hash_multimap和 hash_map实现上的唯一差别在于，前者的元素插入操作采用底层机制 hashtable的 insert_equal（），后者则是采用 insert_unique（）
 
+## Chapter6 算法（algorithm）
+
+## 6.1 算法概览
+
+算法，问题之解法也。
+
+以有限的步骤，解决逻辑或数学上的问题，这一专门科目我们称为算法（algorithm）。
+
+### 6.1.2 STL 算法总览
+
+图6-1将所有的STL算法（以及一些非标准的 SGI STL算法）的名称、用途文件分布等等，依算法名称的字母顺序列表。表格之中凡是不在STL标准规格之列的SGI专属算法，都以☆加以标示（以下“质变”栏意指 mutating，意思是“会改变其操作对象之内容”）
+
+![《STL源码剖析》的笔记-algorithm1.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-algorithm1.png)
+
+![《STL源码剖析》的笔记-algorithm2.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-algorithm2.png)
+
+![《STL源码剖析》的笔记-algorithm3.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-algorithm3.png)
+
+![《STL源码剖析》的笔记-algorithm4.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-algorithm4.png)
+
+#### 6.1.3 质变算法 mutating algorithms—会改变操作对象之值
+
+所有的STL算法都作用在由迭代器[first，last)所标示出来的区间上。所谓“质变算法”，是指运算过程中会更改区间内（迭代器所指）的元素内容。诸如拷贝（copy）、互换（swap）、替换（replace）、填写（fill）、删除（remove）、排列组合（permutation）、分割（partition）、随机重排（random shuffling）、排序（sort）等算法，都属此类 。
+
+#### 6.1.4 非质变算法 nonmutating algorithms—不改变操作对象之值
+
+所有的STL算法都作用在由迭代器【first,last）所标示出来的区间上。所谓“非质变算法”，是指运算过程中不会更改区间内（迭代器所指）的元素内容诸如查找（find）、匹配（search）、计数（count）、巡访（for each）、比较（equal,mismatch）、寻找极值（max,min）等算法，都属此类。但是如果你在 for_each（巡访每个元素）算法身上应用一个会改变元素内容的仿函数（functor）。
+
+#### 6.1.5 STL 算法的一般形式
+
+所有泛型算法的前两个参数都是一对迭代器（iterators），通常称为 first和last，用以标示算法的操作区间。STL习惯采用前闭后开区间（或称左涵盖区间）表示法，写成【first,last），表示区间涵盖 first至last（不含last）之间的所有元素。当 first=last时，上述所表现的便是一个空区间这个【first,last）区间的必要条件是，必须能够经由 increment（累加）操作符的反复运用，从 first到达last。编译器本身无法强求这一点。如果这个条件不成立，会导致未可预期的结果
+
+每一个STL算法的声明，都表现出它所需要的最低程度的迭代器类型。
+
+将无效的迭代器传给某个算法，虽然是一种错误，却不保证能够在编译时期就被捕捉出来，因为所谓“迭代器类型”并不是真实的型别，它们只是 function template的一种型别参数（type parameters）
+
+许多STL算法不只支持一个版本。这一类算法的某个版本采用缺省运算行为，另一个版本提供额外参数，接受外界传入一个仿函数（functor），以便采用其他策略。例如 unique（）缺省情况下使用 equality操作符来比较两个相邻元素，但如果这些元素的型别并未供应 equality操作符，或如果用户希望定义自己的 equality操作符，便可以传一个仿函数（functor）给另一版本的 unique（）。
+
+所有的数值（numerIc）算法，包括 adjacent__difference（），accumulate（）inner_product（），partial_sum（）等等，都实现于SGI`<stl_numeric.h>`之中，这是个内部文件，STL规定用户必须包含的是上层的`<numeric>`，其他STL算法都实现于SGI的`<stl_algo>`和`<stl_algobase.h>`文件中，也都是内部文件；欲使用这些算法，必须先包含上层相关头文件`<algorithm>`
+
+### 6.2 算法的泛化过程
+
+如何将算法独立于其所处理的数据结构之外，不受数据结构的羁绊，思想层面就不是那么简单了。如何设计一个算法，使它适用于任何（或大多数）数据结构呢？换个说法，我们如何在即将处理的未知的数据结构（也许是 array，也许是 vector，也许是1ist，也许是 deque…）上，正确地实现所有操作呢？
+
+关键在于，只要把操作对象的型别加以抽象化，把操作对象的标示法和区间目标的移动行为抽象化，整个算法也就在一个抽象层面上工作了。整个过程称为算法的泛型化（generalized），简称泛化。
+
+使用template，可以接收不同类型的参数，由指针抽象成迭代器，迭代器是一种行为类似指针的对象，是一种smart pointers，于是可以得到STL的泛型算法
+
+### 6.3 数值算法 <stl_numeric>
+
+accumulate 累加，第一版本用加法定义，第二版本用外界提供的二元仿函数，两个版本都有一个形参用来传入初值，这是为了在区间为空时仍有返回值，第二版本的二元操作符不必满足交换律和结合律，因为所有运算顺序都有明确规定
+
+adjacent_difference 储存第一元素值，然后储存后继元素之差值，与adjacent_difference互为逆运算，第一版本用减法定义差值，第二版本采用外界提供的二元仿函数
+
+inner_product: 能够计算一般内积，两个版本都有一个形参用来传入初值，第二版本有两个仿函数用来代替加法和乘法，不必满足交换律和结合律
+
+partial_sum 计算局部总和，与adjacent_difference互为逆运算，如果令输出的位置为区间本身的首位，则是就地（in-place）计算，这种情况下是质变算法（mutating algorithm）
+
+power 计算某数的n幂次方，推荐文章[C++ 中位运算的使用方法](https://blog.csdn.net/a1351937368/article/details/77746574/)、[STL 源码分析之 power 算法](https://blog.csdn.net/u012062760/article/details/46401115)、[STL 系列之七 快速计算 x 的 n 次幂 power () 的实现](https://blog.csdn.net/MoreWindows/article/details/7174143)
+
+power: 计算指数 (C++ 中位运算的使用方法 ; STL 源码分析之 power 算法 ; 快速计算 x 的 n 次幂)
+
+itoa：SGI专属算法，不在STL标准之列，用来设定某个区间的内容，使其内每个元素从指定的value值开始，呈现递增状态，改变了区间内容，所以是质变算法
+
+### 6.4 基本算法 <stl_algobase.h>
+
+STL标准规格中并没有区分基本算法或复杂算法，然而SGI却把常用的一些算法定义于`<stl_algobase.h>`之中，其它算法定义于`<stl_algo.h>`中。
+
+equal,fill,fill_n,iter_swap,lexicographical_compare,max,min,mismatch,swap
+
+有些要保证第一序列长度大于第二序列长度，否则会发生不可预期的行为
+
+主要讲一讲copy，这是一个为了提高效率的绝佳代码实现
+
+#### 6.4.3 copy——强化效率无所不用其极
+
+不论是对客端程序或对STL内部而言，copy（）都是一个常常被调用的函数由于copy进行的是复制操作，而复制操作不外乎运用 assignment operator或copy constructor（copy算法用的是前者），但是某些元素型别拥有的是 trivialassignment operator，因此，如果能够使用内存直接复制行为（例如C标准函数memmove或 memcpy），便能够节省大量时间。为此，SGI STL的copy算法用尽各种办法，包括函数重载（function overloading）、型别特性（type traits）、偏特化（partial specialization）等编程技巧，无所不用其极地加强效率。图62表示整个coy（）操作的脉络。配合稍后出现的源代码，可收一目了然之效
+
+![《STL源码剖析》的笔记-copy.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-copy.png)
+
+copy算法可将输人区间【first,last）内的元素复制到输出区间【resultresult+（last-first））内。也就是说，它会执行赋值操作*result=*first*（result+1）=*（first+1），…依此类推。返回一个迭代器：
+result+（last-first）。copy对其 template参数所要求的条件非常宽松。其输入区间只需由 inputiterators构成即可，输出区间只需由 Outputiterator构成即可这意味着你可以使用copy算法，将任何容器的任何一段区间的内容，复制到任何容器的任何一段区间上，如图6-3所示对于每个从0到last-first（不含）的整数n，copy执行赋值操作*（result+n）=*（first+n）。赋值操作是向前（亦即累加n）推进的。
+
+如果输人区间和输出区间完全没有重叠，当然毫无问题，否则便需特别注意为什么图6-3第二种情况（可能）会产生错误？从稍后即将显示的源代码可知，copY算法是一一进行元素的赋值操作，如果输出区间的起点位于输入区间内，copy算法便（可能）会在输入区间的（某些）元素尚未被复制之前，就覆盖其值，导致错误结果。在这里我一再使用“可能”这个字眼，是因为，如果copy算法根据其所接收的迭代器的特性决定调用 memmove（）来执行任务，就不会造成上述错误，因为 memmove（）会先将整个输人区间的内容复制下来，没有被覆盖的危险
+
+![《STL源码剖析》的笔记-copyeg.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-copyeg.png)
+
+copy 改变的是 [result,result+(last-first)) 中的迭代器所指对象，而并非更改迭代器本身。它会为输出区间的元素赋予新值，而不是产生新的元素。它不能改变输出区间的迭代器个数。因此不能将元素插入空容器中。如果真想把元素（而非赋值）序列之内，要么使用序列容器的insert成员函数，要么使用copy算法并搭配insert_iterator（8.3.1节）
+
+#### 6.4.4 copy_backward
+
+这个算法的考虑以及实现上的技巧与copy（）十分类似，其操作示意于图6-4，将【first，last）区间内的每一个元素，以逆行的方向复制到以 result-1为起点，方向亦为逆行的区间上。换句话说，copy-backward算法会执行赋值操作*（result-1）=*（last-1），*（result-2）=*（last-2），…依此类推。返回一个迭代器：result-（last-first）。copy backward所接受的迭代器必须是 Bidirection| Iterators，才能够“倒行逆施”。你可以使用 copy backward算法，将任何容器的任何一段区间的内容，复制到任何容器的任何一段区间上。如果输人区间和输出区间完全没有重叠，当然毫无问题，否则便需特别注意，如图6-4
+
+![《STL源码剖析》的笔记-copybackward.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-copybackward.png)
+
+### 6.5 set 相关算法
+
+STL一共提供了四种与set（集合）相关的算法，分别是并集（union）、交集（Intersection）、差集（difference）、对称差集（symmetric difference）
+
+所谓set，可细分为数学上的定义和STL的定义两种，数学上的set允许元素重复而未经排序，例如{1，1，4, 6，3}，STL的定义（也就是set容器，见5。3节）则要求元素不得重复，并且经过排序，例如{1，3，4，6}。**本节的四个算法所接受的set，必须是有序区间（sorted range），元素值得重复出现**。换句话说，它们可以接受STL的set/multiset容器作为输入区间。
+
+SGI STL另外提供有 hash set/hash multiset两种容器，以 hashtab1e为底层机制（见5。8节、5.10节），其内的元素并未呈现排序状态，所以虽然名称之中也有set字样，却不可以应用于本节的四个算法
+
+**本节四个算法都至少有四个参数，分别表现两个set区间**。以下所有说明都以s1代表第一区间【irst1，last1），以s2代表第二区间【first2，last2）。每个set算法都提供两个版本（但稍后展示的源代码只列出第一版本），第二版本允许用户指定“`a<b`”的意义，因为这些算法判断两个元素是否相等的依据，完全靠“小于”运算。是的，知道何谓“小于”，就可以推导出何谓“等于”
+
+请注意，当集合（set）允许重复元素的存在时，并集、交集、差集、对称差集的定义，都与直观定义有些微的不同
+
+#### 6.5.1 set_union
+
+算法set_union可构造s1、s2之并集。也就是说，它能构造出集合s1 U s2，此集合内含s1或s2内的每一个元素。s1、s2及其并集都是以排序区间表示。返回值为一个迭代器，指向输出区间的尾端。
+
+由于s1和s2内的每个元素都不需唯一，因此，如果某个值在s1出现n次，在S2出现m次，那么该值在输出区间中会出现max（m,n）次，其中n个来自s1，其余来自s2。在 STL set容器内，m<=1且n≤1。
+
+set union是一种稳定（stable）操作，意思是输人区间内的每个元素的相对顺序都不会改变。set union有两个版本，差别在于如何定义某个元素小于另个元素。第一版本使用 operator<进行比较，第二版本采用仿函数comp进行比较
+
+![《STL源码剖析》的笔记-setunion.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-setunion.png)
+
+#### 6.5.2 set_intersection
+
+算法set_intersection可构造s1、s2之交集。也就是说，它能构造出集合s1 ∩ s2，此集合内含同时出现于s1和s2内的每一个元素。s1、s2及其交集都是以排序区间表示。返回值为一个迭代器，指向输出区间的尾端。
+
+由于sl和s2内的每个元素都不需唯一，因此，如果某个值在s1出现n次，在s2出现m次，那么该值在输出区间中会出现min（m,n）次，并且全部来自s1。在 STL set容器内，m≤1且n≤1。
+
+set_intersection是一种稳定（stable）操作，意思是输出区间内的每个元素的相对顺序都和s1内的相对顺序相同。它有两个版本，差别在于如何定义某个元素小于另一个元素。第一版本使用 operator<进行比较，第二版本采用仿函数comp进行比较
+
+![《STL源码剖析》的笔记-setintersection.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-setintersection.png)
+
+#### 6.5.3 set_difference
+
+算法set_difference可构造s1、s2之差集。也就是说，它能构造出集合s1-s2，此集合内含“出现于s1但不出现于s2”的每一个元素。S1、s2及其交集都是以排序区间表示。返回值为一个迭代器，指向输出区间的尾端。
+
+由于s1和s2内的每个元素都不需唯一，因此如果某个值在s1出现n次，在s2出现m次，那么该值在输出区间中会出现max（n-m，0）次，并且全部来自s1。在 STL set容器内，m≤1且n≤1。
+
+set_difference是一种稳定（stable）操作，意思是输出区间内的每个元素的相对顺序都和s1内的相对顺序相同。它有两个版本，差别在于如何定义某个元素小于另一个元素第一版本使用 operator<进行比较，第二版本采用仿函数comp进行比较。
+
+![《STL源码剖析》的笔记-setdifference.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-setdifference.png)
+
+#### 6.5.4 set_symmetric_difference
+
+算法 set symmetric difference可构造s1、s2之对称差集。也就是说，它能构造出集合（s1-s2）U（s2-S1），此集合内含“出现于s1但不出现于s2以及”出现于S2但不出现于s1“的每一个元素。s1、s2及其交集都是以排序区间表示。返回值为一个迭代器，指向输出区间的尾端。
+
+由于s1和S2内的每个元素都不需唯一，因此如果某个值在s1出现n次在s2出现m次，那么该值在输出区间中会出现|n-m|次。如果n>m，输出区间内的最后n-m个元素将由s1复制而来，如果`n<m`则输出区间内的最后m-n个元素将由s2复制而来。在 STL set容器内，m≤1且n≤1。
+
+set_symmetric_difference是一种稳定（stable）操作，意思是输入区间内的元素相对顺序不会被改变。它有两个版本，差别在于如何定义某个元素小于另一个元素。第一版本使用 operator<进行比较，第二版本采用仿函数comp
+
+![《STL源码剖析》的笔记-setsymmetricdifference.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-setsymmetricdifference.png)
+
+### 6.6 heap算法
+
+四个heap相关算法已于4.7.2节的`<stl_heap.h>`介绍过：make_heap（），pop_heap（），push heap（），sort_heap（）。喔，是的，当然，你猜对了，SGI STI算法所在的头文件`<stl_algo.h>`内包含了`<stl_heap.h>`
+
+### 6.7 其它算法定
+
+定义于SGI`<stl_algo.h>`内的所有算法，除了set/heap相关算法已于前两节介绍过，其余都安排在这一节。其中有很单纯的循环遍历，也有很复杂的快速排序。运作逻辑相对单纯者，被我安排在6.7.1小节，其它相对比较复杂者，每个算法各安排一个小节
+
+#### 6.7.1 单纯的数据处理
+
+这一小节所列的算法，都只进行单纯的数据移动、线性查找、计数、循环遍历逐一对元素施行指定运算等操作。它们的运作逻辑都相对单纯，直观而易懂。我把对它们的说明直接写成源代码注释，必要时另加图片示意。
+
+深入源代码之前，先观察每一个算法的表现，是个比较好的学习方式。以下程序示范本节每一个算法的用法。程序中有时使用STL内建的仿函数（functors，如less，greater，equeal_to）和配接器（adapters，如bind2nd），有时使用自定义的仿函数（如 display，even_by_two）；仿函数相关技术请参考1.9.6节和第7章，配接器相关技术请参考第8章。
+
+adjacent_find 找出第一组满足条件的相邻元素。这里所谓的条件，在版本一中是指“两元素相等”，在版本二中允许用户指定一个二元运算，两个操作数分别是相邻的第元素和第二元素。
+
+count 运用 equality操作符，将【first，last）区间内的每一个元素拿来和指定值value比较，并返回与va1ue相等的元素个数
+
+count_if 将指定操作（一个仿函数）pred实施于【irst,last）区间内的每一个元素身上，并将“造成pred之计算结果为true”的所有元素的个数返回
+
+find 根据 equality操作符，循序查找【first,last）内的所有元素，找出第一个匹配“等同（equality）条件”者。如果找到，就返回一个 Inputiterator指向该元素，否则返回迭代器last
+
+find_if 根据指定的prea运算条件（以仿函数表示），循序査找【first,ast）内的所有元素，找出第一个令pred运算结果为true者。如果找到就返回一个Inputiterator指向该元素，否则返回迭代器last
+
+find_end 在序列一【first1，last1）所涵盖的区间中，查找序列二 first2，last2）的最后一次出现点。如果序列一之内不存在“完全匹配序列二”的子序列，便返回迭代器last1.此算法有两个版本，版本一使用元素型别所提供的 equality操作符，版本二允许用户指定某个二元运算（以仿函数呈现），作为判断元素相等与否的依据。
+
+find_first_of 本算法以【first2，last2）区间内的某些元素作为查找目标，寻找它们在irst1，last1）区间内的第一次出现地点。举个例子，假设我们希望找出字符序列 synesthesia的第一个元音，我们可以定义第二序列为 aeiou。此算法会返回一个Forwardlterator，指向元音序列中任一元素首次出现于第一序列的地点，此例将指向字符序列的第一个e。如果第一序列并未内含第二序列的任何元素，返回的将是last1.本算法第一个版本使用元素型别所提供的 equality操作符，第二个版本允许用户指定一个二元运算pred
+
+![《STL源码剖析》的笔记-findendfindfirstof.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-findendfindfirstof.png)
+
+for_each 将仿函数f施行于【first，last）区间内的每一个元素身上.f不可以改变元素内容，因为 first和last都是 Inputiterators，不保证接受赋值行为（assignment）·如果想要一一修改元素内容，应该使用算法 trans form（）。f可返回一个值，但该值会被忽略。
+
+generate 将仿函数gen的运算结果填写在【first，last）区间内的所有元素身上。所谓填写，用的是迭代器所指元素之 assignment操作符。
+
+generate_n 将仿函数gen的运算结果填写在从迭代器 first开始的n个元素身上，所谓填写，用的是迭代器所指元素的 assignment操作符
+
+includes（应用于有序区间）判断序列二S2是否“涵盖于”序列一S1.Sl和S2都必须是有序集合，其中的元素都可重复（不必唯一）。所谓涵盖，意思是“S2的每一个元素都出现于s1”。由于判断两个元素是否相等，必须以less或 greater运算为依据（当Sl元素不小于S2元素且S2元素不小于S1元素，两者即相等；或说当S1元素不大于S2元素且S2元素不大于S1元素，两者即相等），因此配合着两个序列S1和S2的排序方式（递增或递减），includes算法可供用户选择采用less或 greater进行两元素的大小比较（comparison）
+
+![《STL源码剖析》的笔记-includes.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-includes.png)
+
+max_element 这个算法返回一个迭代器，指向序列之中数值最大的元素。
+
+min_element 这个算法返回一个迭代器，指向序列之中数值最小的元素。
+
+merge（应用于有序区间）将两个经过排序的集合S1和S2，合并起来置于另一段空间。所得结果也是一个有序（sred）序列。返回一个迭代器，指向最后结果序列的最后一个元素的下位置。图6.6c展示 merge算法的工作原理。
+
+![《STL源码剖析》的笔记-mergealgo.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-mergealgo.png)
+
+partition 会将区间【first，last）中的元素重新排列。所有被一元条件运算prea判定为true的元素，都会被放在区间的前段，被判定为 false的元素，都会被放在区间的后段。这个算法并不保证保留元素的原始相对位置。代码实现使用了双指针法。如果需要保留原始相对位置，应使用 stable_partition
+
+![《STL源码剖析》的笔记-partition.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-partition.png)
+
+remove　移除【first,last）之中所有与value相等的元素。**这一算法并不真正从容器中删除那些元素（换句话说容器大小并未改变），而是将每一个不与value相等（也就是我们并不打算移除）的元素轮番赋值给 first之后的空间**。返回值Forwarditerator标示出重新整理后的最后元素的下一位置。例如序列{0，10，2，0，3，0，4}，如果我们执行 remove（），希望移除所有0值元素，执行结果将是{1，2，3，4，0，3，0，4}。每一个与0不相等的元素，1，2，3，4，分别被拷贝到第一、二、三、四个位置上。第四个位置以后不动，换句话说是第四个位置之后是这一算法留下的**残余数据**。返回值 Forwarditerator指向第五个位置。如果要删除那些残余数据，可将返回的迭代器交给区间所在之容器的 erase（）member function，注意，array不适合使用 remove（）和 remove_if（），因为 array无法缩小尺寸，导致残余数据永远存在。对aray而言，较受欢迎的算法是 remove_copy（）和remove_copy_if（）。
+
+![《STL源码剖析》的笔记-removealgo.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-removealgo.png)
+
+remove_copy 移除【first，last）区间内所有与value相等的元素。它并不真正从容器中删除那些元素（换句话说，原容器没有任何改变），而是将结果复制到一个以 result标示起始位置的容器身上新容器可以和原容器重叠，但如对新容器实际给值时，超越了旧容器的大小，会产生无法预期的结果。返回值 Outputiterator指出被复制的最后元素的下一位置
+
+remove_if 移除【first，last区间内所有被仿函数pred核定为true的元素。它并不真正从容器中删除那些元素（换句话说，容器大小并未改变，请参考 remove（）每一个不符合pre条件的元素都会被轮番赋值给 first之后的空间。返回值Forwarditerator标示出重新整理后的最后元素的下一位置。此算法会留有一些残余数据，如果要删除那些残余数据，可将返回的迭代器交给区间所在之容器的 erase（）member function注意，array不适合使用 remove（）和 remove_if（），因为 array无法缩小尺寸，导致残余数据永远存在。对 array而言，较受欢迎的算法是remove_copy（）和 remove_copy_if（）
+
+remove__if 移除[first,1ast)区间内所有被仿函数pred评估为true的元素.它并不真正从容器中删除那些元素(换句话说原容器没有任何改变),而是将结果复制到一个以 result标示起始位置的容器身上.新容器可以和原容器重叠,但如果针对新容器实际给值时,超越了旧容器的大小,会产生无法预期的结果.返回值Outputterator指出被复制的最后元素的下一位置.
+
+replace
+
+replace_copy
+
+replace_if
+
+replace_copy_if
+
+reverse 将序列【first,last）的元素在原容器中颠倒重排。例如序列{0，1，1，3，5}颠倒重排后为（53，，1，0}。迭代器的双向或随机定位能力，影响了这个算法的效率，所以设计为双层架构（呵呵，老把戏了）
+
+reverse_copy
+
+rotate 将[first,middle)内的元素和[middle,last)内的元素互换.middle所指的元素会成为容器的第一个元素.如果有个数字序列{1,2,3,4,5,6,7),对元素3做旋转操作,会形成{3,4,6,7,1,2).看起来这和 swap ranges()功能颇为近似,但swap-ranges()只能交换两个长度相同的区间,rotate()可以交换两个长度不同的区间,如图6-6g所示.迭代器的移动能力，影响了这个算法的效率，所以设计为双层架构（呵呵，老把戏
+
+![《STL源码剖析》的笔记-rotatealgo.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-rotatealgo.png)
+
+![《STL源码剖析》的笔记-rotatebytwoiterators.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-rotatebytwoiterators.png)
+
+rotate_copy 行为类似 rotate(),但产生出来的新序列会被置于 result所指出的容器中返回值 Outputiterator指向新产生的最后元素的下一位置.原序列没有任何改变由于它不需要就地(in-place)在原容器中调整内容,实现上也就简单得多旋转操作其实只是两段元素彼此交换,所以只要先把后段复制到新容器的前端,再把前段接续复制到新容器,即可
+
+search 在序列一[first1,last1)所涵盖的区间中,查找序列二[first2,1ast2)的首次出现点.如果序列一内不存在与序列二完全匹配的子序列,便返回迭代器last1·版本一使用元素型别所提供的 equality操作符,版本二允许用户指定某个二元运算(以仿函数呈现),作为判断相等与否的依据.以下只列出版本一的源代码.
+
+search_n 在序列[First,last)所涵盖的区间中,查找"连续 count个符合条件之元素"所形成的子序列,并返回一个迭代器指向该子序列起始处.如果找不到这样的子序列,就返回迭代器1ast.上述所谓的"某条件",在 search_n版本一指的是相等条件"equality",在 search_n版本二指的是用户指定的某个二元运算(以仿函数呈现
+
+例如，面对序列（10，8，8，7，2，8，7，2，2，8，7，0}，查找“连续两个8”所形成的子序列起点，可以这么写：
+
+```c++
+iter1 = search_n(iv.begin(), iv.end(), 2, 8);
+```
+
+查找“连续三个小于8的元素”所形成的子序列起点，可以这么写：
+
+```c++
+iter2 = search_n(iv.begin(), iv.end(), 3, 8, less<int>());
+```
+
+![《STL源码剖析》的笔记-searchn.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-searchn.png)
+
+swap_ranges 将[first1,1ast1)区间内的元素与"从 first2开始、个数相同"的元素互相交换.这两个序列可位于同一容器中,也可位于不同的容器中.如果第二序列的长度小于第一序列,或是两序列在同一容器中且彼此重叠,执行结果未可预期. 此箅法返回一个迭代器,指向第二序列中的最后一个被交换元素的下一位置.
+
+transform 第一版本以仿函数op作用于[first,1ast)中的每一个元素身上,并以其结果产生出一个新序列.第二版本以仿函数 binary_op作用于一双元素身上(其中一个元素来自[first1,last),另一个元素来自"从 first2开始的序列"),并以其结果产生出一个新序列.如果第二序列的元素少于第一序列,执行结果未可预期trans form()的两个版本都把执行结果放进迭代器 result所标示的容器中result也可以指向源端容器,那么 trans form()的运算结果就会取代该容器内的元素.返回值 Outputiterator将指向结果序列的最后元素的下一位置
+
+unique 能够移除(remove)重复的元素.每当在[first,last]内遇有重复元素群,它便移除该元素群中第一个以后的所有元素.注意,unique只移除相邻的重复元素,如果你想要移除所有(包括不相邻的)重复元素,必须先将序列排序,使所有重复元素都相邻.unique会返回一个迭代器指向新区间的尾端,新区间之内不含相邻的重复元素.这个算法是稳定的(stable),亦即所有保留下来的元素,其原始相对次序不变.事实上unique并不会改变[first,last)的元素个数,有一些残余数据会留下来,如图6-61所示.情况类似remove算法,请参考先前对remove的讨论.unique有两个版本，因为所谓“相邻元素是否重复”可有不同的定义。第一版本使用简单的相等（equality）测试，第二版本使用一个Binary Predicate binary_pred做为测试准则。
+
+![《STL源码剖析》的笔记-unique.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-unique.png)
+
+unique_copy 算法unique_copy可从[first,last)中将元素复制到以result开头的区间上:如果面对相邻重复元素群,只会复制其中第一个元素.返回的迭代器指向以result开头的区间的尾端.与其它名为*_copy的算法一样,unique-copy乃是unique的一个复制式版本,所以它的特性与unique完全相同(请参考图6-6L),只不过是将结果输出到另一个区间而已.unique_copy有两个版本,因为所谓"相邻元素是否重复"可有不同的定义.第一版本使用简单的相等(equality)测试,第二版本使用一个Binary Predicate binary-pred作为测试准则.
+
+#### 6.7.2 lower_bound（应用于有序区间）
+
+这是二分查找(binary search)的一种版本,试图在已排序的(first,last)中寻找元素value.如果[first,last)具有与value相等的元素(s),便返回一个迭代器,指向其中第一个元素.如果没有这样的元素存在,便返回"假设这样的元素存在时应该出现的位置".也就是说,它会返回一个迭代器,指向第一个"不小于value"的元素.如果value大于[first,last)内的任何一个元素,则返回last.以稍许不同的观点来看1ower_bouna,其返回值是"在不破坏排序状态的原则下,可插入value的第一个位置".见图6-7.
+
+![《STL源码剖析》的笔记-lowerboundandupperbound.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-lowerboundandupperbound.png)
+
+#### 6.7.3 upper_bound（应用于有序区间）
+
+算法upper_bound是二分查找（binary search）法的一个版本。它试图在已排序的（first，last）中寻找value。更明确地说，它会返回“在不破坏顺序的情况下，可插入value的最后一个合适位置”。见图6-7。
+
+由于STL规范“区间圈定”时的起头和结尾并不对称（是的，【first，last）包含first但不包含last），所以upper_bound与1ower_bound的返回值意义大有不同。如果你查找某值，而它的确出现在区间之内，则lower_bound返回的是一个指向该元素的迭代器。然而upper-bound不这么做，因为upper_bound所返回的是在不破坏排序状态的情况下，value可被插人的“最后一个”合适位置。如果value存在，那么它返回的迭代器将指向value的下一位置，而非指向value本身。
+
+#### 6.7.4 binary_search(应用于有序区间)
+
+算法binary_search是一种二分查找法,试图在已排序的(first,last)中寻找元素value.如果[first,last)内有等同于value的元素,便返回true否则返回false.
+
+返回单纯的boo1或许不能满足你,前面所介绍的lower_bound和upper_bound能够提供额外的信息.**事实上binary_search便是利用lower-bound先找出"假设value存在的话,应该出现的位置",然后再对比该位置上的值是否为我们所要查找的目标,并返回对比结果.**
+
+binary_search的第一版本采用operator<进行比较,第二版本采用仿函数comp进行比较.
+
+#### 6.7.5 next_permutation
+
+STL提供了两个用来计算排列组合关系的算法,分别是next-permucation和prevpermutation.首先我们必须了解什么是"下一个"排列组合,什么是"前一个"排列组合.考虑三个字符所组成的序列(a,b,c).这个序列有六个可能的排列组合:abc,acb,bac,bca,cab,cba.这些排列组合根据less-than操作符做字典顺序(lexicographical)的排序.也就是说,abc名列第一,因为每一个元素都小于其后的元素.acb是次一个排列组合,因为它是固定了a(序列内最小元素)之后所做的新组合,同样道理,那些固定b(序列内次小元素)而做的排列组合,在次序上将先于那些固定c而做的排列组合.以bac和bca为例,bac在bca之前,因为序列ac小于序列ca.面对bca,我们可以说其前一个排列组合是bac,而其后一个排列组合是cab.序列abc没有"前一个"排列组合,cba没有"后一个"排列组合.
+
+next_permutation()会取得[first,last)所标示之序列的下一个排列组合,如果没有下一个排列组合,便返回false:否则返回true.
+
+这个算法有两个版本.版本一使用元素型别所提供的less-than操作符来决定下一个排列组合,版本二则是以仿函数comp来决定.
+
+稍后即将出现的实现，简述如下，符号表示如图6-8所示。首先，从最尾端开始往前寻找两个相邻元素，令第一元素为`*i`，第二元素为`*ii`，且满足`*i<*ii`。找到这样一组相邻元素后，再从最尾端开始往前检验，找出第一个大于`*i`的元素，令为`*j`，将i，j元素对调，再将ii之后的所有元素颠倒排列。此即所求之“下一个”排列组合。
+
+举个实例，假设我手上有序列（0，1，2，3，4），图6-9便是套用上述演算法则，一步一步获得的“下一个”排列组合。图中只框出那符合“第一元素为`*i`，第二元素为`*ii`，且满足`*i<*ii`的相邻两元素，至于寻找适当的j、对调、逆转等操作并未显示出。
+
+![《STL源码剖析》的笔记-nextpermutation.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-nextpermutation.png)
+
+#### 6.7.6 prev_permutation
+
+所谓"前一个"排列组合,其意义已在上一节阐述,实际做法简述如下,其中所用的符号如图6-8所示.首先,从最尾端开始往前寻找两个相邻元素,令第一元素为`*i`,第二元素为`*ii`,且满足`*i>*ii`.找到这样一组相邻元素后,再从最尾端开始往前检验,找出第一个小于`*i`的元素,令为`*j`,将i,j元素对调,再将ii之后的所有元素颠倒排列.此即所求之"前一个"排列组合.
+
+举个实例,假设我手上有序列(4,3,2,1,0),图6-10便是套用上述演算法则,一步一步获得的"前一个"排列组合.图中只框出那符合"第一元素为`*i`,第二元素为`*ii`,且满足`*i>*ii`"的相邻两元素,至于寻找适当的j、对调、逆转等操作并未显示出.
+
+![《STL源码剖析》的笔记-prevpermutation.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-prevpermutation.png)
+
+#### 6.7.7 random_shuffle
+
+这个算法将[first,last)的元素次序随机重排.也就是说,在N!种可能的元素排列顺序中随机选出一种,此处N为last-first.
+
+N个元素的序列,其排列方式有N!种,random_shuffle会产生一个均匀分布,因此任何一个排列被选中的机率为1/N!.这很重要,因为有不少算法在其第一阶段过程中必须获得序列的随机重排,但如果其结果未能形成"**在N!个可能排列上均匀分布(uniform distribution)**",便很容易造成算法的错误.
+
+random_shuffle有两个版本，差别在于随机数的取得。版本一使用内部随机数产生器，版本二使用一个会产生随机随机数的仿函数。特别请你注意，该仿函数的传递方式是by reference而非一般的by value，这是因为随机随机数产生器有一个重要特质：它拥有**局部状态（local state）**，每次被调用时都会有所改变，并因此保障产生出来的随机数能够随机。
+
+#### 6.7.8 partial_sort/partial_sort_copy（用到了堆！）
+
+本算法接受一个middle迭代器(位于序列[first,last)之内),然后重新安排[first,last),使序列中的middle-first个最小元素以递增顺序排序,置于(first,middle)内.其余last-middle个元素安置于[middle,last)中,不保证有任何特定顺序
+
+使用sort算法,同样能够保证较小的N个元素以递增顺序置于(first,first+N)之内.选择partial_sort而非sort的唯一理由是效率.是的,如果只是挑出前N个最小元素来排序,当然比对整个序列排序快上许多.
+
+partial_sort有两个版本,其差别在于如何定义某个元素小于另一元素.第一版本使用less-than操作符,第二版本使用仿函数comp.算法内部采用heapsort(4.7.2节)来完成任务,简述于下.
+
+partial_sort的任务是找出middle-first个最小元素,因此,首先界定出区间[first,middle),并利用4.7.2节的make-heap()将它组织成一个max-heap,然后就可以将[middle,last)中的每一个元素拿来与max-heap的最大值比较(max-heap的最大值就在第一个元素身上,轻松可以获得):如果小于该最大值,就互换位置并重新保持max-heap的状态.如此一来,当我们走遍整个[middle,last)时,较大的元素都已经被抽离出(first,middle),这时候再以sort-heap()将[first,midale)做一次排序,即功德圆满.见图6-11的步骤详解.
+
+![《STL源码剖析》的笔记-partialsort.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-partialsort.png)
+
+#### 6.7.9 sort（重难点！！！）
+
+STL所提供的各式各样算法中,sort()是最复杂最庞大的一个.这个算法接受两个Random Access Iterators(随机存取迭代器),然后将区间内的所有元素以渐增方式由小到大重新排列.第二个版本则允许用户指定一个仿函数(functor),作为排序标准,STL的所有关系型容器(associative containers)都拥有自动排序功能(底层结构采用RB-tree,见第5章),所以不需要用到这个sort算法.至于序列式容器(sequence containers)中的stack、queue和priority-queue都有特别的出入口,不允许用户对元素排序.剩下vector,deque和list,前两者的迭代器属于Random Access Iterators,适合使用sort算法,list的迭代器则属于Bidirectioinal Iterators,不在STL标准之列的slist,其迭代器更属于Forwarditerators,都不适合使用sort算法.如果要对list或slist排序,应该使用它们自己提供的member functions sort().稍后我们便可看到为什么泛型算法sort()一定要求RandomAccessterators.
+
+STL的sort算法，数据量大时采用Quick Sort，分段递归排序。一旦分段后的数据量小于某个门槛，为避免Quick Sort的递归调用带来过大的额外负荷（overhead），就改用Insertion Sort，如果递归层次过深，还会改用Heap Sort（已于4.7.2节介绍）。以下分别介绍Quick Sort和Insertion Sort，然后再整合起来介绍STL sort算法。
+
+##### Insertion Sort
+
+Insertion Sort以双层循环的形式进行.外循环遍历整个序列,每次迭代决定出一个子区间:内循环遍历子区间,将子区间内的每一个"逆转对(inversion)"倒转过来。
+
+所谓"逆转对"是指任何两个迭代器i,j, `i<j`而`*i>*j`.一旦不存在"逆转对",序列即排序完毕,这个算法的复杂度为O(N^2),说起来并不理想,但是当数据量很少时,却有不错的效果,原因是实现上有一些技巧(稍后源代码可见),而且不像其它较为复杂的排序算法有着诸如递归调用等操作带来的额外负荷.图6-12是Insertion Sort的详细步骤示意.
+
+![《STL源码剖析》的笔记-insertionsort-modified.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-insertionsort-modified.png)
+
+##### Quick Sort
+
+如果我们拿Insertion Sort来处理大量数据,其O(N^2)的复杂度就令人摇头了.
+
+大数据量的情况下有许多更好的排序算法可供选择.正如其名称所昭示,Quick Sort是目前已知最快的排序法,平均复杂度为O(NlogN),最坏情况下将达O(N^2),不过IntroSort(极类似median-of-three QuickSort的一种排序算法)可将最坏情况推进到O(NlogN).早期的STL sort算法都采用Quick Sort,SGI STL已改用IntroSort.
+
+Quick Sort算法可以叙述如下.假设s代表将被处理的序列:
+
+1. 如果S的元素个数为0或1,结束
+2. 取S中的任何一个元素,当作枢轴(pivot) v.
+3. 将S分割为L,R两段,使L内的每一个元素都小于或等于v,R内的每一个元素都大于或等于v.
+4. 对L,R递归执行Quick Sort.
+
+Quick Sort的精神在于将大区间分割为小区间，分段排序。每一个小区间排序完成后，串接起来的大区间也就完成了排序。最坏的情况发生在分割（partitioning）时产生出一个空的子区间-那完全没有达到分割的预期效果。图6-13说明了Quick Sort的分段排序。
+
+![《STL源码剖析》的笔记-quicksortpartition.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-quicksortpartition.png)
+[C++ 中的 typename 及 class 关键字的区别](https://liam.page/2018/03/16/keywords-typename-and-class-in-Cxx/)
+
+##### Median-of-Three（三点中值）
+
+注意，任何一个元素都可以被选来当作枢轴（pivot），但是其合适与否却会影响Quick Sort的效率。为了避免“元素当初输人时不够随机”所带来的恶化效应，最理想最稳当的方式就是取整个序列的头、尾、中央三个位置的元素，以其中值（median）作为枢轴。这种做法称为median-of-three partitioning，或称为mediun-of-three-QuickSort。为了能够快速取出中央位置的元素，显然迭代器必须能够随机定位，亦即必须是个RandomAccessterators。
+
+##### Partitioining（分割）
+
+分割方法不只一种，以下叙述既简单又有良好成效的做法。令头端选代器first向尾部移动，尾端迭代器last向头部移动。当`*first`大于或等于枢轴时就停下来，当`*last`小于或等于枢轴时也停下来，然后检验两个迭代器是否交错。
+
+如果first仍然在左而last仍然在右，就将两者元素互换，然后各自调整一个位置（向中央逼近），再继续进行相同的行为。如果发现两个迭代器交错了（亦即`!(first < last)`），表示整个序列已经调整完毕，以此时的first为轴，将序列分为左右两半，左半部所有元素值都小于或等于枢轴，右半部所有元素值都大于或等于枢轴。
+
+![《STL源码剖析》的笔记-quicksortpartitioneg.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-quicksortpartitioneg.png)
+
+##### threshold（阈值）
+
+面对一个只有十来个元素的小型序列，使用像Quick Sort这样复杂而（可能）需要大量运算的排序法，是否划算？不，不划算，在小数据量的情况下，甚至简单如Insertion Sort者也可能快过Quick Sort-因为Quick Sort会为了极小的子序列而产生许多的函数递归调用。
+
+鉴于这种情况，适度评估序列的大小，然后决定采用Quick Sort或Insertion Sort，是值得采纳的一种优化措施。然而究竟多小的序列才应该断然改用Insertion Sort呢？唔，并无定论，5-20都可能导致差不多的结果，实际的最佳值因设备而异。
+
+##### introsort
+
+不当的枢轴选择，导致不当的分割，导致Quick Sort恶化为O（N^2）。
+
+Introspective Sorting（内省式排序），简称IntroSort，其行为在大部分情况下几乎与median-of-3 Quick Sort完全相同（当然也就一样快）。但是当分割行为（partitioning）有恶化为二次行为的倾向时，能够自我侦测，转而改用Heap Sort，使效率维持在Heap Sort的O（N lgN），又比一开始就使用Heap Sort来得好。
+
+#### 6.7.10 equal_range(应用于有序区间)
+
+算法equal_range是二分查找法的一个版本,试图在已排序的(first,last)中寻找value.它返回一对迭代器i和j,其中i是在不破坏次序的前提下,value可插入的第一个位置(亦即lower-bound),j则是在不破坏次序的前提下,value可插入的最后一个位置(亦即upper-bouna).因此,(i,j)内的每个元素都等同于value,而且[i,j)是[first,last)之中符合此一性质的最大子区间.
+
+如果以稍许不同的角度来思考equal-range,我们可把它想成是[first,last)内"与value等同"之所有元素所形成的区间A.由于[first,last)有序(sorted),所以我们知道"与value等同"之所有元素一定都相邻,于是,算法lower_bound返回区间A的第一个迭代器,算法upper_bound返回区间A的最后元素的下一位置,算法equal_range则是以pair的形式将两者都返回.
+
+即使(first,last)并未含有"与value等同"之任何元素,以上叙述仍然合理,这种情况下"与value等同"之所有元素所形成的,其实是个空区间.
+
+在不破坏次序的前提下,只有一个位置可以插入value,而equal_range所返回的pair,其第一和第二元素(都是迭代器)皆指向该位置.
+
+本算法有两个版本,第一版本采用operator<进行比较,第二版本采用仿函数comp进行比较,稍后只列出版本一的源代码.图6-15展示equal-range的意义.
+
+![《STL源码剖析》的笔记-equalrange.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-equalrange.png)
+
+#### 6.7.11 inplace_merge(应用于有序区间)
+
+如果两个连接在一起的序列(first,middle)和[middle,last)都已排序,那么inplace_merge可将它们结合成单一一个序列,并仍保有序性(sorted).
+
+如果原先两个序列是递增排序,执行结果也会是递增排序,如果原先两个序列是递减排序,执行结果也会是递减排序.
+
+和merge一样,inplace-merge也是一种稳定(stable)操作.每个作为数据来源的子序列中的元素相对次序都不会变动:如果两个子序列有等同的元素,第一序列的元素会被排在第二序列元素之前.
+
+inplace_merge有两个版本,其差别在于如何定义某元素小于另一个元素第一版本使用operators进行比较,第二版本使用仿函数(tunctor)comp进行比较.
+
+这个算法如果有额外的内存（缓冲区）辅助，效率会好许多。但是在没有缓冲区或缓冲区不足的情况下，也可以运作。
+
+#### 6.7.12 nth element
+
+这个算法会重新排列[first,last),使迭代器nth所指的元素,与"整个[first,last)完整排序后,同一位置的元素"同值.此外并保证[nth,last)内没有任何一个元素小于(更精确地说是不大于)[first,nth)内的元素,但对于(first,nth)和[nth,last)两个子区间内的元素次序则无任何保证-这一点也是它与partial-sort很大的不同处.以此观之,nth-element比较近似partition而非sort或partial_sort.
+
+例如,假设有序列(22,30,30,17,33,40,17,23,22,12,201,以下操作:
+
+```c++
+nth_element(iv.begin(),iv.begin()+5,iv.end());
+```
+
+便是将小于*(iv.begin()+5)(本例为40)的元素置于该元素之左,其余置于该元素之右,并且不保证维持原有的相对位置.获得的结果为(20,12,22,17,17,22,23,30,30,33,40),执行完毕后的5th个位置上的元素值22,与整个序列完整排序后{12,17,17,20,22,22,23,30,30,33,40)的5th个位置上的元素值相同.
+
+如果以上述结果(20,12,22,17,17,22,23,30,30,33,40)为根据,再执行以下操作:
+
+```c++
+nth_element(iv.begin(),iv.begin()+5,iv.end(),greatercint>());
+```
+
+那便是将大于*(iv.begin()+5)(本例为22)的元素置于该元素之左,其余置于该元素之右,并且不保证维持原有的相对位置.获得的结果为(40,33,30,30,23,22,17,17,22,12,20}.
+
+由于nth_element比partial-sort的保证更少(是的,它不保证两个子序列内的任何次序),所以它当然应该比partial_sort较快.
+
+nth-element有两个版本,其差异在于如何定义某个元素小于另一个元素.第一版本使用operator<进行比较,第二个版本使用仿函数comp进行比较.注意，这个算法只接受RandomAccessiterator.
+
+nth_element的做法是，不断地以median-of-3 partitioning（以首、尾、中央三点中值为枢轴之分割法，见6.7.9节）将整个序列分割为更小的左（L）、右（R）子序列。如果nth迭代器落于左子序列，就再对左子序列进行分割，否则就再对右子序列进行分割，依此类推，直到分割后的子序列长度不大于3（够小了），便对最后这个待分割的子序列做Insertion Sort，大功告成。
+
+![《STL源码剖析》的笔记-nthelement.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-nthelement.png)
+
+#### 6.7.13 merge sort
+
+虽然SGI STL所采用的排序法是IntroSort（一种比Quick Sort考虑更周详的算法，见6.7.9节），不过，另一个很有名的排序算法Merge Sort，很轻易就可以利用STL算法inplace-merge（6.7.11节）实现出来。
+
+Merge Sort的概念是这样的：既然我们知道，将两个有序（sorted）区间归并成一个有序区间，效果不错，那么我们可以利用“分而治之”（devide and conquer）的概念，以各个击破的方式来对一个区间进行排序，首先，将区间对半分割，左右两段各自排序，再利用inplace-merge重新组合为一个完整的有序序列。对半分割的操作可以递归进行，直到每一小段的长度为0或1（那么该小段也就自动完成了排序）。
+
+Merge Sort的复杂度为O（NlogN）。虽然这和Quick Sort是一样的，但因为Merge Sort需借用额外的内存，而且在内存之间移动（复制）数据也会耗费不少时间，所以Merge Sort的效率比不上Quick Sort。实现简单、概念简单，是Merge Sort的两大优点。
+
+## Chapter7 仿函数functors，另名函数对象function objects
+
+### 7.1 仿函数（functors）概观
+
+这一章所探索的东西，在STL历史上有两个不同的名称。仿函数（functors）是早期的命名，C++标准规格定案后所采用的新名称是函数对象（function objects）。
+
+就实现意义而言，“函数对象”比较贴切：一种具有函数特质的对象。不过，就其行为而言，以及就中文用词的清晰漂亮与独特性而言，“仿函数”一词比较突出。因此，本书绝大部分时候采用“仿函数”一词。这种东西在调用者可以像函数一样地被调用（调用），在被调用者则以对象所定义的function call operator扮演函数的实质角色。
+
+仿函数的作用主要在哪里？从第6章可以看出，STL所提供的各种算法，往往有两个版本，其中一个版本表现出最常用（或最直观）的某种运算，第二个版本则表现出最泛化的演算流程，允许用户“以template参数来指定所要采行的策略”。拿accumulate（）来说，其一般行为（第一版本）是将指定范围内的所有元素相加，第二版本则允许你指定某种“操作”，取代第一版本中的“相加”行为。再举sort（）为例，其第一版本是以operator<为排序时的元素位置调整依据，第二版本则允许用户指定任何“操作”，务求排序后的两两相邻元素都能令该操作结果为true。
+
+根据以上陈述，既然函数指针可以达到“将整组操作当做算法的参数”，那又何必有所谓的仿函数呢？原因在于函数指针毕竟不能满足STL对抽象性的要求，也不能满足软件积木的要求-函数指针无法和STL其它组件（如配接器adapter，第8章）搭配，产生更灵活的变化。
+
+就实现观点而言，仿函数其实上就是一个“行为类似函数”的对象。为了能够“行为类似函数”，其类别定义中必须自定义（或说改写、重载）function call运算子（operator（），语法和语意请参考1.9.6节）。拥有这样的运算子后，我们就可以在仿函数的对象后面加上一对小括号，以此调用仿函数所定义的operator（），像这样：
+
+```c++
+#include <functional>
+#include <iostream>
+using namespace std;
+int main (){
+    greater<int> ig;
+    cout << boolalpha << ig (4, 6); // (A) false1程序中的boolalpha是一种所谓的iostream manipulators（操控器），用来控制输出人设备的状态.boolalpha意思是从此以后对boo1值的输出，都改为以字符串“true”或“false”表现。
+    cout << greater<int>()(6, 4);   // (B) true
+```
+
+![《STL源码剖析》的笔记-functorswithalgorithm.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-functorswithalgorithm.png)
+
+STL仿函数的分类,若以操作数(operand)的个数划分,可分为一元和二元仿函数,若以功能划分,可分为算术运算(Arithmetic)、关系运算(Rational)逻辑运算(Logical)三大类.任何应用程序欲使用STL内建的仿函数,都必须含入头文件,SGI则将它们实际定义于文件中.以下分别描述.
+
+### 7.2 可配接（Adaptable）的关键
+
+在STL六大组件中，仿函数可说是体积最小、观念最简单、实现最容易的一个。但是小兵也能立大功--它扮演一种“策略”2角色，可以让STL算法有更灵活的演出。而更加灵活的关键，在于STL仿函数的可配接性（adaptability）
+
+是的，STL仿函数应该有能力被函数配接器（function adapter，第8章）修饰，彼此像积木一样地串接。为了拥有配接能力，每一个仿函数必须定义自己的相应型别（associative types），就像迭代器如果要融入整个STL大家庭，也必须依照规定定义自己的5个相应型别一样。这些相应型别是为了让配接器能够取出，获得仿函数的某些信息，相应型别都只是一些typedef，所有必要操作在编译期就全部完成了，对程序的执行效率没有任何影响，不带来任何额外负担。
+
+仿函数的相应型别主要用来表现函数参数型别和传回值型别。为了方便起见，`<stl_function.h>`定义了两个classes，分别代表一元仿函数和二元仿函数（STL不支持三元仿函数），其中没有任何data members或member functions，唯有一些型别定义。任何仿函数，只要依个人需求选择继承其中一个class，便自动拥有了那些相应型别，也就自动拥有了配接能力。
+
+#### 7.2.1 unary_function
+
+unary_function用来呈现一元函数的参数型别和回返值型别，其定义非常简单：
+
+```c++
+//STL规定,每一个Adaptable Unary Function都应该继承此类别
+template <class Arg, class Result>
+struct unary_function{
+    typedef Arg argument_type;
+    typedef Result result_type;
+};
+
+```
+
+#### 7.2.2 binary_function
+
+binary_function用来呈现二元函数的第一参数型别、第二参数型别，以及回返值型别。其定义非常简单：
+
+```c++
+//STL规定，每一个Adaptable Binary Function都应该继承此类别
+template <class Arg1, class Arg2，class Result>
+struct binary_function{
+    typedef Arg1 first_argument_type;
+    typedef Arg2 second_argument_type;
+    typedef Result result_type;
+};
+```
+
+### 7.3 算术类（Arithmetic）
+
+仿函数STL内建的“算术类仿函数”，支持加法、减法、乘法、除法、模数（余数，modulus）和否定（negation）运算。除了“否定”运算为一元运算，其它都是二元运算。
+
+- 加法：`plus<T>`
+- 减法：`minus<T>`
+- 乘法：`multiplies<T>`
+- 除法：`divides<T>`
+- 模取（modulus）：`modulus<T>`
+- 否定（negation）：`negate<T>`
+
+用法有以下两种，其中`functor<T>()`是一个临时对象（这里的小括号指默认构造函数），后面再接一对小括号即调用function call operator：
+
+```c++
+plus<int> plusobj;
+cout << plusobj(3, 5);  // 8
+
+cout << plus<int>()(3, 5); // 8
+```
+
+稍早我已提过,不会有人在这么单纯的情况下运用这些功能极其简单的仿函数.仿函数的主要用途是为了搭配STL算法.例如,以下式子表示要以1为基本元素,对vector iv中的每一个元素进行乘法(multiplies)运算:
+
+```c++
+accumulate(iv.begin(),iv.end(),1,multiplies<int>());
+```
+
+#### 证同元素（identity element）
+
+所谓“运算op的证同元素（identity element）”，意思是数值A若与该元素做op运算，会得到A自己。加法的证同元素为0，因为任何元素加上0仍为自己。
+
+乘法的证同元素为1，因为任何元素乘以1仍为自己。
+
+请注意，这些函数并非STL标准规格中的一员，但许多STL实现都有它们。
+
+### 7.4 关系运算类(Relational)
+
+仿函数STL内建的"关系运算类仿函数"支持了等于、不等于、大于、大于等于、小于、小于等于六种运算.每一个都是二元运算.
+
+- 等于(equality):`equal_to<T>`
+- 不等于(inequality):`not_equal_to<T>`
+- 大于(greater than):`greater<T>`
+- 大于或等于(greater than or equal):`greater_equal<T>`
+- 小于(less than):`less<T>`
+- 小于或等于(less than or equal):`less_equal<T>`
+
+这些仿函数所产生的对象，用法和一般函数完全相同，当然，我们也可以产生一个无名的临时对象来履行函数功能。下面是一个实例，显示两种用法，其中`functor<T>()`是一个临时对象（这里的小括号指默认构造函数），后面再接一对小括号即调用function call operator：
+
+```c++
+equal_to<int> equal_to_obj;
+cout << equal_to_obj(3, 5); // 0
+
+cout << equal_to<int>()(3, 5); // 0
+```
+
+一般而言不会有人在这么单纯的情况下运用这些功能极其简单的仿函数.仿函数的主要用途是为了搭配STL算法.例如以下式子表示要以递增次序对vector iv进行排序:
+
+```c++
+sort(iv.begin(),iv.end(),greater<int>());
+```
+
+### 7.5 逻辑运算类（Logical）仿函数
+
+STL内建的“逻辑运算类仿函数”支持了逻辑运算中的And。Or。Not三种运算，其中And和or为二元运算，Not为一元运算。
+
+- 逻辑运算And：`logical_and<T>`
+- 逻辑运算Or：`logical_or<T>`
+- 逻辑运算Not：`logical_not<T>`
+
+这些仿函数所产生的对象，用法和一般函数完全相同。当然，我们也可以产生一个无名的临时对象来履行函数功能。下面是一个实例，显示两种用法：
+
+```c++
+logical_and<int> and_obj;
+cout << and_obj(true, true); // 1
+
+cout << logical_and<int>()(true, true); // 1
+```
+
+一般而言，不会有人在这么单纯的情况下运用这些功能极其简单的仿函数。仿函数的主要用途是为了搭配STL算法。
+
+### 7.6 证同（identity）、选择（select）、投射（project）
+
+这一节介绍的仿函数，都只是将其参数原封不动地传回。其中某些仿函数对传回的参数有刻意的选择，或是刻意的忽略。之所以不在STL或其它泛型程序设计过程中直接使用原本极其简单的identity，project，select等操作，而要再划分一层出来，全是为了间接性，间接性是抽象化的重要工具。
+
+## Chapter8 配接器 adapters
+
+配接器（adapters）在STL组件的灵活组合运用功能上，扮演着轴承、转换器的角色。Adapter这个概念，事实上是一种设计模式（design pattern）。《Design Patterns》一书提到23个最普及的设计模式，其中对adapter样式的定义如下：**将一个class的接口转换为另一个class的接口，使原本因接口不兼容而不能合作的classes，可以一起运作**。
+
+### 8.1 配接器之概观与分类
+
+STL所提供的各种配接器中，改变仿函数（functors）接口者，我们称为function adapter，改变容器（containers）接口者，我们称为container adapter，改变迭代器（iterators）接口者，我们称为iterator adapter。
+
+#### 8.1.1 应用于容器，container adapters
+
+STL提供的两个容器queue和stack，其实都只不过是一种配接器。它们修饰deque的接口而成就出另一种容器风貌。这两个container adapters已于第4章介绍过。
+
+#### 8.1.2 应用于迭代器，iterator adapters
+
+STL提供了许多应用于迭代器身上的配接器，包括insert iterators，reverse iterators，iostream iterators。C++ Standard规定它们的接口可以藉由`<iterator>`获得，SGI STL则将它们实际定义于`<stl_iterator.h>`。
+
+迭代器适配器在C++ Primer中有讲解
+
+##### insert Iterators
+
+所谓insert iterators，可以将一般迭代器的赋值（assign）操作转变为插入（insert）操作。这样的迭代器包括专司尾端插人操作的back_insert_iterator，专司头端插入操作的front_insert_iterator，以及可从任意位置执行插入操作的insert_iterator。由于这三个iterator adapters的使用接口不是十分直观，给一般用户带来困扰，因此，STL更提供三个相应函数：back_inserter()、front inserter()、inserter()，如图8-1所示，提升使用时的便利性。
+
+![《STL源码剖析》的笔记-threeinserterhelper.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-threeinserterhelper.png)
+
+##### Reverse Iterators
+
+所谓reverse iterators，可以将一般迭代器的行进方向逆转，使原本应该前进的operator++变成了后退操作，使原本应该后退的operator--变成了前进操作。
+
+这种错乱的行为不是为了掩人耳目或为了欺敌效果，而是因为这种倒转筋脉的性质运用在“从尾端开始进行”的算法上，有很大的方便性。稍后我有一些范例展示。
+
+##### IOStream Iterators
+
+所谓iostream terators,可以将迭代器绑定到某个iostream对象身上.绑定到istream对象(例如std::cin)身上的,称为istream_iterator,拥有输人功能;绑定到ostream对象(例如std::cout)身上的,称为ostream_iterator,拥有输出功能.这种迭代器运用于屏幕输出,非常方便.以它为蓝图，稍加修改，便可适用于任何输出或输入装置上。例如，你可以在透彻了解iostream_lterators的技术后，完成一个绑定到Internet Explorer cache身上的迭代器，或是完成一个系结到磁盘目录上的一个迭代器
+
+请注意，不像稍后即将出场的仿函数配接器（functor adapters）总以仿函数作为参数，予人以“拿某个配接器来修饰某个仿函数”的直观感受，这里所介绍的迭代器配接器（iterator adapters）很少以迭代器为直接参数3，所谓对迭代器的修饰，只是一种观念上的改变（赋值操作变成插入操作啦、前进变成后退啦、绑定到特殊装置上啦…）。你可以千变万化地写出适合自己所用的任何迭代器。就这一点而言，为了将STL灵活运用于你的日常生活之中，iterator adapters的技术是非常重要的。
+
+#### 8.1.3 应用于仿函数，functor adapters
+
+functor adapters（亦称为function adapters）是所有配接器中数量最庞大的一个族群，其配接灵活度也是前二者所不能及，可以配接、配接、再配接。这些配接操作包括系结（bind）、否定（negate），组合（compose）、以及对一般函数或成员函数的修饰(使其成为一个仿函数).C++ Standard规定这些配接器的接口可由`<functional>`获得,SGI STL则将它们实际定义于`<stl function.h>`.
+
+function adapters的价值在于,通过它们之间的绑定、组合、修饰能力,几乎可以无限制地创造出各种可能的表达式(expression),搭配STL算法一起演出.例如,我们可能希望找出某个序列中所有不小于12的元素个数.虽然,"不小于"就是"大于或等于",我们因此可以选择STL内建的仿函数greater_equal,但如果希望完全遵循题目语意(在某些更复杂的情况下,这可能是必要的),坚持找出"不小于"12的元素个数,可以这么做:
+
+```c++
+not1(bind2nd(less(),12))
+```
+
+这个式子将less()的第二参数系结(绑定)为12,再加上否定操作,便形成了"不小于12"的语意,整个凑和成为一个表达式(expression),可与任何"可接受表达式为参数"之算法搭配-是的,几乎每个STL算法都有这样的版本.
+
+再举一个例子,假设我们希望对序列中的每一个元素都做某个特殊运算,这个运算的数学表达式为:
+
+```c++
+f(g(elem))
+```
+
+其中f和g都是数学函数,那么可以这么写:
+
+```c++
+composel(f(x),g(y));
+```
+
+例如我们希望将容器内的每一个元素v进行`(v+2)*3`的操作,我们可以令`f(x)=x*3,g(y)=y+2`,并写下这样的式子:
+
+```c++
+composel(bind2nd(multiplies(),3),bind2nd(plus(),2))
+//第一个参数被拿来当做f(),第二个参数被拿来当做g().
+```
+
+这一长串形成一个表达式,可以拿来和任何接受表达式的算法搭配.不过,务请注意,这个算式会改变参数的值,所以不能和non-mutating算法搭配.例如不能和for_each搭配,但可以和transform搭配,将结果输往另一地点.
+
+由于仿函数就是"将function call操作符重载"的一种class,而任何算法接受一个仿函数时,总是在其演算过程中调用该仿函数的operator1),这使得不具备仿函数之形、却有真函数之实的"一般函数"和"成员函数(member functions)感到为难.如果这些既存的心血不能纳入复用的体系中,完美的规划就崩落了一角.
+
+为此,STL又提供了为数众多的配接器,使"一般函数"和"成员函数"得以无缝隙地与其它配接器或算法结合起来.当然,STL所提供的这些配接器不可能在变化纷歧的各种应用场合完全满足你的所有需求,例如它没有能够提供我们写出"大于5且小于10"或是"大于8或小于6"这样的算式.不过,对STL源代码有了一番彻底研究后,要打造专用的配接器,不是难事.
+
+请注意,所有期望获得配接能力的组件,本身都必须是可配接的(adaptable).换句话说,一元仿函数必须继承自unary_function(7.11节),二元仿函数必须继承自binary-function(7.1.2节),成员函数必须以mem_fun处理过,一般函数必须以ptr_fun处理过.一个未经ptr_fun处理过的一般函数,虽然也可以函数指针(pointer to function)的形式传给STL算法使用,却无法拥有任何配接能力.
+
+![《STL源码剖析》的笔记-functionadapters.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-functionadapters.png)
+
+### 8.2 container adapters
+
+#### 8.2.1 stack
+
+stack的底层由deque构成.从以下接口可清楚看出stack与deque的关系:
+
+```c++
+template <class T, class Sequence = deque<T> >
+class stack{
+protected:
+    Sequence c; //底层容器
+    ...
+};
+```
+
+C++ Standard规定客户端必须能够从中获得stack的接口,SGI STL则把所有的实现细节定义于的内,请参考4.5节.class stack封住了所有的deque对外接口,只开放符合stack原则的几个函数,所以我们说stack是一个配接器,一个作用于容器之上的配接器.
+
+#### 8.2.2 queue
+
+queue的底层由deque构成。从以下接口可清楚看出queue与deque的关系：
+
+```c++
+template <class T，class Sequence = deque<T> >
+class queue{
+protected:
+    Sequence c; //底层容器
+    ...
+};
+```
+
+C++ Standard规定客户端必须能够从`<queue>`中获得queue的接口，SGI STL则把所有的实现细节定义于`<stl_queue.h>`内，请参考4.6节.class queue封住了所有的deque对外接口，只开放符合queue原则的几个函数，所以我们说queue是一个配接器，一个作用于容器之上的配接器。
+
+### 8.3 iterator adapters
+
+本章稍早已说过iterator adapters的意义和用法,以下研究其实现细节
+
+#### 8.3.1 insert iterators
+
+下面是三种insert iterators的完整实现列表.其中的主要观念是,每一个insert iterators内部都维护有一个容器(必须由用户指定):容器当然有自己的迭代器,于是,**当客户端对insert iterators做赋值(assign)操作时,就在insert iterators中被转为对该容器的迭代器做插入(insert)操作**,也就是说,在insert iterators的operator=操作符中调用底层容器的push_front()或push_back()或insert()操作函数.
+
+至于其它的迭代器惯常行为如operator++,operator++(int),operator*都被关闭功能,更没有提供operator--(int)或operator--或operator->等功能(因此被类型被定义为output_iterator_tag).换句话说insert iterators的前进、后退、取值、成员取用等操作都是没有意义的,甚至是不允许的.
+
+#### 8.3.2 reverse iterators
+
+所谓reverse terctor，就是将迭代器的移动行为倒转。如果STL算法接受的不是一般正常的迭代器，而是这种逆向迭代器，它就会以从尾到头的方向来处理序列中的元素。例如：
+
+```c++
+// 将所有元素逆向拷贝到ite所指位置上
+// rbegin()和rend()与reverse_iterator有关
+copy(id.rbegin(), id.rend(), ite);
+```
+
+为什么"正向迭代器"和"与其相应的逆向迭代器"取出不同的元素呢?这并不是一个潜伏的错误,而是一个刻意为之的特征,主要是为了配合迭代器区间的"前闭后开"习惯(1.9.5节).从图8-3的rbegin()和end()关系可以看出,当迭代器被逆转方向时,虽然其实体位置(真正的地址)不变,但其逻辑位置(送代器所代表的元素)改变了(必须如此改变):
+
+![《STL源码剖析》的笔记-reverseiterator.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-reverseiterator.png)
+
+唯有这样,才能保持正向迭代器的一切惯常行为.换句话说,唯有这样,当找们将一个正向迭代器区间转换为一个逆向迭代器区间后,不必再有任何额外处理,就可以让接受这个逆向迭代器区间的算法,以相反的元素次序来处理区间中的每一个元素,例如(以下出现于8.1.2节实例之中):
+
+```c++
+copy(id.begin().id.end(),outite);   // 1 0 1 2 3 4 0 1 2 5 3
+copy(id.rbegin(),id.rend(),outite); // 3 5 2 1 0 4 3 2 1 0 1
+```
+
+#### 8.3.3 stream iterators
+
+所谓stream iterators,可以将迭代器绑定到一个stream(数据流)对象身上.
+
+绑定到istream对象(例如std::cin)者,称为istream-iterator,拥有输入能力:绑定到ostream对象(例如std::cout)者,称为ostreamiterator拥有输出能力,两者的用法在8.1.2节的例子中都有示范.
+
+乍听之下真神奇.所谓绑定一个istreamobject,其实就是在istream iterator内部维护一个istream member,**客户端对于这个迭代器所做的operator++操作,会被导引调用迭代器内部所含的那个istream member的输入操作(operator>>)**.这个迭代器是个Input terator,不具备operator-.
+
+请注意，源代码清楚告诉我们，只要客户端定义一个istream iterator并绑定到某个istream object，程序便立刻停在`istream iterator<T>::read()`函数，等待输人。这不是我们所预期的行为，因此，请在绝对必要的时刻才定义你所需要的istream iterator，这其实是C++程序员在任何时候都应该遵循的守则，但是很多人忽略了。
+
+![《STL源码剖析》的笔记-copywithistreamiterator.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-copywithistreamiterator.png)
+
+以上便是istream iterator的讨论。至于osteam iterator，所谓绑定一个ostream object，就是在其内部维护一个ostream member，**客户端对于这个迭代器所做的operator=操作，会被导引调用对应的（迭代器内部所含的）那个ostream member的输出操作（operator<<）**。这个迭代器是个Outputterator。下面的源代码和注释说明了一切。
+
+![《STL源码剖析》的笔记-copywithostreamiterator.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-copywithostreamiterator.png)
+
+### 8.4 function adapters
+
+8.1.3节已经对function adapters做了介绍,并举了一个颇为丰富的运用实例.从这里开始,我们就直接探索SGI STL function adapters的实现细节吧.
+
+一般而言,对于C++ template语法有了某种程度的了解之后,我们很能够理解或想象,容器是以class templates完成,算法以function templates完成,仿函数是一种将operator()重载的class template,迭代器则是一种将operator++和operator*等指针习惯常行为重载的class template.然而配接器呢?应用于容器身上和迭代器身上的配接器,已于本章稍早介绍过,都是一种class template.可应用于仿函数身上的配接器呢?如何能够"事先"对一个函数完成参数的绑定、执行结果的否定、甚至多方函数的组合?请注意我用"事先"一词.我的意思是,最后修饰结果(视为一个表达式,expression)将被传给STL算法使用,STL算法才是真正使用这表达式的主格.而我们都知道,只有在真正使用(调用)某个函数(或仿函数)时,才有可能对参数和执行结果做任何干涉
+
+这是怎么回事?
+
+关键在于,就像本章先前所揭示,container adapters内藏了一个container member一样,或是像reverse iterator(adapters)内藏了一个iterator member一样,或是像stream iterator(adapters)内藏了一个pointer to stream一样,或是像insert iterator(adapters)内藏了一个pointer to container(并因而得以取其iterator)一样,每一个function adapters也内藏了一个member object,其型别等同于它所要配接的对象(那个对象当然是一个"可配接的仿函数",adaptable functor),图8-6是一份整理.当function adapter有了完全属于自己的一份修饰对象(的副本)在手,它就成了该修饰对象(的副本)的主人,也就有资格调用该修饰对象(一个仿函数)并在参数和返回值上面动手脚了.
+
+图8-7鸟瞰了count_if()搭配`bind2nd(less<int>(),12))`的例子,其中清楚显示count_if()的控制权是怎么落到我们的手上.控制权一旦在我们手上,我们当然可以予取予求了.
+
+![《STL源码剖析》的笔记-countifwithbind2nd.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/%E3%80%8ASTL%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90%E3%80%8B%E7%9A%84%E7%AC%94%E8%AE%B0-countifwithbind2nd.png)
+
+#### 8.4.1 对返回值进行逻辑否定：not1，not2
+
+#### 8.4.2 对参数进行绑定：bind1st，bind2nd
+
+#### 8.4.3 用于函数合成：compose1，compose2
+
+#### 8.4.4 用于函数指针：ptr_fun
+
+这种配接器使我们能够将一般函数当做仿函数使用。一般函数当做仿函数传给STL算法，就语言层面本来就是可以的，就好像原生指针可被当做迭代器传给STL算法样。但如果你不使用这里所说的两个配接器先做一番包装，你所使用的那个-般函数将无配接能力，也就无法和前数小节介绍过的其它配接器接轨。
+
+#### 8.4.5 用于成员函数指针：mem_fun，mem_fun_ref
+
+这种配接器使我们能够将成员函数（member functions）当做仿函数来使用，于是成员函数可以搭配各种泛型算法。当容器的元素型式是x&或x*，而我们又以虚拟（virtual）成员函数作为仿函数，便可以藉由泛型算法完成所谓的多态调用（polymorphic function call）。这是泛型（genericity）与多态（polymorphism）之间的一个重要接轨。
+
+## 附录
+
+台湾常用术语与大陆常用术语转换表
+
 机能 - 功能（函数）
-走访/巡访 - 遍历
+走访/巡访/循序 - 遍历
 资料 - 数据
 全域 - 全局
 弹性 - 灵活性
@@ -3404,3 +4180,5 @@ hash_multimap和 hash_map实现上的唯一差别在于，前者的元素插入�
 型别 - 类型
 巢状 - 内嵌
 安插 - 插入
+
+本笔记很多文字是直接通过OCR识别扫描版PDF得到的，所以可能会有一些错误，不过不影响阅读，很多英文括号识别成了中文括号，请读者自行注意，重难点部分的笔记已经经过了本人的勘误，但难免有漏网之鱼，因时间有限，敬请谅解。
