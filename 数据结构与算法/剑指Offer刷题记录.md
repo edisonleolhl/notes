@@ -989,3 +989,707 @@ void Print1ToMaxOfNDigits(int n){
     }
 }
 ```
+
+### 面试题18：删除链表的节点
+
+题目：给定单向链表的头指针和一个结点指针，定义一个函数在0（1）时间删除该结点。
+
+在单向链表中删除一个结点，最常规的做法无疑是从链表的头结点开始，顺序遍历查找要删除的结点，并在链表中删除该结点。
+
+之所以需要从头开始查找，是因为我们需要得到将被删除的结点的前面一个结点。在单向链表中，结点中没有指向前一个结点的指针，所以只好从链表的头结点开始顺序查找。
+
+那是不是一定需要得到被删除的结点的前一个结点呢？答案是否定的。我们可以很方便地得到要删除的结点的一下结点。如果我们把下一个结点的内容复制到需要删除的结点上覆盖原有的内容，再把下一个结点删除，那是不是就相当于把当前需要删除的结点删除了？
+
+### 删除链表中的重复节点
+
+在一个排序的链表中，存在重复的结点，请删除该链表中重复的结点，重复的结点不保留，返回链表头指针。 例如，链表1->2->3->3->4->4->5 处理后为 1->2->5
+
+第一次尝试理解错了题意，以为是重复的删除，还保留一项，所以代码是这样写的
+
+```c++
+/*
+struct ListNode {
+    int val;
+    struct ListNode *next;
+    ListNode(int x) :
+        val(x), next(NULL) {
+    }
+};
+*/
+class Solution {
+public:
+    ListNode* deleteDuplication(ListNode* pHead)
+    {
+        if(pHead == nullptr) return pHead;
+        ListNode* pCur = pHead;
+        ListNode* pNext = pHead->next;
+        ListNode* pTemp = nullptr;
+        while(pNext != nullptr){
+            if(pCur->val == pNext->val){
+                pCur->next = pNext->next;
+                pTemp = pNext;
+                delete pTemp;
+                pNext = pCur->next;
+            }
+            else{
+                pCur = pNext;
+                pNext = pNext->next;
+            }
+        }
+        return pHead;
+    }
+};
+```
+
+没有通过测试用例
+
+```c++
+用例:
+{1,2,3,3,4,4,5}
+
+对应输出应该为:
+
+{1,2,5}
+
+你的输出为:
+
+{1,2,3,4,5}
+```
+
+经过一些修改，代码如下，可通过，但感觉不够优美，链表的题目要考虑各种情况，需要很细心！
+
+```c++
+/*
+struct ListNode {
+    int val;
+    struct ListNode *next;
+    ListNode(int x) :
+        val(x), next(NULL) {
+    }
+};
+*/
+class Solution {
+public:
+    ListNode* deleteDuplication(ListNode* pHead)
+    {
+        if(pHead == nullptr) return pHead;
+        if(pHead->next == nullptr) return pHead;
+        ListNode* pPre = nullptr;
+        ListNode* pCur = pHead;
+        ListNode* pNext = pHead->next;
+        ListNode* pTemp = nullptr;
+        while(pNext != nullptr){
+            if(pCur->val == pNext->val){
+                while(pCur->val == pNext->val){
+                    pCur->next = pNext->next;
+                    pTemp = pNext;
+                    delete pTemp;
+                    pNext = pCur->next;
+                    if(pNext == nullptr){
+                        if(pPre == nullptr){
+                            pHead = nullptr;
+                        }
+                        else{
+                            pPre->next = nullptr;
+                        }
+                        return pHead;
+                    }
+                }
+                if(pPre == nullptr){
+                    pHead = pNext;
+                }
+                else{
+                    pPre->next = pNext;
+                }
+                pCur = pNext;
+                pNext = pCur->next;
+            }
+            else{
+                pPre = pCur;
+                pCur = pNext;
+                pNext = pNext->next;
+            }
+        }
+        return pHead;
+    }
+};
+```
+
+### 面试题19：正则表达式匹配
+
+请实现一个函数用来匹配包括'.'和'`*`'的正则表达式。模式中的字符'.'表示任意一个字符，而'`*`'表示它前面的字符可以出现任意次（包含0次）。 在本题中，匹配是指字符串的所有字符匹配整个模式。例如，字符串"aaa"与模式"a.a"和"`ab*ac*a`"匹配，但是与"aa.a"和"`ab*a`"均不匹配
+
+第一次尝试：
+
+```c++
+class Solution {
+public:
+    bool match(char* str, char* pattern)
+    {
+        if(str == nullptr || pattern == nullptr) return false;
+        if(*str == '\0' && *pattern == '\0') return true;
+        while(*str != '\0' && *pattern != '\0'){
+            if(*(pattern+1) == '*'){
+                if(*pattern = '.' || *str == *pattern){
+                    while(*str == *(str+1)){
+                        ++str;
+                    }
+                    ++str;
+                }
+                ++++pattern;
+            }
+            else if(*pattern == '.'){
+                ++str;
+                ++pattern;
+            }
+            else if(*str != *pattern){
+                return false;
+            }
+            else{
+                ++str;
+                ++pattern;
+            }
+        }
+        if(*str == '\0' && *pattern == '\0'){
+            return true;
+        }
+        return false;
+    }
+};
+```
+
+对于测试用例：`""`,`".*"`，没法通过，原因是我的代码让`*`把`'`匹配完了，而实际上`*`是可以匹配**任意**多个字符的，这个测试用例`*`匹配0个字符即可
+
+看来自己想的还是有疏忽，关键在于`*`的匹配次数，很明显这里不能用线性的循环去做，应该要用迭代的方式去进行，应该用到了回溯法的思想
+
+完整思路：
+
+当模式中的第二个字符不是“*”时：
+
+1、如果字符串第一个字符和模式中的第一个字符相匹配，那么字符串和模式都后移一个字符，然后匹配剩余的。match(str+1, pattern+1)
+
+2、如果 字符串第一个字符和模式中的第一个字符相不匹配，直接返回false。
+
+而当模式中的第二个字符是“*”时：如果字符串第一个字符跟模式第一个字符不匹配，则模式后移2个字符，继续匹配。如果字符串第一个字符跟模式第一个字符匹配，可以有3种匹配方式：
+
+1、模式后移2字符，相当于x*被忽略；match(str, pattern+2)
+
+2、字符串后移1字符，模式后移2字符；match(str+1, pattern+2)
+
+3、字符串后移1字符，模式不变，即继续匹配字符下一位，因为*可以匹配多位；match(str+1, pattern)
+
+注意到，第一个字符为空，第二个字符不空，还是可能匹配成功的，比如第二个字符串是`a*a*a*a*`”`,由于‘*’之前的元素可以出现0次，所以有可能匹配成功
+
+```c++
+class Solution {
+public:
+    bool match(char* str, char* pattern)
+    {
+        if(str == nullptr || pattern == nullptr) return false;
+        if(*str == '\0' && *pattern == '\0') return true;
+        if(*str != '\0' && *pattern == '\0') return false;
+        if(*(pattern+1) == '*'){
+            if((*str != '\0' && *pattern == '.') || *str == *pattern){
+                return match(str, pattern+2) || match(str+1, pattern) || match(str+1, pattern+2);
+            }
+            else{
+                return match(str, pattern+2);
+            }
+        }
+        else{
+            if((*str != '\0' && *pattern == '.') || *str == *pattern){
+                return match(str+1, pattern+1);
+            }
+        }
+        return false;
+    }
+};
+```
+
+### 面试题20：表示数值的字符串
+
+请实现一个函数用来判断字符串是否表示数值（包括整数和小数）。例如，字符串"+100","5e2","-123","3.1416"和"-1E-16"都表示数值。 但是"12e","1a3.14","1.2.3","+-5"和"12e+4.3"都不是。
+
+思路：首先要想到所有的情况，然后进行分类讨论。-123.45e-67
+
++-号后面必定为数字或后面为.（-.123 = -0.123）
++-号只出现在第一位或在eE的后一位
+.后面必定为数字或为最后一位（233. = 233.0）
+eE后面必定为数字或+-号
+
+```c++
+class Solution {
+public:
+    bool isNumeric(char* string)
+    {
+        if(string == nullptr || *string == '\0') return false;
+        if(*string == '+' || *string == '-') ++string;
+        bool isPreNum = scanUnsignedInterger(&string);
+        // 小数部分
+        if(*string == '.'){
+            ++string;
+            // 用|| 的原因
+            // 1. 小数可以没有整数部分，.123
+            // 2. 小数点后面可以没有数字， 233.
+            // 3. 小数点前后都可以有数字
+            isPreNum = scanUnsignedInterger(&string) || isPreNum;
+        }
+        // 指数部分
+        if(*string == 'e' || *string == 'E'){
+            ++string;
+            // 用&&的原因
+            // 1. e/E前面没有数字时，非法，.e1、e1
+            // 2. e/E后面没有整数时，非法，12e、12e+5.4
+            if(*string == '+' || *string == '-') ++string;
+            isPreNum = isPreNum && scanUnsignedInterger(&string);
+        }
+        return isPreNum && *string == '\0';
+    }
+    bool scanUnsignedInterger(char** string){
+        bool flag = false;
+        while(**string != '\0' && **string >= '0' && **string <= '9'){
+            ++(*string);
+            flag = true;
+        }
+        return flag;
+    }
+};
+```
+
+### 面试题21：调整数组顺序使奇数位于偶数前面
+
+输入一个整数数组，实现一个函数来调整该数组中数字的顺序，使得所有的奇数位于数组的前半部分，所有的偶数位于数组的后半部分，并保证奇数和奇数，偶数和偶数之间的相对位置不变。（书上的源尸体没有相对位置不变这个限制）
+
+原题没有“并保证奇数和奇数，偶数和偶数之间的相对位置不变”这一限制，最好的方法就是用双指针法，类似快速排序中的partition的做法，两个指针一个从左往右，一个从右往左，都找到第一个需要调换的位置，如果两个指针交叉则结束，这种方法很容易扩展，只需要把判断奇偶性的做法单独拎出来成一个函数，可以实现各种效果，比如所有负数在前面，所有非负数在后面；比如能被3整除的在前面，能被3整除的在后面
+
+```c++
+class Solution {
+public:
+    void reOrderArray(vector<int> &array) {
+        if(array.empty()) return;
+        int len = array.size();
+        int low = 0;
+        int high = len - 1;
+        while(low < high){
+            while(low < high && (array[low] & 1) == 1){
+                ++low;
+            }
+            while(low < high && (array[high] & 1) == 0){
+                --high;
+            }
+            if(low >= high){
+                break;
+            }
+            swap(array[low], array[high]);
+            ++low;
+            --high;
+        }
+    }
+};
+
+但是如果有了稳定性的限制，这种双指针法就不奏效了，这种类似快速排序的partition做法是典型的不稳定性的
+
+针对牛客网的题目，第一次尝试，构建O(n)的辅助数组，把原数组复制进来，定义指针low与high，分别指向数组要存放的奇数和偶数，low从0开始，high从len-1开始，对辅助数组一次遍历，每次判断奇偶性，若为奇数，则放在array[low]，low自增，若为奇数，则放在array[high]，high自减，为了保持偶数之间的相对位置不变，最后需要对偶数翻转，这种做法空间复杂度为O(n)，时间复杂度为O(n)
+
+```c++
+class Solution {
+public:
+    void reOrderArray(vector<int> &array) {
+        if(array.empty()) return;
+        int len = array.size();
+        vector<int> temp;
+        for(int i = 0; i < len; ++i){
+            temp.push_back(array[i]);
+        }
+        int low = 0;
+        int high = len - 1;
+        for(int i = 0; i < len; ++i){
+            if((temp[i] & 1) == 0){ // 位运算求奇偶性，必须要有括号，否则先判断1==0
+                array[high] = temp[i];
+                --high;
+            }
+            else{
+                array[low] = temp[i];
+                ++low;
+            }
+        }
+        reverse(array.begin()+low, array.end());
+    }
+};
+```
+
+还有一种方法，需要用时O(n^2)，但只需要O(1)辅助空间，一次遍历，每次碰到偶数，把它放到数组后面去，这样复杂度很高，vector数组需要借助erase和insert方法进行，由于时间复杂度很高，这种方法在牛客网超时了
+
+```c++
+class Solution {
+public:
+    void reOrderArray(vector<int> &array) {
+        if(array.empty()) return;
+        auto it = array.begin();
+        auto end = array.end();
+        int temp = 0;
+        while(it != end){
+            if((*it & 1) == 0){
+                temp = *it;
+                it = array.erase(it);
+                array.push_back(temp);
+                continue;
+            }
+            ++it;
+        }
+    }
+};
+```
+
+仔细思考了一下原因，发现这里有个很常见的错误：**删除元素后迭代器失效**，while循环的判断条件应该改成`it != array.end()`才行
+
+再提交了一下还是出错，在IDE里面debug时才发现，陷入了死循环！因为每次会把偶数插入在数组后面，迭代器又会访问它们，所以无穷无尽！
+
+正确代码如下
+
+```c++
+class Solution {
+public:
+    void reOrderArray(vector<int> &array) {
+        if(array.empty()) return;
+        auto it = array.begin();
+        int temp = 0;
+        int count = array.size();
+        while(count > 0 && it != array.end()){
+            --count;
+            if((*it & 1) == 0){
+                temp = *it;
+                it = array.erase(it);
+                array.push_back(temp);
+                continue;
+            }
+            ++it;
+        }
+    }
+};
+```
+
+## 代码的鲁棒性
+
+代码的鲁棒性鲁棒是英文Robust的音译，有时也翻译成健壮性。所谓的鲁棒性是指程序能够判断输入是否合乎规范要求，并对不合要求的输入予以合理的处理。
+
+容错性是鲁棒性的一个重要体现。不鲁棒的软件在发生异常事件的时候，比如用户输入错误的用户名、试图打开的文件不存在或者网络不能连接，就会出现不可预见的诡异行为，或者干脆整个软件崩溃。这样的软件对于用户而言，不亚于一场灾难。
+
+由于鲁棒性对软件开发非常重要，面试官在招聘的时候对应聘者写出的代码是否鲁棒也非常关注。提高代码的鲁棒性的有效途径是进行防御性编程。防御性编程是一种编程习惯，是指预见在什么地方可能会出现问题，并为这些可能出现的问题制定处理方式。比如试图打开文件时发现文件不存在，我们可以提示用户检查文件名和路径；当服务器连接不上时，我们可以试图连接备用服务器等。这样当异常情况发生时，软件的行为也尽在我们的掌握之中，而不至于出现不可预见的事情。
+
+在面试时，最简单也最实用的防御性编程就是在函数入口添加代码以验证用户输入是否符合要求。通常面试要求的是写一两个函数，我们需要格外关注这些函数的输入参数。如果输入的是一个指针，那指针是空指针怎么办？如果输入的是一个字符串，那么字符串的内容为空怎么办？如果能把这些问题都提前考虑到，并做相应的处理，那么面试官就会觉得我们有防御性编程的习惯，能够写出鲁棒的软件。
+
+当然并不是所有与鲁棒性相关的问题都只是检查输入的参数这么简单。我们看到问题的时候，要多问几个“如果不 那么。…”这样的问题。比如面试题15“链表中倒数第k个结点”，这里隐含着一个条件就是链表中结点的个数大于k。我们就要问如果链表中的结点的数目不是大于k个，那么代码会出什么问题？这样的思考方式能够帮助我们发现潜在的问题并提前解决问题。这比让面试官发现问题之后我们再去慌忙分析代码查找问题的根源要好得多。
+
+### 面试题22：链表中倒数第k个结点
+
+输入一个链表，输出该链表中倒数第k个结点。
+
+第一把就AC了！难得啊！这里用到了栈，辅助空间O(n)，
+
+```c++
+/*
+struct ListNode {
+    int val;
+    struct ListNode *next;
+    ListNode(int x) :
+            val(x), next(NULL) {
+    }
+};*/
+class Solution {
+public:
+    ListNode* FindKthToTail(ListNode* pListHead, unsigned int k) {
+        if(pListHead == nullptr) return nullptr;
+        if(k <= 0) return nullptr;
+        stack<ListNode*> stack;
+        ListNode* pCur = pListHead;
+        while(pCur != nullptr){
+            stack.push(pCur);
+            pCur = pCur->next;
+        }
+        while(!stack.empty() && k > 0){
+            if(k == 1){
+                return stack.top();
+            }
+            stack.pop();
+            --k;
+        }
+        return nullptr;
+    }
+};
+```
+
+但看了解答之后才发现，有一种更巧妙的快慢指针法。
+
+为了实现只遍历链表一次就能找到倒数第k个结点，我们可以定义两个指针。第一个指针从链表的头指针开始遍历向前走k-1，第二个指针保持不动；从第k步开始，第二个指针也开始从链表的头指针开始遍历。由于两个指针的距离保持在k-1，当第一个（走在前面的）指针到达链表的尾结点时，第二个指针（走在后面的）指针正好是倒数第k个结点。
+
+```c++
+/*
+struct ListNode {
+    int val;
+    struct ListNode *next;
+    ListNode(int x) :
+            val(x), next(NULL) {
+    }
+};*/
+class Solution {
+public:
+    ListNode* FindKthToTail(ListNode* pListHead, unsigned int k) {
+        if(pListHead == nullptr) return nullptr;
+        if(k <= 0) return nullptr;
+        ListNode* slow = pListHead;
+        ListNode* fast = pListHead;
+        int count = 0;
+        while(fast != nullptr){
+            fast = fast->next;
+            ++count;
+            if(count > k){
+                slow = slow->next;
+            }
+        }
+        if(count < k){
+            return nullptr;
+        }
+        return slow;
+    }
+};
+```
+
+### 面试23：链表中环的入口结点
+
+给一个链表，若其中包含环，请找出该链表的环的入口结点，否则，输出null。
+
+第一次尝试就AC了！不过用到了unordered_set这种哈希表结构，需要辅助空间O(n)，代码倒是非常简洁易懂
+
+```c++
+/*
+struct ListNode {
+    int val;
+    struct ListNode *next;
+    ListNode(int x) :
+        val(x), next(NULL) {
+    }
+};
+*/
+class Solution {
+public:
+    ListNode* EntryNodeOfLoop(ListNode* pHead)
+    {
+        if(pHead == nullptr) return nullptr;
+        unordered_set<ListNode*> set;
+        ListNode* pCur = pHead;
+        while(pCur != nullptr && set.find(pCur) == set.end()){
+            set.insert(pCur);
+            pCur = pCur->next;
+        }
+        if(pCur == nullptr){
+            return nullptr;
+        }
+        else{
+            return pCur;
+        }
+        return nullptr;
+    }
+};
+```
+
+接下来当然是考虑O(1)空间复杂度的解法，同样也可以用快慢指针做，具体分为以下三步：
+
+1.判断链表中有环，利用两个指针，一块一慢，快指针每次走两步，最后相遇的节点一定在环中，若到末尾还不相遇，则没有环
+
+2.得到环中节点的数目，相遇的节点在环中，从当前开始计数，走了多少步回来，就是环中节点的数目k
+
+3.找到环中的入口节点，再让两个指针从头开始，其中一个指针先走k步（有点类似上一题链表倒数第k个节点），然后两者一起出发，相遇点即为环的入口
+
+教材上的做法是把找逻辑分成两个函数，其中一个辅助函数用来返回快慢指针相遇的节点，如果不会相遇也就没环，则返回nullptr，然后针对是否有环执行上面的第2步、第3步，我这种做法放在一起了，更加紧凑，但也难懂一点
+
+```c++
+class Solution {
+public:
+    ListNode* EntryNodeOfLoop(ListNode* pHead)
+    {
+        if(pHead == nullptr) return nullptr;
+        if(pHead->next == nullptr) return nullptr;
+        ListNode* fast = pHead->next;
+        ListNode* slow = pHead;
+        int count = 0;
+        bool hasMet = false;
+        while(fast != nullptr && fast->next != nullptr){
+            if(slow == fast){
+                if(hasMet){
+                    break;
+                }
+                else{
+                    hasMet = true;
+                }
+            }
+            slow = slow->next;
+            if(hasMet){
+                ++count;
+            }
+            else{
+                fast = fast->next->next;
+            }
+        }
+        if(hasMet){
+            fast = pHead;
+            slow = pHead;
+            while(count > 0){
+                fast = fast->next;
+                --count;
+            }
+            while(slow != fast){
+                slow = slow->next;
+                fast = fast->next;
+            }
+            return slow;
+        }
+        return nullptr;
+    }
+};
+```
+
+### 面试题24：反转链表
+
+输入一个链表，反转链表后，输出新链表的表头。
+
+一次遍历就可以搞定吧，三个变量，next节点也必须知道，不然会断裂
+
+```c++
+/*
+struct ListNode {
+    int val;
+    struct ListNode *next;
+    ListNode(int x) :
+            val(x), next(NULL) {
+    }
+};*/
+class Solution {
+public:
+    ListNode* ReverseList(ListNode* pHead) {
+        if(pHead == nullptr) return nullptr;
+        if(pHead->next == nullptr) return pHead;
+        ListNode* pPre = pHead;
+        ListNode* pCur = pPre->next;
+        ListNode* pNext = pCur->next;
+        pPre->next = nullptr;
+        while(pCur != nullptr){
+            pCur->next = pPre;
+            pPre = pCur;
+            pCur = pNext;
+            if(pCur == nullptr){
+                break;
+            }
+            pNext = pCur->next;
+        }
+        return pPre;
+    }
+};
+```
+
+在面试的过程中，我们发现应聘者的代码中经常出现如下3种问题：
+
+输入的链表头指针为NULL或者整个链表只有一个结点时，程序立即崩溃。
+
+反转后的链表出现断裂。
+
+返回的反转之后的头结点不是原始链表的尾结点。（第一次提交时就犯了这个错误，输出的是pCur，而pCur已经是nullptr了）
+
+### 面试题25：合并两个排序的链表
+
+输入两个单调递增的链表，输出两个链表合成后的链表，当然我们需要合成后的链表满足单调不减规则。
+
+这是一个经常被各公司采用的面试题。在面试过程中，我们发现应聘者最容易犯两种错误：一是在写代码之前没有对合并的过程想清楚，最终合并出来的链表要么中间断开了要么并没有做到递增排序；二是代码在鲁棒性方面存在问题，程序一旦有特殊的输入（如空链表）就会崩溃。
+
+我的做法是在while循环内判断，把小的接在cur后面，然后cur移到小的节点上去，pHeadx后移，直至到头，可以直接另一方剩下的接到cur后面，这种做法自认为还不错，书本用了递归，我觉得我的这种循环足够清晰了，没必要递归
+
+```c++
+/*
+struct ListNode {
+    int val;
+    struct ListNode *next;
+    ListNode(int x) :
+            val(x), next(NULL) {
+    }
+};*/
+class Solution {
+public:
+    ListNode* Merge(ListNode* pHead1, ListNode* pHead2)
+    {
+        if(pHead1 == nullptr) return pHead2;
+        if(pHead2 == nullptr) return pHead1;
+        ListNode* head = nullptr;
+        ListNode* pCur = nullptr;
+        if(pHead1->val < pHead2->val){
+            head = pHead1;
+            pCur = head;
+            pHead1 = pHead1->next;
+        }
+        else{
+            head = pHead2;
+            pCur = head;
+            pHead2 = pHead2->next;
+        }
+        while(pHead1 != nullptr && pHead2 != nullptr){
+            if(pHead1->val < pHead2->val){
+                pCur->next = pHead1;
+                pCur = pHead1;
+                pHead1 = pHead1->next;
+            }
+            else{
+                pCur->next = pHead2;
+                pCur = pHead2;
+                pHead2 = pHead2->next;
+            }
+        }
+        if(pHead1 != nullptr){
+            pCur->next = pHead1;
+        }
+        if(pHead2 != nullptr){
+            pCur->next = pHead2;
+        }
+        return head;
+    }
+};
+```
+
+### 面试题26：树的子结构
+
+输入两棵二叉树A，B，判断B是不是A的子结构。（ps：我们约定空树不是任意一个树的子结构）
+
+递归啊！！！！！！我这猪脑子怎么每次写不对递归！！！
+
+```c++
+/*
+struct TreeNode {
+    int val;
+    struct TreeNode *left;
+    struct TreeNode *right;
+    TreeNode(int x) :
+            val(x), left(NULL), right(NULL) {
+    }
+};*/li
+class Solution {
+public:
+    bool HasSubtree(TreeNode* pRoot1, TreeNode* pRoot2)
+    {
+        if(pRoot1 == nullptr || pRoot2 == nullptr) return false;
+        bool flag = false;
+        if(pRoot1->val == pRoot2->val){
+            flag = DoesTree1HaveTree2(pRoot1, pRoot2);
+        }
+        if(!flag){
+            flag = HasSubtree(pRoot1->left, pRoot2) || HasSubtree(pRoot1->right, pRoot2);
+        }
+        return flag;
+    }
+    bool DoesTree1HaveTree2(TreeNode* pRoot1, TreeNode* pRoot2){
+        if(pRoot2 == nullptr) return true;
+        if(pRoot1 == nullptr) return false;
+        if(pRoot1->val == pRoot2->val){
+            return DoesTree1HaveTree2(pRoot1->left, pRoot2->left) && DoesTree1HaveTree2(pRoot1->right, pRoot2->right);
+        }
+        return false;
+    }
+};
+```
