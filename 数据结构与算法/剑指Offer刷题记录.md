@@ -363,6 +363,44 @@ public:
 };
 ```
 
+### 面试题8：二叉树的下一个节点
+
+给定一个二叉树和其中的一个结点，请找出中序遍历顺序的下一个结点并且返回。注意，树中的结点不仅包含左右子结点，同时包含指向父结点的指针。
+
+思路：如果当前节点有右子树，那么下一个节点就是其右子树整棵树中最左的节点；当前节点没有右子树，如果当前节点是左儿子，则下一个节点就是其父亲；如果当前节点是右儿子，则判断父亲是否为左儿子，若为左儿子，则返回父亲，若是右儿子，则把当前节点设为父亲节点，继续往上判断，若直到根节点还没找到，则当前节点没有下一个节点
+
+```c++
+class Solution {
+public:
+    TreeLinkNode* GetNext(TreeLinkNode* pNode)
+    {
+        TreeLinkNode* nextNode;
+        if(pNode->right){
+            nextNode = pNode->right;
+            while(nextNode->left){
+                nextNode = nextNode->left;
+            }
+            return nextNode;
+        }
+        // pNode is has no right subtree
+        if(!pNode->next) return nullptr;
+        nextNode = pNode->next;
+        // if pNode is left child
+        if(pNode == nextNode->left){
+            return nextNode;
+        }
+        // if pNode is right child
+        while(nextNode->next && nextNode == nextNode->next->right){
+            nextNode = nextNode->next;
+        }
+        if(!nextNode->next){
+            return nullptr; // now nextNode is root, so no next node
+        }
+        return nextNode->next;
+    }
+};
+```
+
 ## 栈和队列
 
 栈是一个非常常见的数据结构，它在计算机领域中被广泛应用，比如操作系统会给每个线程创建一个栈用来存储函数调用时各个函数的参数、返回地址及临时变量等。栈的特点是后进先出，即最后被压入（push）栈的元素会第一个被弹出（pop），在面试题22“栈的压入、弹出序列”中，我们再详细分析进栈和出栈序列的特点。
@@ -371,7 +409,7 @@ public:
 
 队列是另外一种很重要的数据结构。和栈不同的是，队列的特点是先进先出，即第一个进入队列的元素将会第一个出来。在2.3.4节介绍的树的宽度优先遍历算法中，我们在遍历某一层树的结点时，把结点的子结点放到一个队列里，以备下一层结点的遍历。详细的代码参见面试题23“从上
 
-### 面试题7：用两个栈实现队列
+### 面试题9：用两个栈实现队列
 
 题目：用两个栈实现一个队列。队列的声明如下，请实现它的两个函数appendTail和deleteHead，分别完成在队列尾部插入结点和在队列头部删除结点的功能。
 
@@ -1668,7 +1706,7 @@ struct TreeNode {
     TreeNode(int x) :
             val(x), left(NULL), right(NULL) {
     }
-};*/li
+};*/
 class Solution {
 public:
     bool HasSubtree(TreeNode* pRoot1, TreeNode* pRoot2)
@@ -1690,6 +1728,427 @@ public:
             return DoesTree1HaveTree2(pRoot1->left, pRoot2->left) && DoesTree1HaveTree2(pRoot1->right, pRoot2->right);
         }
         return false;
+    }
+};
+```
+
+## 画图让抽象问题形象化
+
+### 面试题27：二叉树的镜像
+
+操作给定的二叉树，将其变换为源二叉树的镜像。
+
+思路：交换左右儿子再左右递归即可，书上给的代码略微臃肿，我在牛客网的代码第一次就AC了，应该没问题
+
+```c++
+class Solution {
+public:
+    void Mirror(TreeNode *pRoot) {
+        if(pRoot == nullptr) return;
+        swap(pRoot->left, pRoot->right);
+        Mirror(pRoot->left);
+        Mirror(pRoot->right);
+    }
+};
+```
+
+如果不给用迭代要怎么办呢，单单只用一个while循环是没法做到的，因为二叉树不是线性的，要分叉，可以使用一个队列辅助完成，这有点像BFS的味道了
+
+```c++
+class Solution {
+public:
+    void Mirror(TreeNode *pRoot) {
+        if(pRoot == nullptr) return;
+        queue<TreeNode*> q;
+        q.push(pRoot);
+        TreeNode* tempNode;
+        while(!q.empty()){
+            tempNode = q.front();
+            q.pop();
+            swap(tempNode->left, tempNode->right);
+            if(tempNode->left != nullptr){
+                q.push(tempNode->left);
+            }
+            if(tempNode->right != nullptr){
+                q.push(tempNode->right);
+            }
+        }
+    }
+};
+```
+
+当然也可以用栈来模拟DFS
+
+```c++
+class Solution {
+public:
+    void Mirror(TreeNode *pRoot) {
+        if(pRoot == nullptr) return;
+        stack<TreeNode*> s;
+        s.push(pRoot);
+        TreeNode* tempNode;
+        while(!s.empty()){
+            tempNode = s.top();
+            s.pop();
+            swap(tempNode->left, tempNode->right);
+            if(tempNode->left != nullptr){
+                s.push(tempNode->left);
+            }
+            if(tempNode->right != nullptr){
+                s.push(tempNode->right);
+            }
+        }
+    }
+};
+```
+
+### 面试题28：对称的二叉树
+
+请实现一个函数，用来判断一颗二叉树是不是对称的。注意，如果一个二叉树同此二叉树的镜像是同样的，定义其为对称的。
+
+思路：画图观察对称的二叉树，发现稍稍改动遍历方法就可以实现要求，在这里选择前序遍历，遍历顺序是当前节点-左儿子-右儿子，而对称的前序遍历顺序是当前节点-右儿子-左儿子
+
+书本代码并没有用到辅助数组空间，而是递归，，每次递归检查同样深度的对称的两项，这种思路我刚开始没想到，递归也可以传入两个节点，比较后再递归子节点
+
+```c++
+class Solution {
+public:
+    bool isSymmetrical(TreeNode* pRoot)
+    {
+        return helper(pRoot, pRoot);
+    }
+    bool helper(TreeNode* pRoot1, TreeNode* pRoot2){
+        if(pRoot1 == nullptr && pRoot2 == nullptr) return true;
+        if(pRoot1 == nullptr || pRoot2 == nullptr) return false;
+        if(pRoot1->val != pRoot2->val) return false;
+        return helper(pRoot1->left, pRoot2->right) && helper(pRoot1->right, pRoot2->left);
+    }
+};
+```
+
+同理这里也可以用queue模拟的BFS来做，这样就从迭代改为了循环，入队和出队都是两个元素一起
+
+```c++
+class Solution {
+public:
+    bool isSymmetrical(TreeNode* pRoot)
+    {
+        if(pRoot == nullptr) return true;
+        queue<TreeNode*> q;
+        q.push(pRoot->left);
+        q.push(pRoot->right);
+        TreeNode* temp1 = nullptr;
+        TreeNode* temp2 = nullptr;
+        while(!q.empty()){
+            temp1 = q.front();
+            q.pop();
+            temp2 = q.front();
+            q.pop();
+            if(temp1 == nullptr && temp2 == nullptr) continue;
+            if(temp1 == nullptr || temp2 == nullptr) return false;
+            if(temp1->val != temp2->val) return false;
+            q.push(temp1->left);
+            q.push(temp2->right);
+            q.push(temp1->right);
+            q.push(temp2->left);
+        }
+        return true;
+    }
+};
+```
+
+### 面试题29：顺时针打印矩阵
+
+输入一个矩阵，按照从外向里以顺时针的顺序依次打印出每一个数字，例如，如果输入如下4 X 4矩阵： 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 则依次打印出数字1,2,3,4,8,12,16,15,14,13,9,5,6,7,11,10.
+
+思路：没别的，从外圈向内圈打印，注意边界情况！！！！
+
+```c++
+class Solution {
+public:
+    vector<int> printMatrix(vector<vector<int> > matrix) {
+        vector<int> res;
+        int row = matrix.size();
+        if(row == 0) return res;
+        int col = matrix[0].size();
+        if(col == 0) return res;
+        int left = 0;
+        int right = col - 1;
+        int up = 0;
+        int down = row - 1;
+        int i, j;
+        while(left <= right && up <= down){
+            for(i = up, j = left; i <= down && j <= right; ++j){
+                res.push_back(matrix[i][j]);
+            }
+            ++up;
+            for(i = up, j = right; i <= down && j >= left; ++i){
+                res.push_back(matrix[i][j]);
+            }
+            --right;
+            for(i = down, j = right; i >= up && j >= left; --j){
+                res.push_back(matrix[i][j]);
+            }
+            --down;
+            for(i = down, j = left; i >= up && j <= right; --i){
+                res.push_back(matrix[i][j]);
+            }
+            ++left;
+        }
+        return res;
+    }
+};
+```
+
+### 面试题30：包含min函数的栈
+
+定义栈的数据结构，请在该类型中实现一个能够得到栈中所含最小元素的min函数（时间复杂度应为O（1））。书上更要求min、push、pop的时间复杂度都为O(1)
+
+首先想到，每压入一个元素就对所有元素排序，但是不符合栈的后进先出的原则；然后想到用一个变量来存储当前最小值，但是当恰好pop这个值时，没法直到次小值；于是我们要把次小值也存储起来，可以创建一个辅助栈，每当压入一个元素，辅助栈压入当前最小值（可能是新元素，也有可能是原来的辅助栈栈顶元素），每当弹出一个元素时，栈与辅助栈同步弹出
+
+```c++
+class Solution {
+public:
+    void push(int value) {
+        s.push(value);
+        if(aux_s.empty() || value < aux_s.top()){
+            aux_s.push(value);
+        }
+        else{
+            aux_s.push(aux_s.top());
+        }
+    }
+    void pop() {
+        if(s.empty()) return;
+        s.pop();
+        aux_s.pop();
+    }
+    int top() {
+        return s.top();
+    }
+    int min() {
+        return aux_s.top();
+    }
+private:
+    stack<int> s, aux_s;
+};
+```
+
+### 面试题31：栈的压入、弹出序列
+
+输入两个整数序列，第一个序列表示栈的压入顺序，请判断第二个序列是否可能为该栈的弹出顺序。假设压入栈的所有数字均不相等。例如序列1,2,3,4,5是某栈的压入顺序，序列4,5,3,2,1是该压栈序列对应的一个弹出序列，但4,3,5,1,2就不可能是该压栈序列的弹出序列。（注意：这两个序列的长度是相等的）
+
+发现：每次弹出某一元素，下次弹出的元素要么是正好在它之前压入的，要么是之后任意一次压入的，所以可以用pre_pop作为上次弹出的元素在压入序列中的序号，然后每次弹出时比较
+
+```c++
+class Solution {
+public:
+    bool IsPopOrder(vector<int> pushV,vector<int> popV) {
+        if(pushV.empty() || popV.empty() || pushV.size() != popV.size()) return false;
+        int pre_pop = -1; // small enough for the first time
+        for(int i = 0; i < popV.size(); ++i){
+            for(int j = 0; j < pushV.size(); ++j){
+                if(popV[i] != pushV[j]) continue;
+                if(j < pre_pop - 1) return false;
+                pre_pop = j;
+                pushV.erase(pushV.begin() + j);
+                break;
+            }
+        }
+        if(!pushV.empty()) return false;
+        return true;
+    }
+};
+```
+
+书上的解答用到了辅助栈，把第一序列的元素依次压栈，但是并不是依次压完，压到第二序列首元素即可，然后按照第二序列的顺序依次从辅助栈中弹出元素：若下一个弹出的元素刚好是栈顶元素，则直接弹出，若不是，则把第一序列还未压完的元素顺序压栈，直到遇见要弹出的元素；如果所有元素压栈后还没遇见要弹出的元素，则说明不是弹出序列，返回false即可。但感觉书上的代码略微臃肿
+
+```c++
+class Solution {
+public:
+    bool IsPopOrder(vector<int> pushV,vector<int> popV) {
+        if(pushV.empty() || popV.empty() || pushV.size() != popV.size()) return false;
+        stack<int> s;
+        s.push(pushV[0]);
+        int i = 1, j = 0;
+        while(j < popV.size()){
+            while(s.top() != popV[j]){
+                if(i == pushV.size()) return false;
+                s.push(pushV[i]);
+                ++i;
+            }
+            s.pop();
+            ++j;
+        }
+        return true;
+    }
+};
+```
+
+### 面试题32：从上到下打印二叉树
+
+#### 题目一：不分行从上到下打印二叉树
+
+从上到下，从左到右打印二叉树，同一层节点按照从左到右的顺序打印，不分行
+
+思路：很明显，这就是一个层序遍历，因为不分行，所以不用管当前是在第几层，可以用queue模拟BFS解决，因牛客网没题目，我自己造了测试用例，完成效果
+
+```c++
+void LayerTraversal(TreeNode* root){
+    if(root == nullptr) return;
+    queue<TreeNode*> q;
+    q.push(root);
+    TreeNode* temp;
+    while(!q.empty()){
+        temp = q.front();
+        q.pop();
+        if(temp->left != nullptr) q.push(temp->left);
+        if(temp->right != nullptr) q.push(temp->right);
+        cout << temp->val << " ";
+    }
+}
+```
+
+#### 题目二：分行从上到下打印二叉树
+
+在题目一的基础上拓展，要求每一层打印一行
+
+思路：队列中还保存当前节点在第几层，用到了stl中的pair，从队列头部取出元素时，判断是否和上次打印的元素在不同层，若是则打印换行，我发现我比较喜欢用这种“上一个”的思想。书上是用到了两个变量，一个表示当前层还未打印的节点数，另一个表示下一层的节点数，感觉拓展性没有我的好
+
+```c++
+void LayerTraversalWithNewline(TreeNode* root){
+    if(root == nullptr) return;
+    queue<pair<TreeNode*, int>>q;
+    int layer = 0;
+    q.push(make_pair(root, layer));
+    TreeNode* tempNode = nullptr;
+    int pre_layer = 0;
+    while(!q.empty()){
+        tempNode = q.front().first;
+        layer = q.front().second;
+        if(layer != pre_layer){
+            pre_layer = layer;
+            cout << endl;
+        }
+        q.pop();
+        if(tempNode->left != nullptr) q.push(make_pair(tempNode->left, layer+1));
+        if(tempNode->right != nullptr) q.push(make_pair(tempNode->right, layer+1));
+        cout << tempNode->val << " ";
+    }
+}
+```
+
+#### 题目三：之字形打印二叉树
+
+在题目二的基础上拓展，要求按照之字形换行打印二叉树，也就是第一行按照从左到右打印，换行，第二行从右往左打印，换行，以此类推
+
+思路：用双端队列即可解决，每次换行时，对一个标志位取反，这个标志位决定了后面的操作是前向队列还是后向队列。书上用了两个栈，倒腾来倒腾去，正好符合之字形，也是一个很巧妙的解法
+
+```c++
+void LayerTraversalWithZigzag(TreeNode* root){
+    if(root == nullptr) return;
+    deque<pair<TreeNode*, int>> dq;
+    int cur_layer = 0;
+    int pre_layer = 0;
+    dq.push_back(make_pair(root, cur_layer));
+    TreeNode* tempNode = nullptr;
+    bool isFromLeft = true;
+    while(!dq.empty()){
+        if(isFromLeft){
+            cur_layer = dq.front().second;
+        }
+        else{
+            cur_layer = dq.back().second;
+        }
+        if(cur_layer != pre_layer){
+            pre_layer = cur_layer;
+            cout << endl;
+            isFromLeft = !isFromLeft;
+        }
+        if(isFromLeft){
+            tempNode = dq.front().first;
+            dq.pop_front();
+            if(tempNode->left != nullptr) dq.push_back(make_pair(tempNode->left, cur_layer+1));
+            if(tempNode->right != nullptr) dq.push_back(make_pair(tempNode->right, cur_layer+1));
+            cout << tempNode->val << " ";
+        }
+        else{
+            tempNode = dq.back().first;
+            dq.pop_back();
+            if(tempNode->right != nullptr) dq.push_front(make_pair(tempNode->right, cur_layer+1));
+            if(tempNode->left != nullptr) dq.push_front(make_pair(tempNode->left, cur_layer+1));
+            cout << tempNode->val << " ";
+        }
+
+    }
+}
+```
+
+### 面试题33：二叉搜索树的后序遍历序列
+
+输入一个整数数组，判断该数组是不是某二叉搜索树的后序遍历的结果。如果是则输出Yes,否则输出No。假设输入的数组的任意两个数字都互不相同。
+
+思路：自己举了个例子，发现只需要用分治法即可，根节点是数组最后一个元素，先从数组倒数第二个元素开始，从后往前依次比较与数组最后一个元素，找到第一个小于它的序号i，从0到i这段序列是根节点的左子树后序遍历序列，从i+1到size()-2这段序列是根节点的右子树后序遍历序列，递归这两个子序列即可。那什么时候是要直接返回false呢？那就是从后往前遍历当前序列时，找到了i之后，再往前又发现了大于当前节点的值，很明显这违反BST的性质（左子树都小于当前节点，右子树都大于当前节点）
+
+```c++
+class Solution {
+public:
+    bool VerifySquenceOfBST(vector<int> sequence) {
+        if(sequence.empty()) return false;
+        if(sequence.size() == 1) return true;
+        bool flag = true;
+        int i = sequence.size() - 2;
+        while(i >= 0 && sequence[i] > sequence[sequence.size()-1]) --i;
+        for(int j = i-1; j >= 0; --j){
+            if(sequence[j] > sequence[sequence.size()-1]){
+                return false;
+            }
+        }
+        return helper(sequence, 0, i) && helper(sequence, i+1, sequence.size()-2);
+    }
+    bool helper(vector<int>& sequence, int start, int finish){
+        if(start >= finish) return true;
+        bool flag = true;
+        int i = finish - 1;
+        while(i >= start && sequence[i] > sequence[finish]) --i;
+        for(int j = i-1; j >= start; --j){
+            if(sequence[j] > sequence[finish]){
+                return false;
+            }
+        }
+        return helper(sequence, start, i) && helper(sequence, i+1, finish-1);
+    }
+};
+```
+
+### 面试题34：二叉树中和为某一值的路径
+
+输入一颗二叉树的根节点和一个整数，打印出二叉树中结点值的和为输入整数的所有路径。路径定义为从树的根结点开始往下一直到叶结点所经过的结点形成一条路径。(注意: 在返回值的list中，数组长度大的数组靠前，书上没这个要求)
+
+思路：直接AC？？？我根本没想到。。可能越做越顺手了，但是我没有管数组长度大的更靠前诶。可能没检查这项，毕竟书上没这个要求。借用helper函数递归左右子树，helper函数还需要传入从根节点到当前节点的路径，每次递归时期待和都会减去当前值，所以代码还算精简。
+
+```c++
+class Solution {
+public:
+    vector<vector<int> > FindPath(TreeNode* root,int expectNumber) {
+        vector<vector<int> > res;
+        if(root == nullptr) return res;
+        vector<int> path;
+        path.push_back(root->val);
+        if(!root->left && !root->right && root->val == expectNumber){
+            res.push_back(path);
+        }
+        if(root->left) helper(root->left, expectNumber - root->val, path, res);
+        if(root->right) helper(root->right, expectNumber - root->val, path, res);
+        return res;
+    }
+    void helper(TreeNode* root, int expectNumber, vector<int> path, vector<vector<int> >& res){
+        path.push_back(root->val);
+        if(!root->left && !root->right && root->val == expectNumber){
+            res.push_back(path);
+        }
+        if(root->left) helper(root->left, expectNumber - root->val, path, res);
+        if(root->right) helper(root->right, expectNumber - root->val, path, res);
     }
 };
 ```
