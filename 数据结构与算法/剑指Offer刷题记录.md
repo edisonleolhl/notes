@@ -2152,3 +2152,1060 @@ public:
     }
 };
 ```
+
+## 分解让复杂问题简单化
+
+### 面试题35：复杂链表的复制
+
+输入一个复杂链表（每个节点中有节点值，以及两个指针，一个指向下一个节点，另一个特殊指针指向任意一个节点），返回结果为复制后复杂链表的head。（注意，输出结果中请不要返回参数中的节点引用，否则判题程序会直接返回空）
+
+思路：两个辅助vector，分别存储origin和clone节点，按单向链表的顺序复制一遍，每次复制时也在辅助vector中添加，复制完后，再从头开始，为每一个节点寻找random节点，时间复杂度O(n^2)，空间复杂度O(n)。
+
+```c++
+/*
+struct RandomListNode {
+    int label;
+    struct RandomListNode *next, *random;
+    RandomListNode(int x) :
+            label(x), next(NULL), random(NULL) {
+    }
+};
+*/
+class Solution {
+public:
+    RandomListNode* Clone(RandomListNode* pHead)
+    {
+        if(!pHead) return nullptr;
+        RandomListNode* newHead = new RandomListNode(pHead->label);
+        RandomListNode* cur_origin = pHead;
+        RandomListNode* cur_clone = newHead;
+        vector<RandomListNode*> vec_origin;
+        vector<RandomListNode*> vec_clone;
+        vec_origin.push_back(cur_origin);
+        vec_clone.push_back(cur_clone);
+        while(cur_origin->next){
+            cur_clone->next = new RandomListNode(cur_origin->next->label);
+            cur_origin = cur_origin->next;
+            cur_clone = cur_clone->next;
+            vec_origin.push_back(cur_origin);
+            vec_clone.push_back(cur_clone);
+        }
+        int len = vec_origin.size();
+        cur_origin = pHead;
+        cur_clone = newHead;
+        while(cur_origin){
+            if(cur_origin->random){
+                for(int i = 0; i < len; ++i){
+                    if(cur_origin->random == vec_origin[i]){
+                        cur_clone->random = vec_clone[i];
+                    }
+                }
+            }
+            cur_origin = cur_origin->next;
+            cur_clone = cur_clone->next;
+        }
+        return newHead;
+    }
+};
+```
+
+看到书上的方法，这种思路还可以进一步优化，不用辅助空间，时间复杂度O(1)，每次为当前节点寻找其random节点都从头遍历origin，记下从头节点开始的第几步到达其random节点，然后用同样的步数得到clone链表的节点，复制给cur_clone的random指针
+
+但是时间复杂度还是O(n^2)，想想哪里可以改进，发现在寻找random节点时效率太低，都是从头开始遍历，可以考虑用哈希表，具体来说用unordered_map，构建一个cur_origin到cur_clone的映射，这样寻找random节点的时间为O(1)，总的时间复杂度为O(n)，空间复杂度为O(n)
+
+书上最优方法，时间复杂度都为O(n)，空间复杂度为O(1)，分为三步来做：
+
+1. 复制每个结点，放在原结点的后面，复制结点的next指向=原结点的指向（相当于插入到原节点的后面），这时链表总长度扩大一倍，用时O(n)
+2. 复制任意指向的结点，例如A指向C，则A'指向C'，因为A'在A后面，C'在C后面，所以只需要O(n）时间
+3. 链表拆分，偶数位的结点是原结点，奇数位的结点是新结点，也只需要O(n)时间，注意这里写代码时要非常注意断裂的情况！
+
+```c++
+class Solution {
+public:
+    RandomListNode* Clone(RandomListNode* pHead)
+    {
+        if(!pHead) return nullptr;
+        RandomListNode* cur = pHead;
+        RandomListNode* newHead;
+        RandomListNode* cur_new;
+        RandomListNode* temp;
+        while(cur){
+            temp = new RandomListNode(cur->label);
+            temp->next = cur->next;
+            cur->next = temp;
+            cur = cur->next->next;
+        }
+        cur = pHead;
+        while(cur){
+            if(cur->random){
+                cur->next->random = cur->random->next;
+            }
+            cur = cur->next->next;
+        }
+        newHead = pHead->next;
+        cur = pHead;
+        cur_new = newHead;
+        temp = pHead->next->next;
+        while(temp){
+            cur_new->next = temp->next;
+            cur_new = cur_new->next;
+            cur->next = temp;
+            cur = cur->next;
+            temp = cur->next->next;
+        }
+        cur->next = nullptr; // now cur is the last node of the original list
+        return newHead;
+    }
+};
+```
+
+### 面试题36：二叉搜索树与双向链表
+
+输入一棵二叉搜索树，将该二叉搜索树转换成一个排序的双向链表。要求不能创建任何新的结点，只能调整树中结点指针的指向。
+
+思路：
+
+1. 画图举例时发现一个规律，当前节点转换后的节点的前驱是BST中的左子树的最右节点，后驱是BST中的右子树的最左节点，那么只需要递归即可，每次递归时找到当前节点的前驱和后继，转换成双向链表；
+2. 注意：对左右儿子的递归一定要放在双向链表的转换之前，不然会产生死循环，因为双向链表的转换会使得某个叶子节点的left/right指向非空；
+3. 转换后，节点的left指前驱，right指后驱；
+4. 这题的思想其实是中序遍历，每个节点的前驱就是在中序遍历序列其前驱
+
+这题是自己想的，第一次把左右儿子的递归放在了后面，牛客网提交超时，在本地debug时才发现，不然就一次AC了！
+
+书上的代码怪怪的，还双重指针，用了引用，我觉得是多此一举的，明显我的代码可读性更佳
+
+```c++
+class Solution {
+public:
+    TreeNode* Convert(TreeNode* pRootOfTree)
+    {
+        if(!pRootOfTree) return nullptr;
+        helper(pRootOfTree);
+        TreeNode* listHead = pRootOfTree;
+        while(listHead->left){
+            listHead = listHead->left;
+        }
+        return listHead;
+    }
+    void helper(TreeNode* root){
+        if(!root) return;
+        TreeNode* leftChild = root->left;
+        TreeNode* rightChild = root->right;
+        TreeNode* temp;
+        helper(leftChild);
+        helper(rightChild);
+        if(leftChild){
+            temp = leftChild;
+            while(temp->right){
+                temp = temp->right;
+            }
+            temp->right = root;
+            root->left = temp;
+        }
+        if(rightChild){
+            temp = rightChild;
+            while(temp->left){
+                temp = temp->left;
+            }
+            temp->left = root;
+            root->right = temp;
+        }
+    }
+};
+```
+
+### 面试题37：序列化二叉树
+
+请实现两个函数，分别用来序列化和反序列化二叉树
+
+二叉树的序列化是指：把一棵二叉树按照某种遍历方式的结果以某种格式保存为字符串，从而使得内存中建立起来的二叉树可以持久保存。序列化可以基于先序、中序、后序、层序的二叉树遍历方式来进行修改，序列化的结果是一个字符串，序列化时通过 某种符号表示空节点（#），以 ！ 表示一个结点值的结束（value!）。
+
+二叉树的反序列化是指：根据某种遍历顺序得到的序列化字符串结果str，重构二叉树。
+
+思路：这题就是考字符串，牛客网的是char*字符串，太老派，搞了半天没写出来，书上又不一样，所以直接扎进评论区看答案了
+
+[代码链接](https://www.nowcoder.com/questionTerminal/cf7e25aa97c04cc1a68c8f040e71fb84?f=discussion)，来源：牛客网
+
+```c++
+/*
+ 1. 对于序列化：使用前序遍历，递归的将二叉树的值转化为字符，并且在每次二叉树的结点
+不为空时，在转化val所得的字符之后添加一个' ， '作为分割。对于空节点则以 '#' 代替。
+ 2. 对于反序列化：按照前序顺序，递归的使用字符串中的字符创建一个二叉树(特别注意：
+在递归时，递归函数的参数一定要是char ** ，这样才能保证每次递归后指向字符串的指针会
+随着递归的进行而移动！！！)
+*/
+class Solution {  
+public:
+    char* Serialize(TreeNode *root) {
+       if(root == NULL)
+           return NULL;
+        string str; // string更好拼接
+        Serialize(root, str);
+        char *ret = new char[str.length() + 1];
+        int i;
+        for(i = 0; i < str.length(); i++){
+            ret[i] = str[i];
+        }
+        ret[i] = '\0';
+        return ret;
+    }
+    void Serialize(TreeNode *root, string& str){
+        if(root == NULL){
+            str += '#'; // 原作者的序列化对于空节点就用'#'代替，而没有逗号分割
+            return ;
+        }
+        string r = to_string(root->val);
+        str += r;
+        str += ',';
+        Serialize(root->left, str);
+        Serialize(root->right, str);
+    }
+
+    TreeNode* Deserialize(char *str) {
+        if(str == NULL)
+            return NULL;
+        TreeNode *ret = Deserialize(&str);
+        return ret;
+    }
+    TreeNode* Deserialize(char **str){//由于递归时，会不断的向后读取字符串
+        if(**str == '#'){  //所以一定要用**str,
+            ++(*str);         //以保证得到递归后指针str指向未被读取的字符
+            return NULL;
+        }
+        int num = 0;
+        while(**str != '\0' && **str != ','){
+            num = num*10 + ((**str) - '0');
+            ++(*str);
+        }
+        TreeNode *root = new TreeNode(num);
+        if(**str == '\0')
+            return root;
+        else
+            (*str)++;
+        root->left = Deserialize(str);
+        root->right = Deserialize(str);
+        return root;
+    }
+};
+```
+
+### 面试题38：字符串的排列
+
+输入一个字符串,按字典序打印出该字符串中字符的所有排列。例如输入字符串abc,则打印出由字符a,b,c所能排列出来的所有字符串abc,acb,bac,bca,cab和cba。
+
+输入描述:
+输入一个字符串,长度不超过9(可能有字符重复),字符只包括大小写字母。
+
+题目说要按字典序，这其实就是next_permutation的算法，寻找一个数的下一个排列分为三步：
+
+1. 从右向左找到第一个正序对（array[i] < array[i+1]，因为没有等号，所以可以完美去掉重复的排列）
+2. 从i开始向右搜索，找到比array[i]大的字符中最小的那个，记为array[j]
+3. 交换array[i]和array[j]
+4. 将i后面的字符反转(reverse)
+
+直接用STL的泛型算法可以清楚的阐释这个算法，但是这肯定不是出题人想要的，出题人肯定是想答题者手写出next_permutation算法，之前写过关于数字的，下次再复习吧
+
+```c++
+class Solution {
+public:
+    vector<string> Permutation(string str) {
+        if (str.empty()) return {};
+        sort(str.begin(), str.end());
+        vector<string> ans;
+        ans.push_back(str);
+        while (next_permutation(str.begin(), str.end()))
+            ans.push_back(str);
+        return ans;
+    }
+};
+```
+
+当然也可以用递归，固定第一个字符，对后面的进行全排列，盗下图，但是最后不是**全排列**，需要再对`vector<string>`进行排序
+
+以下代码配合这个递归树会更加清晰易懂
+
+![20200121123847.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200121123847.png)
+
+```c++
+class Solution {
+public:
+    vector<string> Permutation(string str)
+    {
+        vector<string> result;
+        if(str.empty()) return result;
+        Permutation(str,result,0);
+        // 此时得到的result中排列并不是字典顺序，可以单独再排下序
+        sort(result.begin(),result.end());
+        return result;
+    }
+
+    void Permutation(string& str,vector<string> &result,int begin)
+    {
+        if(begin == str.size()-1) // 递归结束条件：索引已经指向str最后一个元素时
+        {
+            if(find(result.begin(),result.end(),str) == result.end())
+            {
+                // 如果result中不存在str，才添加；避免aa和aa重复添加的情况
+                result.push_back(str);
+            }
+        }
+        else
+        {
+            // 第一次循环i与begin相等，相当于第一个位置自身交换，关键在于之后的循环，
+            // 之后i != begin，则会交换两个不同位置上的字符，直到begin==str.size()-1，进行输出；
+            for(int i=begin;i<str.size();++i)
+            {
+                swap(str[i],str[begin]);
+                Permutation(str,result,begin+1);
+                swap(str[i],str[begin]); // 复位，用以恢复之前字符串顺序，达到第一位依次跟其他位交换的目的
+            }
+        }
+    }
+};
+```
+
+### 正方体顶点
+
+现有8个数字的数组，把这8个数字放在正方体的8个顶点上，能否使得正方体上三组相对的面上的4个顶点的和都相等
+
+思路：输入的8个数字设为a1到a8，要求在a1~a8的全排列中找到一种排列使得，`a1+a2+a3+a4 == a5+a6+a7+a8 && a1+a3+a5+a7 == a2+a4+a6+a8 && a1+a2+a5+a6 == a3+a4+a7+a8`
+
+以下代码是自己测试的，整体思路与面试题38相差不大，最后返回的res是满足条件的所有排列
+
+```c++
+class Solution {
+public:
+    vector<vector<int>> judge(vector<int> vec){
+        vector<vector<int>> res;
+        if(vec.empty() || vec.size() != 8) return res;
+        helper(vec, res, 0);
+        return res;
+    }
+    bool isCubicNode(vector<int>& vec){
+        if(vec[0]+vec[1]+vec[2]+vec[3] == vec[4]+vec[5]+vec[6]+vec[7] &&
+            vec[0]+vec[2]+vec[4]+vec[6] == vec[1]+vec[3]+vec[5]+vec[7] &&
+            vec[0]+vec[1]+vec[4]+vec[5] == vec[2]+vec[3]+vec[6]+vec[7]){
+                return true;
+            }
+        return false;
+    }
+    void helper(vector<int>& vec, vector<vector<int>>& res, int begin){
+        if(begin == vec.size() - 1){
+            if(isCubicNode(vec) && find(res.begin(), res.end(), vec) == res.end()){
+                res.push_back(vec);
+            }
+        }
+        else{
+            for(int i = begin; i < vec.size(); ++i){
+                swap(vec[i], vec[begin]);
+                helper(vec, res, begin+1);
+                swap(vec[i], vec[begin]);
+            }
+        }
+    }
+};
+```
+
+### n皇后问题
+
+如何能够在 8×8 的国际象棋棋盘上放置八个皇后，使得任何一个皇后都无法直接吃掉其他的皇后？为了达到此目的，任两个皇后都不能处于同一条横行、纵行或斜线上
+
+给定一个整数 n，返回所有不同的 n 皇后问题的解决方案。
+
+每一种解法包含一个明确的 n 皇后问题的棋子放置方案，该方案中 'Q' 和 '.' 分别代表了皇后和空位。
+
+示例:
+
+输入: 4
+输出: [
+ [".Q..",  // 解法 1
+  "...Q",
+  "Q...",
+  "..Q."],
+
+ ["..Q.",  // 解法 2
+  "Q...",
+  "...Q",
+  ".Q.."]
+]
+解释: 4 皇后问题存在两个不同的解法
+
+来源：力扣（LeetCode），
+[链接](https://leetcode-cn.com/problems/n-queens)，著作权归领扣网络所有。商业转载请联系官方授权，非商业转载请注明出处。
+
+解法：既然皇后不能处于同一行，那么就定义一个数组，第i个数字表示位于第i行的皇后的列号，然后对数组初始化为0，1，... n-1，这样可以保证皇后在行上不冲突、在列上不冲突，然后进行全排列，只需要判断是否在同一对角线上即可。在力扣上提交发现时间比较慢，可能是因为我的方法没有剪枝吧，力扣官网题解的做法是一个个摆上棋盘，这样每放一个皇后都缩小了下一步皇后的可选位置
+
+```c++
+class Solution {
+public:
+    vector<vector<string>> solveNQueens(int n) {
+        // vec的第i个数字表示位于第i行的皇后的列号
+        vector<int> vec;
+        // 先把vec初始化为0，1，... n-1，这样可以保证皇后在行上不冲突、在列上不冲突
+        for(int i = 0; i < n; ++i){
+            vec.push_back(i);
+        }
+        vector<vector<string>> res;
+        // 然后把vec全排列，对于每次排列，判断它们在对角线上是否冲突，若不冲突，则为N皇后的一个解法
+        helper(vec, res, 0);
+        return res;
+    }
+    void helper(vector<int>& vec, vector<vector<string>>& res, int begin){
+        if(begin == vec.size() - 1){
+            // 判断在对角线上是否冲突
+            bool isConflict = false;
+            for(int i = 0; i < vec.size(); ++i){
+                for(int j = i + 1; j < vec.size(); ++j){
+                    if(i - j == vec[i] - vec[j] || i - j == vec[j] - vec[i]){
+                        isConflict = true;
+                        break;
+                    }
+                }
+                if(isConflict) break;
+            }
+            if(!isConflict){
+                // 找到一个解法啦！格式化输出要小心点哦
+                vector<string> sol;
+                string row;
+                for(int i = 0; i < vec.size(); ++i){
+                    row = "";
+                    for(int j = 0; j < vec.size(); ++j){
+                        if(j == vec[i]){
+                            row += 'Q';
+                        }
+                        else{
+                            row += '.';
+                        }
+                    }
+                    sol.push_back(row);
+                }
+                // 判断当前解是否已经在结果集中
+                if(find(res.begin(), res.end(), sol) == res.end()){
+                    res.push_back(sol);
+                }
+            }
+        }
+        else{
+            for(int i = begin; i < vec.size(); ++i){
+                // 这里可以执行剪枝操作，即判断对角线是否冲突，若冲突则直接continue
+                swap(vec[i], vec[begin]);
+                helper(vec, res, begin+1);
+                swap(vec[i], vec[begin]);
+            }
+        }
+    }
+};
+```
+
+总结：在力扣上看到有人总结回溯法的框架，写的非常精炼，正好与我的代码一致
+
+```python
+result = []
+def backtrack(路径, 选择列表):
+    if 满足结束条件:
+        result.add(路径)
+        return
+
+    for 选择 in 选择列表:
+        做选择
+        backtrack(路径, 选择列表)
+        撤销选择
+```
+
+作者：labuladong
+，[链接](https://leetcode-cn.com/problems/n-queens/solution/hui-su-suan-fa-xiang-jie-by-labuladong/)
+，来源：力扣（LeetCode）。著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+
+## 优化时间和空间效率
+
+### 面试题39：数组中出现次数超过一半的数字
+
+数组中有一个数字出现的次数超过数组长度的一半，请找出这个数字。例如输入一个长度为9的数组{1,2,3,2,2,2,5,4,2}。由于数字2在数组中出现了5次，超过数组长度的一半，因此输出2。如果不存在则输出0。
+
+给定一个大小为 n 的数组，找到其中的多数元素。多数元素是指在数组中出现次数大于 ⌊ n/2 ⌋ 的元素。
+
+你可以假设数组是非空的，并且给定的数组总是存在多数元素。
+
+示例 1:
+
+输入: [3,2,3]
+输出: 3
+示例 2:
+
+输入: [2,2,1,1,1,2,2]
+输出: 2
+
+来源：力扣（LeetCode）第169题   ，[链接](https://leetcode-cn.com/problems/majority-element)，著作权归领扣网络所有。商业转载请联系官方授权，非商业转载请注明出处。
+
+一次性AC，用哈希表存储数字-出现次数的映射，一次遍历搞定，时间和空间复杂度都是O(n)
+
+```c++
+class Solution {
+public:
+    int MoreThanHalfNum_Solution(vector<int> numbers) {
+        unordered_map<int, int> map;
+        for(int i = 0; i < numbers.size(); ++i){
+            ++map[numbers[i]];
+            if(map[numbers[i]] > numbers.size() / 2){
+                return numbers[i];
+            }
+        }
+        return 0;
+    }
+};
+```
+
+优化：根据这个数组的特点，如果有某数字出现次数超过一半数组长度，那么这个数组的中位数也必然是这个数字，所以问题可以转化为求中位数，拿到中位数后再检查这个中位数的数值是否在数组中出现过半即可。求中位数可以用快速选择算法，类似于快速排序的partition操作，减治法，使得时间为O(n)。这个算法花费了我很久的时间，主要是边界情况要非常小心谨慎地处理。这个解法需要改变原数组。
+
+```c++
+class Solution {
+public:
+    int MoreThanHalfNum_Solution(vector<int> numbers) {
+        if(numbers.empty()) return 0;
+        if(numbers.size() == 1) return numbers[0];
+        if(numbers.size() == 2) return 0;
+        int median = MedianByPartition(numbers, 0, numbers.size() - 1);
+        if(CheckMoreThanHalf(numbers, median)){
+            return median;
+        }
+        return 0;
+    }
+    bool CheckMoreThanHalf(vector<int>& numbers, int number){
+        int times = 0;
+        int len = numbers.size();
+        for(int i = 0; i < len; ++i){
+            if(numbers[i] == number){
+                ++times;
+                if(times > len / 2){
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    // 中位数在闭区间[low, high]中
+    int MedianByPartition(vector<int>& numbers, int low, int high){
+        if(low >= high) return numbers[low];
+        int pivot = numbers[high];
+        int i = low;
+        int j = high - 1;
+        while(i < j){
+            while(i < j && numbers[i] < pivot) ++i;
+            while(i < j && numbers[j] > pivot) --j;
+            if(i == j) break;
+            swap(numbers[i], numbers[j]);
+            ++i;
+            --j;
+        }
+        swap(numbers[i], numbers[high]);
+        if(i > (numbers.size() - 1) / 2){ // 左边部分查找
+            return MedianByPartition(numbers, low, i-1);
+        }
+        else if(i < (numbers.size() - 1) / 2){ // 右边部分查找
+            return MedianByPartition(numbers, i+1, high);
+        }
+        return numbers[i]; // 恰为中位数
+    }
+};
+```
+
+最好的解法：Boyer-Moore 投票算法（时间O(n),空间O(1))
+
+我们假设这样一个场景，在一个游戏中，分了若干个队伍，有一个队伍的人数超过了半数。所有人的战力都相同，不同队伍的两个人遇到就是同归于尽，同一个队伍的人遇到当然互不伤害。
+
+这样经过充分时间的游戏后，最后的结果是确定的，一定是超过半数的那个队伍留在了最后。
+
+而对于这道题，我们只需要利用上边的思想，把数组的每个数都看做队伍编号，然后模拟游戏过程即可。
+
+candidate 记录当前队伍的人数，count 记录当前队伍剩余的人数。如果当前队伍剩余人数为 0，记录下次遇到的人的所在队伍号。
+
+配合gif图，更易理解
+
+![20200122122539.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200122122539.png)
+
+```c++
+class Solution {
+public:
+    int MoreThanHalfNum_Solution(vector<int>& nums) {
+        if(nums.empty()) return 0;
+        int candidate = nums[0];
+        int count = 1;
+        for(int i = 1; i < nums.size(); ++i){
+            if(nums[i] == candidate){
+                ++count;
+            }
+            else{
+                --count;
+                if(count == 0){
+                    candidate = nums[i];
+                    count = 1;
+                }
+            }
+        }
+        if(CheckMoreThanHalf(nums, candidate)){
+            return candidate;
+        }
+        return 0;
+    }
+    bool CheckMoreThanHalf(vector<int>& numbers, int number){
+        int times = 0;
+        int len = numbers.size();
+        for(int i = 0; i < len; ++i){
+            if(numbers[i] == number){
+                ++times;
+                if(times > len / 2){
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+};
+```
+
+### 面试题40：最小的k个数
+
+输入n个整数，找出其中最小的K个数。例如输入4,5,1,6,2,7,3,8这8个数字，则最小的4个数字是1,2,3,4,。书上的代码和牛客网都没有对最小k个数排序
+
+基于partition的快速选择算法，可以得到最小的k个数，用时O(n)，但不适合海量数据（无法一次性装入内存），而且这种算法需要修改原数组，且这k个数还未排序
+
+基于最大堆的算法，时间复杂度为O(nlogk)，适合海量数据，并且是联机的，不用修改原数组
+
+#### 利用STL的堆操作实现最大堆
+
+STL 堆操作，头文件是#include `<algorithm>`，一般用到这四个：make_heap()、pop_heap()、push_heap()、sort_heap();
+
+（1）make_heap()构造堆
+void make_heap(first_pointer,end_pointer,compare_function);
+默认比较函数是(<)，即最大堆。
+函数的作用是将[begin,end)内的元素处理成堆的结构
+
+（2）push_heap()添加元素到堆
+void push_heap(first_pointer,end_pointer,compare_function);
+新添加一个元素在末尾，然后重新调整堆序。该算法必须是在一个已经满足堆序的条件下。
+先在vector的末尾添加元素，再调用push_heap
+
+（3）pop_heap()从堆中移出元素
+void pop_heap(first_pointer,end_pointer,compare_function);
+把堆顶元素取出来，放到了数组或者是vector的末尾。
+要取走，则可以使用底部容器（vector）提供的pop_back()函数。
+先调用pop_heap再从vector中pop_back元素
+
+（4）sort_heap()对整个堆排序
+排序之后的元素就不再是一个合法的堆了。
+
+```c++
+class Solution {
+public:
+    vector<int> GetLeastNumbers_Solution(vector<int> input, int k) {
+        if(input.empty() || k <= 0 || k > input.size()) return vector<int>();
+        int len=input.size();
+        vector<int> res(input.begin(),input.begin()+k);
+        make_heap(res.begin(),res.end());
+        for(int i=k;i<len;i++)
+        {
+            if(input[i]<res[0])
+            {
+                //先pop_heap,然后在容器中删除
+                pop_heap(res.begin(),res.end());
+                res.pop_back();
+                //先在容器中加入，再push_heap
+                res.push_back(input[i]);
+                push_heap(res.begin(),res.end());
+            }
+        }
+        sort_heap(res.begin(),res.end());
+        return res;
+    }
+};
+```
+
+#### 利用STL容器multiset（底层红黑树）实现最大堆
+
+注意multiset的默认排序都是从小到大的，这个必须用仿函数，注意返回值并没有排序，但是牛客网也没有检查是否排序
+
+```c++
+class Solution {
+public:
+    vector<int> GetLeastNumbers_Solution(vector<int> input, int k) {
+        if(input.empty() || k <= 0 || k > input.size()) return vector<int>();
+        int len=input.size();
+        multiset<int, greater<int>> set; //仿函数中的greater<T>模板，从大到小排序
+        for(int i = 0; i < len; ++i){
+            if(i < k){
+                set.insert(input[i]);
+            }
+            else{
+                if(input[i] < *set.begin()){
+                    set.erase(*set.begin());
+                    set.insert(input[i]);
+                }
+            }
+        }
+        return vector<int>(set.begin(), set.end());
+    }
+};
+```
+
+### 面试题41：数据流中的中位数
+
+如何得到一个数据流中的中位数？如果从数据流中读出奇数个数值，那么中位数就是所有数值排序之后位于中间的数值。如果从数据流中读出偶数个数值，那么中位数就是所有数值排序之后中间两个数的平均值。我们使用Insert()方法读取数据流，使用GetMedian()方法获取当前读取数据的中位数。
+
+思路：这明显是个联机算法，而且在任何时刻调用GetMedian()时都要返回当前已读的数据的中位数，我用multiset的红黑树底层来实现，插入操作只需要logm(m为当前已读数据长度)，而获得中位数需要遍历一半的数据，所以也需要O(n)
+
+```c++
+class Solution {
+public:
+    multiset<int> order;
+    void Insert(int num)
+    {
+        order.insert(num);
+    }
+
+    double GetMedian()
+    {
+        if(order.empty()) return 0.0;
+        int len = order.size();
+        auto it = order.begin();
+        if(len % 2 == 1){
+            for(int i = 0; i < len / 2; ++i){
+                ++it;
+            }
+            return (double) *it;
+        }
+        for(int i = 0; i < len / 2 - 1; ++i){
+            ++it;
+        }
+        return ((double)(*it) + double(*(++it))) / 2;
+    }
+};
+```
+
+优化：multiset的确不错，但是刚才算法中寻找中位数的时间复杂度不是O(1)，如果用两个迭代器指向multiset的中间的节点（若长度为奇数，则指向同一个节点），那么寻找中位数是可以达到O(1)的。
+
+两个迭代器/指针 lo_median 和 hi_median，它们在 multiset上迭代 data。添加数字 num 时，会出现三种情况：
+
+1. 容器当前为空。因此，我们只需插入 num 并设置两个指针指向这个元素。
+2. 容器当前包含奇数个元素。这意味着两个指针当前都指向同一个元素。
+    - 如果 num 不等于当前的中位数元素，则 num 将位于元素的任一侧。无论哪一边，该部分的大小都会增加，因此相应的指针会更新。例如，如果 num 小于中位数元素，则在插入 num 时，输入的较小半部分的大小将增加 11。
+    - 如果 num 等于当前的中位数元素，那么所采取的操作取决于 num 是如何插入数据的（multiset会把重复项添加到equal_range的末尾）
+3. 容器当前包含偶数个元素。这意味着指针当前指向连续的元素。
+    - 如果 num 是两个中值元素之间的数字，则 num 将成为新的中值。两个指针都必须指向它。
+    - 否则，num 会增加较小或较高一半的大小。我们相应地更新指针。必须记住，两个指针现在必须指向同一个元素。
+
+找到中间值很容易！它只是两个指针 lo_median 和 hi_median 所指元素的平均值。
+
+
+```c++
+class Solution {
+public:
+    multiset<int> order;
+    multiset<int>::iterator it1, it2;
+    void Insert(int num)
+    {
+        int n = order.size();
+        order.insert(num);
+        if(order.size() == 1){
+            it1 = order.begin();
+            it2 = order.begin();
+            return;
+        }
+        if((n & 1) == 1){ // 奇数个，两个迭代器指向同一个
+            if(num < *it1){
+                --it1;
+            }
+            else{
+                ++it2; // 这里也包含了相等的情况，multiset会把重复项添加到equal_range的末尾，所以自增it2即可
+            }
+        }
+        else{ // 偶数个，两个迭代器指向连续的两个
+            if(num > *it1 && num < *it2){ // 新插入的在两个迭代器之间
+                ++it1;
+                --it2;
+            }
+            else if(num >= *it2){
+                ++it1;;
+            }
+            else{
+                --it2;
+                 // 这里很重要，当1 2 3 4再插入2时变为1 2 2 3 4，
+                 // it1指向第一个2，it2指向3，it1和it2之间还多了新插入的2，一定要让it1变为与it2相等。
+                 // 这与multiset的实现机制有关，从迭代器的角度来看，新重复项添加到重复项的后面
+                it1 = it2;
+            }
+        }
+    }
+
+    double GetMedian()
+    {
+        return ((double) *it1 + (double) *it2) / 2;
+    }
+};
+```
+
+书上总结的非常好，摘抄如下
+
+1. 数据从数据流中读出来，而且数目随时间变化，所以需要一个容器来保存
+2. 数组是最简单的容器，如果数组没有排序，则可以用基于partition的快速选择算法找出数组中的中位数（第39题），在没有排序的数组中插入一个数耗时O(1)，获取中位数耗时O(n)
+3. 如果在插入使让数组保持有序，耗时O(n),获取中位数就很快了，直接下标访问即可，耗时O(1)
+4. 排序的链表也可以，在已排序的链表中插入一个数耗时O(n)，定义两个指针指向链表中间的节点（如果链表的节点数是奇数，那么这两个指针指向同一个节点），每次插入时，这两个指针也会变动，使自己保持指向链表中间的节点，这样获取中位数的时间也只要O(1)
+5. 二叉搜索树平均插入时间是O(logn)，但是如果极度不平衡时，插入新数据的时间仍为O(n)，为了得到中位数，可以在节点中插入一个字段用来表示子树节点的数目，这样可以在平均O(logn)的时间内得到中位数，但是最差情况仍为O(n)
+6. AVL树可以在O(logn)的时间内插入新节点，同时用O(1)的时间得到中位数，虽然时间效率很高，但是得自己实现，太麻烦了
+
+巧妙利用两个堆的解法：
+
+1. 用于存储输入数字中较小一半的最大堆（最大堆中的所有数字都小于或等于最大堆的top元素）
+2. 用于存储输入数字的较大一半的最小堆（最小堆中的所有数字都大于或等于最小堆的顶部元素）
+3. 当插入的数是第偶数个时，让最大堆增加，否则让最小堆增加
+4. 插入的新数据不是直接加入最大堆，而是先比较当前数是否小于最小堆，如果满足，才能加入到最大堆（较小一半）中，如果不满足，则把把最大堆的堆顶元素插入到最小堆中，最大堆删除原来的堆顶元素，然后再插入新读的数
+5. 只要这两个堆是平衡的（即这两个堆的数量相等或相差1），那么中位数就可以通过这两个堆的堆顶元素获得
+
+```c++
+class Solution {
+public:
+    multiset<int> min_heap;
+    multiset<int, greater<int>> max_heap;
+    int k = 0; // record how many numbers are inserted
+    void Insert(int num)
+    {
+        if((k & 1) == 0){
+            if(!min_heap.empty() && num > *min_heap.begin()){
+                max_heap.insert(*min_heap.begin());
+                min_heap.erase(min_heap.begin());
+                min_heap.insert(num);
+            }
+            else{
+                max_heap.insert(num);
+            }
+        }
+        else{
+            if(!max_heap.empty() && num < *max_heap.begin()){
+                min_heap.insert(*max_heap.begin());
+                max_heap.erase(max_heap.begin());
+                max_heap.insert(num);
+            }
+            else{
+                min_heap.insert(num);
+            }
+        }
+        ++k;
+    }
+    double GetMedian()
+    {
+        if(min_heap.empty()){
+            return (double) *max_heap.begin();
+        }
+        if(min_heap.size() < max_heap.size()){
+            return (double) *max_heap.begin();
+        }
+        else if(min_heap.size() > max_heap.size()){
+            return (double) *min_heap.begin();
+        }
+        return ((double)(*min_heap.begin()) + (double)(*max_heap.begin())) / 2;
+    }
+};
+```
+
+中位数是有序列表中间的数。如果列表长度是偶数，中位数则是中间两个数的平均值。
+
+例如，
+
+[2,3,4] 的中位数是 3
+
+[2,3] 的中位数是 (2 + 3) / 2 = 2.5
+
+设计一个支持以下两种操作的数据结构：
+
+void addNum(int num) - 从数据流中添加一个整数到数据结构中。
+double findMedian() - 返回目前所有元素的中位数。
+示例：
+
+addNum(1)
+addNum(2)
+findMedian() -> 1.5
+addNum(3) 
+findMedian() -> 2
+进阶:
+
+如果数据流中所有整数都在 0 到 100 范围内，你将如何优化你的算法？
+如果数据流中 99% 的整数都在 0 到 100 范围内，你将如何优化你的算法？
+在真实的面试中遇到过这道题？
+
+来源：力扣（LeetCode）
+链接：https://leetcode-cn.com/problems/find-median-from-data-stream
+著作权归领扣网络所有。商业转载请联系官方授权，非商业转载请注明出处。
+
+### 面试题42：连续子数组的最大和
+
+HZ偶尔会拿些专业问题来忽悠那些非计算机专业的同学。今天测试组开完会后,他又发话了:在古老的一维模式识别中,常常需要计算连续子向量的最大和,当向量全为正数的时候,问题很好解决。但是,如果向量中包含负数,是否应该包含某个负数,并期望旁边的正数会弥补它呢？例如:{6,-3,-2,7,-15,1,2,2},连续子向量的最大和为8(从第0个开始,到第3个为止)。给一个数组，返回它的最大连续子序列的和，你会不会被他忽悠住？(子向量的长度至少是1)
+
+时间复杂度要求为O(n)，明显不能用暴力法O(n^2)，仔细观察数组的特点，可以用两个变量记录已知的最大子数组sum和以及当前的子数组和cur_sum，cur_sum<=0时，后面任意一个整数都会比它大，所以可以直接舍弃掉cur_sum，这其实就是动态规划的思想
+
+用f(i)表示以第i个数字结尾的子数组的最大和，那么需要求出max{f(i)}，观察发现有如下递推公式
+
+f(i)=f(i-1)+array[i], if f(i-1) > 0
+f(i)=array[i], if f(i-1) <= 0
+
+```c++
+class Solution {
+public:
+    int FindGreatestSumOfSubArray(vector<int> array) {
+        int sum = array[0];
+        int cur_sum = array[0];
+        int len = array.size();
+        for(int i = 1; i < len; ++i){
+            if(cur_sum <= 0){
+                cur_sum = array[i];
+            }
+            else{
+                cur_sum += array[i];
+            }
+            if(cur_sum > sum){
+                sum = cur_sum;
+            }
+        }
+        return sum;
+    }
+};
+```
+
+### 面试题43：1~n整数中1出现的次数
+
+输入一个整数，求1~n这n个整数的十进制表示中1的次数。例如，输入12，1~12这些整数中包含1的数字有1、10、11、12，共5次
+
+暴力法，一次性AC，时间复杂度为O(nlogn)（以10为底），效率不高
+
+```c++
+class Solution {
+public:
+    int NumberOf1Between1AndN_Solution(int n)
+    {
+        int count = 0;
+        int j = 0;
+        for(int i = 1; i <= n; ++i){
+            j = i;
+            while(j != 0){
+                if(j % 10 == 1){
+                    ++count;
+                }
+                j /= 10;
+            }
+        }
+        return count;
+    }
+};
+```
+
+数学归纳法，有点难以理解，书上给的解法其实并不直观，我找到一个博客写的还不错，[link](https://blog.csdn.net/yi_Afly/article/details/52012593)，round*base很好理解，若当前位为1，则需要知道former，因为base每次自乘10，所以当前位的former可以用n%base算出，时间复杂度O(logn)（以10为底）
+
+```c++
+class Solution {
+public:
+    int NumberOf1Between1AndN_Solution(int n)
+    {
+        if(n < 1) return 0;
+        int count = 0;
+        int base = 1;
+        int round = n;
+        while(round > 0){
+            int weight = round % 10;
+            round /= 10;
+            count += round * base;
+            if(weight==1)
+                count += (n % base) + 1;
+            else if(weight > 1)
+                count += base;
+            base *= 10;
+        }
+        return count;
+    }
+};
+```
+
+给定一个整数 n，计算所有小于等于 n 的非负整数中数字 1 出现的个数。
+
+示例:
+
+输入: 13
+输出: 6
+解释: 数字 1 出现在以下数字中: 1, 10, 11, 12, 13 。
+
+来源：力扣（LeetCode），[链接](https://leetcode-cn.com/problems/number-of-digit-one)
+著作权归领扣网络所有。商业转载请联系官方授权，非商业转载请注明出处。
+
+### 面试题44：数字序列中某一位的数字
+
+数字以01234567891011121314...的格式序列化到一个字符序列中，在这个序列中，第5位（从0开始计数）是5，第13位是1，第19位是4，等等，请写一个函数，求任意第n位对应的数字
+
+在无限的整数序列 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, ...中找到第 n 个数字。
+
+注意:
+n 是正数且在32为整形范围内 ( n < 231)。
+
+示例 1:
+
+输入:
+3
+
+输出:
+3
+示例 2:
+
+输入:
+11
+
+输出:
+0
+
+说明:
+第11个数字在序列 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, ... 里是0，它是10的一部分。
+
+来源：力扣（LeetCode），[链接](https://leetcode-cn.com/problems/nth-digit)，著作权归领扣网络所有。商业转载请联系官方授权，非商业转载请注明出处。
+
+思路：直接用string存起来，虽然能完成效果，但效率是不高的
+
+```c++
+class Solution {
+public:
+    int NthNumber(int n)
+    {
+        string str = "";
+        for(int i = 0; str.size() <= n; ++i){
+            str += to_string(i);
+        }
+        return str[n] - '0';
+    }
+};
+```
+
+优化：数学方法
+
+1. 发现长度为1的数：1-9有9个数，长度为2的数：10-99组成的字符串长度为2x90，长度为3的数：100-999组成的字符串长度为3x900，长度为4的数：1000-9999组成的字符串长度为4x9000；以此类推，长度为n的数，`[pow(10, len - 1),  pow(10, len)]`，一共 `9 * pow(10, len - 1)`个数，组成的字符串长度为 `9 * pow(10, len - 1) * len`
+2. 设置一个标志位i，每一个区间都有固定的标志位，例如1-9是1，10--99是2，以此类推；
+3. 然后用n减去每个区间的值，知道确定n在哪个区间；
+4. 再得到区间中确定的数字，将其变为string型，然后就可以得到确定的数字。
+
+这个代码应该是最简洁易懂的了，转自[[LeetCode] Nth Digit 第N位](https://www.cnblogs.com/grandyang/p/5891871.html)
+
+我们可以定义个变量cnt，初始化为9，然后每次循环扩大10倍，再用一个变量len记录当前循环区间数字的位数，另外再需要一个变量start用来记录当前循环区间的第一个数字，我们n每次循环都减去len*cnt (区间总位数)，当n落到某一个确定的区间里了，那么(n-1)/len就是目标数字在该区间里的坐标，加上start就是得到了目标数字，然后我们将目标数字start转为字符串，(n-1)%len就是所要求的目标位，最后别忘了考虑int溢出问题，我们干脆把所有变量都申请为长整型的好了
+
+```c++
+class Solution {
+public:
+    int findNthDigit(int n) {
+        if (n < 10){
+            return n;
+        }
+        long long len = 1, cnt = 9, start = 1;
+        while (n > len * cnt) {
+            n -= len * cnt;
+            ++len;
+            cnt *= 10;
+            start *= 10;
+        }
+        start += (n - 1) / len;
+        string t = to_string(start);
+        return t[(n - 1) % len] - '0';
+    }
+};
+```

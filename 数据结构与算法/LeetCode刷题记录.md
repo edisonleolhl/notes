@@ -1367,7 +1367,7 @@ public:
     int searchRotateIndex(vector<int>& nums, int low, int high){
         int i = low + (high - low) / 2;
         if(low == high) return low;
-        if(i == low && nums[low] > nums[high]) return high; 
+        if(i == low && nums[low] > nums[high]) return high;
         if(i > low && nums[i - 1] > nums[i]) return i;
         // rotatePoint < i, eg: [6,7,0,1,2], rotatePoint=2
         if(nums[i] < nums[low]){
@@ -3697,7 +3697,7 @@ public:
 
 ##### 递归实现
 
-也可以用递归，但是要小心使用，像下面的代码在输入45时会超出时间限制！！！因为每个递归都分成了两个子递归，而他们其实是有重复的，白白浪费时间，时间复杂度：O(2^n)，树形递归的大小为 2^n2 
+也可以用递归，但是要小心使用，像下面的代码在输入45时会超出时间限制！！！因为每个递归都分成了两个子递归，而他们其实是有重复的，白白浪费时间，时间复杂度：O(2^n)，树形递归的大小为 2^n2
 
 ```c++
 class Solution {
@@ -3840,7 +3840,7 @@ public:
         // brute force
         if(nums.size() <= 0) return 0;
         if(nums.size() == 1) return nums[0];
-        int maxSub = INT_MIN;   
+        int maxSub = INT_MIN;
         int tempSub = 0;
         for(int i = 0; i < nums.size(); ++i){
             for(int j = i; j < nums.size(); ++j)
@@ -4201,4 +4201,3 @@ public:
 103/103 cases passed (496 ms)
 Your runtime beats 6.83 % of cpp submissions
 Your memory usage beats 39.16 % of cpp submissions (18.8 MB)
-
