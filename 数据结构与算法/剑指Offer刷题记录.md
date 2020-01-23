@@ -2895,7 +2895,6 @@ public:
 
 找到中间值很容易！它只是两个指针 lo_median 和 hi_median 所指元素的平均值。
 
-
 ```c++
 class Solution {
 public:
@@ -3023,7 +3022,7 @@ double findMedian() - 返回目前所有元素的中位数。
 addNum(1)
 addNum(2)
 findMedian() -> 1.5
-addNum(3) 
+addNum(3)
 findMedian() -> 2
 进阶:
 
@@ -3031,9 +3030,7 @@ findMedian() -> 2
 如果数据流中 99% 的整数都在 0 到 100 范围内，你将如何优化你的算法？
 在真实的面试中遇到过这道题？
 
-来源：力扣（LeetCode）
-链接：https://leetcode-cn.com/problems/find-median-from-data-stream
-著作权归领扣网络所有。商业转载请联系官方授权，非商业转载请注明出处。
+来源：力扣（LeetCode），[链接](https://leetcode-cn.com/problems/find-median-from-data-stream)，著作权归领扣网络所有。商业转载请联系官方授权，非商业转载请注明出处。
 
 ### 面试题42：连续子数组的最大和
 
@@ -3206,6 +3203,579 @@ public:
         start += (n - 1) / len;
         string t = to_string(start);
         return t[(n - 1) % len] - '0';
+    }
+};
+```
+
+### 面试题45：把数组排成最小的数
+
+牛客网：输入一个正整数数组，把数组里所有数字拼接起来排成一个数，打印能拼接出的所有数字中最小的一个。例如输入数组{3，32，321}，则打印出这三个数字能排成的最小数字为321323。
+
+力扣：给定一组非负整数，重新排列它们的顺序使之组成一个最大的整数。说明: 输出结果可能非常大，所以你需要返回一个字符串而不是整数。
+
+来源：力扣（LeetCode），[链接](https://leetcode-cn.com/problems/largest-number)，著作权归领扣网络所有。商业转载请联系官方授权，非商业转载请注明出处。
+
+思路：二次AC，第一次犯了低级错误，找出全排列，然后参照之前的回溯模板，非常快就可以解决，n个数字总共有n!个排列
+
+```c++
+class Solution {
+public:
+    string PrintMinNumber(vector<int> numbers) {
+        if(numbers.empty()) return "";
+        string minstr = "";
+        for(int i = 0; i < numbers.size(); ++i){
+            minstr += to_string(numbers[i]);
+        }
+        helper(numbers, minstr, 0);
+        return minstr;
+    }
+    void helper(vector<int>& numbers, string& minstr, int start){
+        if(start == numbers.size() - 1){
+            string tempstr = "";
+            for(int i = 0; i < numbers.size(); ++i){
+                tempstr += to_string(numbers[i]);
+            }
+            if(tempstr < minstr){
+                minstr = tempstr;
+            }
+        }
+        else{
+            for(int i = start; i < numbers.size(); ++i){
+                swap(numbers[i], numbers[start]);
+                helper(numbers, minstr, start + 1);
+                swap(numbers[i], numbers[start]);
+            }
+        }
+    }
+};
+```
+
+优化：这题主要考察比较的问题，只需要按照某种规则将这个数组中的数字全部排序,之后再转换成为字符串加起来，就可以得到最小数（最大数）
+
+sort中的比较函数compare要声明为静态成员函数或全局函数，不能作为普通成员函数，否则会报错。因为：非静态成员函数是依赖于具体对象的，而std::sort这类函数是全局的，因此无法再sort中调用非静态成员函数。静态成员函数或者全局函数是不依赖于具体对象的, 可以独立访问，无须创建任何对象实例就可以访问。同时静态成员函数不可以调用类的非静态成员。
+
+```c++
+class Solution {
+public:
+    string PrintMinNumber(vector<int> numbers) {
+        if(numbers.empty()) return "";
+        string minstr = "";
+        vector<string> str_numbers;
+        for(int i = 0; i < numbers.size(); ++i){
+            str_numbers.push_back(to_string(numbers[i]));
+        }
+        sort(str_numbers.begin(), str_numbers.end(), comp);
+        for(int i = 0; i < str_numbers.size(); ++i){
+            // 如果原数组有0的话，会排在minstr的开头，所以要跳过
+            if(str_numbers[i] != "0"){
+                minstr += str_numbers[i];
+            }
+        }
+        return minstr;
+    }
+    static bool comp(const string& str_a, const string& str_b){
+        string s1 = str_a + str_b;
+        string s2 = str_b + str_a;
+        return s1 < s2;
+    }
+};
+```
+
+### 面试题46：把数字翻译成字符串
+
+一条包含字母 A-Z 的消息通过以下方式进行了编码：
+
+'A' -> 1
+'B' -> 2
+...
+'Z' -> 26
+给定一个只包含数字的非空字符串，请计算解码方法的总数。
+
+示例 1:
+
+输入: "12"
+输出: 2
+解释: 它可以解码为 "AB"（1 2）或者 "L"（12）。
+示例 2:
+
+输入: "226"
+输出: 3
+解释: 它可以解码为 "BZ" (2 26), "VF" (22 6), 或者 "BBF" (2 2 6) 。
+
+来源：力扣（LeetCode）,[链接](https://leetcode-cn.com/problems/decode-ways)，著作权归领扣网络所有。商业转载请联系官方授权，非商业转载请注明出处。
+
+思路：回溯法，遍历字符串，编码当前数字的方法数+编码当前数字与之后数字的方法数，但是效率很慢，在力扣上用时1000ms，只击败5%的cpp
+
+定义函数f(i)表示从第i位开始的不同翻译的数目，那么f(i)=f(i+1)+g(i,i+1)xf(i+2)，如果第i与第i+1位拼接起来在10~26的范围内，函数g(i,i+1)的值为1，否则为0
+
+```c++
+class Solution {
+public:
+    int numDecodings(string s) {
+        if(s.empty()) return 0;
+        int ways = helper(s, 0);
+        return ways;
+    }
+    int helper(string& s, int start){
+        if(start > s.size() - 1){
+            return 1;
+        }
+        if(start == s.size() - 1){
+            if(s[start] != '0'){
+                return 1;
+            }
+            else{
+                return 0;
+            }
+        }
+        else{
+            if((s[start] == '1') || (s[start] == '2' && s[start+1] <= '6')){
+                return helper(s, start+1) + helper(s, start+2);
+            }
+            else if(s[start] == '0'){
+                return 0;
+            }
+        }
+        // only decode current number
+        return helper(s, start+1);
+
+    }
+};
+```
+
+优化：尽管我们用递归的思路可以解决，但是递归是从最大的问题开始自上而下解决问题，**存在重复的子问题**，可以考虑动态规划，可以做到一次遍历，设dp[i]为s[0~i]的翻译方法数，可以发现以下规律，
+
+1. s[i] = 0，若s[i-1] == 1 or 2，则只有一种翻译方法，dp[i] = dp[i-1]；若s[i-1] 不等于 1 也不等于 2，则没法翻译，返回0
+2. s[i] ≠ 0，若s[i-1] == 1 or 1 <= s[i] <= 6，则有两种翻译方法，可以单独译码当前位，也可以与之前位联合译码，dp[i] = dp[i-1]+dp[i-2]
+3. 剩余情况就是当前位只能单独译码，dp[i]=dp[i-1]
+
+因为只需要记录前面两位，所以可以不用辅助数组，只需要变量即可，空间复杂度降为O(1)，这样的一次遍历只需要时间O(n)
+
+```c++
+class Solution {
+public:
+    int numDecodings(string s) {
+        if (s[0] == '0') return 0;
+        int pre = 1, curr = 1; //dp[-1] = dp[0] = 1
+        for (int i = 1; i < s.size(); i++) {
+            int tmp = curr;
+            if (s[i] == '0')
+                if (s[i - 1] == '1' || s[i - 1] == '2') curr = pre;
+                else return 0;
+            else if (s[i - 1] == '1' || (s[i - 1] == '2' && s[i] >= '1' && s[i] <= '6'))
+                curr = curr + pre;
+            pre = tmp;
+        }
+        return curr;
+    }
+};
+```
+
+### 面试题47：礼物的最大价值
+
+在一个 m×n 的棋盘的每一格都放有一个礼物，每个礼物都有一定的价值（价值大于0）。
+
+你可以从棋盘的左上角开始拿格子里的礼物，并每次向右或者向下移动一格直到到达棋盘的右下角。
+
+给定一个棋盘及其上面的礼物，请计算你最多能拿到多少价值的礼物？
+
+注意：
+
+m,n>0
+样例：
+
+输入： [ [2,3,1], [1,7,1], [4,6,1] ]
+
+输出：19
+
+解释：沿着路径 2→3→7→6→1 可以得到拿到最大价值礼物。
+
+思路：动态规划，二维数组dp，先初始化第一行与第一列，它们只能从左往右和从上往下得到，然后双层循环，每次更新dp[i][j]时，将grid[i][j]加上dp[i-1][j]与dp[i][j-1]的较大值，最后返回dp[rows-1][cols-1]即可
+
+```c++
+class Solution {
+public:
+    int getMaxValue(vector<vector<int>> grid) {
+        if(grid.empty() || grid[0].empty()) return 0;
+        int rows = grid.size();
+        int cols = grid[0].size();
+        vector<vector<int>> dp (rows, vector<int>(cols)); // 初始化dp[][]
+        // 初始化dp[][]的第一行，它们只能从左到右依次得到
+        dp[0][0] = grid[0][0];
+        for(int i = 1; i < cols; ++i){
+            dp[0][i] = dp[0][i-1] + grid[0][i];
+        }
+        // 初始化dp[][]的第一列，它们只能从上到下依次得到
+        for(int i = 1; i < rows; ++i){
+            dp[i][0] = dp[i-1][0] + grid[i][0];
+        }
+        for(int i = 1; i < rows; ++i){
+            for(int j = 1; j < cols; ++j){
+                if(dp[i-1][j] > dp[i][j-1]){
+                    dp[i][j] = dp[i-1][j] + grid[i][j];
+                }
+                else{
+                    dp[i][j] = dp[i][j-1] + grid[i][j];
+                }
+            }
+        }
+        return dp[rows-1][cols-1];
+    }
+};
+```
+
+但继续分析，每次更新dp[i][j]时，只与dp[i-1][j]与dp[i][j-1]有关，也就是说之前的最大值没必要保存下来，这样我们可以节省为一个辅助数组，空间复杂度降为O(n)，一位数组长度为n，计算到坐标为(i,j)的格子时能够得到礼物的最大价值f(i,j)，数组中前j个数字分别是f(i,0),f(i,1),...,f(i,j-1)，数组从下标为j的数字开始到最后一个数字，分别是f(i-1,j),f(i-1,j+2),...,f(i-1,n-1)，也就是说，数组前j个数字分别是当前第i行前面j个格子礼物的最大价值，而之后的数字分别保存前面第i-1行n-j个格子礼物的最大价值
+
+```c++
+class Solution {
+public:
+    int getMaxValue(vector<vector<int>>& grid) {
+        if(grid.empty() || grid[0].empty()) return 0;
+        int rows = grid.size();
+        int cols = grid[0].size();
+        vector<int> dp (cols); // 初始化dp[]
+        // 初始化dp[]的第一行，它们只能从左到右依次得到
+        dp[0] = grid[0][0];
+        for(int i = 0; i < rows; ++i){
+            for(int j = 0; j < cols; ++j){
+                if(i==0 && j==0){
+                    continue;
+                }
+                else if(i == 0){
+                    dp[j] = dp[j-1] + grid[i][j];
+                }
+                else if(j == 0){
+                    dp[j] = dp[j] + grid[i][j];
+                }
+                else{
+                    dp[j] = max(dp[j], dp[j-1]) + grid[i][j];
+                }
+            }
+        }
+        return dp[cols-1];
+    }
+};
+```
+
+### 第 48 题：最长不重复字符串的子字符串
+
+请从字符串中找出一个最长的不包含重复字符的子字符串，计算该最长子字符串的长度。
+
+假设字符串中只包含从’a’到’z’的字符。
+
+样例：
+
+输入："abcabc"
+
+输出：3
+
+[AcWing OJ](https://www.acwing.com/problem/content/57/)
+
+暴力法一次性AC，，时间O(n^2), 因为哈希表最多存储26项，所以当字符串比较长时，可以认为空间复杂度为O(1)，之所以用哈希表，是因为在哈希表中查找值只需要O(1)时间，不然要把新读入的数在已读子字符串中顺序扫描，又得花费O(n)时间，总的时间上升到O(n^3)
+
+```c++
+class Solution {
+public:
+    int longestSubstringWithoutDuplication(string s) {
+        int len = 0;
+        unordered_set<int> hash;
+        for(int i = 0; i < s.size(); ++i){
+            hash.clear();
+            for(int j = i; j < s.size(); ++j){
+                if(hash.find(s[j]) != hash.end()){
+                    break;
+                }
+                hash.insert(s[j]);
+                if(hash.size() > len){
+                    len = hash.size();
+                }
+            }
+        }
+        return len;
+    }
+};
+```
+
+优化（自己想的）：之前的暴力版本，发现有重复的字母则最外层后移一位，但其实可以跳到重复字母那位的后面，比如abcdefc，第一次进入到了abcdef，得到最长len=6，然后再读一位发现与字符串第2位（从0开始）的c重复了，这时外层指针可以直接跳到字符串第3位，因为第1位和第2位开始的最长子字符串肯定会小于之前得到6
+
+```c++
+class Solution {
+public:
+    int longestSubstringWithoutDuplication(string s) {
+        int len = 0;
+        unordered_map<int, int> hash;
+        int i = 0;
+        int j = 0;
+        int jumpFlag = false;
+        while(i < s.size()){
+            hash.clear();
+            for(j = i; j < s.size(); ++j){
+                if(hash.find(s[j]) != hash.end()){
+                    jumpFlag = true;
+                    break;
+                }
+                hash.insert(make_pair(s[j], j));
+                if(hash.size() > len){
+                    len = hash.size();
+                }
+            }
+            if(jumpFlag){
+                i = hash.find(s[j])->second + 1;
+                jumpFlag = false;
+            }
+            else{
+                ++i;
+            }
+        }
+        return len;
+    }
+};
+```
+
+动态规划：
+
+定义dp[i]表示以第i个字符结尾的不包含重复字符的子字符串的最长长度，我们从左到右逐一扫描字符串每个字符，如果第i个字符之前没出现过，则f(i)=f(i-1)+1，如果第i个字符之前出现过，找到最近那个，与i的距离为d。
+
+如果d小于等于f(i-1)，则此时第i个字符上次出现在f(i-1)对应的最长子字符串中，因此f(i)=d，同时这也意味着在第i个字符出现两次所夹的字符串中再也没有其他重复的字符了
+
+如果d大于f(i-1)，则此时第i个字符上次出现在f(i-1)对应的最长子字符串之前，因此仍然有f(i)=f(i-1)+1
+
+```c++
+class Solution {
+public:
+    int longestSubstringWithoutDuplication(string s) {
+        if(s.empty()) return 0;
+        if(s.size() == 1) return 1;
+        vector<int> dict(26, -1); // 26个字母，每个元素上次出现的位置
+        int cur = 1; // dp[0] = 1
+        dict[s[0] - 'a'] = 0;
+        int longest = 1;
+        for(int i = 1; i < s.size(); ++i){
+            int pre_index = dict[s[i] - 'a'];
+            if(pre_index < 0 || i - pre_index > cur){
+                ++cur;
+            }
+            else{
+                cur = i - pre_index;
+            }
+            dict[s[i] - 'a'] = i;
+            if(cur > longest) longest = cur;
+        }
+        return longest;
+    }
+};
+```
+
+### 面试题49：丑数
+
+把只包含质因子2、3和5的数称作丑数（Ugly Number）。例如6、8都是丑数，但14不是，因为它包含质因子7。 习惯上我们把1当做是第一个丑数。求按从小到大的顺序的第N个丑数。
+
+从1开始一个个判断显然时间复杂度太大，仔细观察发现，每个丑数肯定是另一个丑数乘以2or3or5得到的，所以可以创建一个数组，数组里面是排好序的丑数，现在主要问题是如何得到下一个丑数
+
+我自己想的，效率很低，没有及时跳出来
+
+```c++
+class Solution {
+public:
+    int GetUglyNumber_Solution(int index) {
+        if(index <= 0) return 0;
+        vector<int> vec = {1};
+        int pre_ugly = 1;
+        int temp = 0;
+        int closest = INT_MAX;
+        for(int i = 1; i < index; ++i){
+            for(int j = i - 1; j >= 0; --j){
+                if(vec[j]*2 > pre_ugly && vec[j]*2 - pre_ugly < closest){
+                    temp = vec[j]*2;
+                    closest = vec[j]*2 - pre_ugly;
+                }
+                if(vec[j]*3 > pre_ugly && vec[j]*3 - pre_ugly < closest){
+                    temp = vec[j]*3;
+                    closest = vec[j]*3 - pre_ugly;
+                }
+                if(vec[j]*5 > pre_ugly && vec[j]*5 - pre_ugly < closest){
+                    temp = vec[j]*5;
+                    closest = vec[j]*5 - pre_ugly;
+                }
+                //if(vec[j]*5 <= pre_ugly) break; // 前面的丑数更小，不可能是下一个丑数
+            }
+            vec.push_back(temp);
+            closest = INT_MAX;
+            pre_ugly = temp;
+        }
+        return vec[vec.size()-1];
+    }
+};
+```
+
+参考书上的答案，感觉怪怪的，书上的三个指针没有重置的操作，我在每次循环时重置到头，在牛客网OJ上运行时间明显降低
+
+```c++
+class Solution {
+public:
+    int GetUglyNumber_Solution(int index) {
+        if(index <= 0) return 0;
+        vector<int> vec = {1};
+        auto multiply2 = vec.begin();
+        auto multiply3 = vec.begin();
+        auto multiply5 = vec.begin();
+        int pre_ugly = 1;
+        for(int i = 1; i < index; ++i){
+            multiply2 = vec.begin();
+            multiply3 = vec.begin();
+            multiply5 = vec.begin();
+            while(*multiply2 * 2 <= pre_ugly) ++multiply2;
+            while(*multiply3 * 3 <= pre_ugly) ++multiply3;
+            while(*multiply5 * 5 <= pre_ugly) ++multiply5;
+            pre_ugly = Min3(*multiply2 * 2, *multiply3 * 3, *multiply5 * 5);
+            vec.push_back(pre_ugly);
+        }
+        return vec[vec.size()-1];
+    }
+    int Min3(int a, int b, int c){
+        int min = (a < b) ? a : b;
+        return (min < c) ? min : c;
+    }
+};
+```
+
+后来看了[解答](https://www.acwing.com/video/186/)，终于知道了为什么，这其实就是三路归并，跟排序有关
+
+```c++
+class Solution {
+public:
+    int GetUglyNumber_Solution(int index) {
+        if(index <= 0) return 0;
+        int p1=0,p2=0,p3=0;
+        vector<int> vec;
+        vec.push_back(1);
+        int minv;
+        while(vec.size() < index){
+            minv=min(vec[p1]*2,min(vec[p2]*3,vec[p3]*5));
+            if(vec[p1]*2==minv) p1++;
+            if(vec[p2]*3==minv) p2++;
+            if(vec[p3]*5==minv) p3++;
+            vec.push_back(minv);
+        }
+        return vec.back();
+    }
+};
+```
+
+### 面试题50：第一个只出现一次的字符
+
+牛客网的题目出的太烂了，找到[AcWing](https://www.acwing.com/problem/content/description/59/)上的
+
+在字符串中找出第一个只出现一次的字符。
+
+如输入"abaccdeff"，则输出b。
+
+如果字符串中不存在只出现一次的字符，返回#字符。
+
+样例：
+输入："abaccdeff"
+
+输出：'b'
+
+用两个哈希表存储，一个存储出现过的字符(set)，一个存储只出现一次的字符以及其位置(map)
+
+```c++
+class Solution {
+public:
+    char firstNotRepeatingChar(string s) {
+        unordered_map<char, int> hash;
+        unordered_set<char> appeared;
+        int first = s.size();
+        for(int i = 0; i < s.size(); ++i){
+            if(appeared.find(s[i]) == appeared.end()){
+                hash[s[i]] = i;
+                appeared.insert(s[i]);
+            }
+            else if(hash.find(s[i]) != hash.end()){
+                hash.erase(hash.find(s[i]));
+            }
+        }
+        // 现在hash保存只出现一次的字符
+        for(auto it = hash.begin(); it != hash.end(); ++it){
+            if(it->second < first) first = it->second;
+        }
+        if(first != s.size()){
+            return s[first];
+        }
+        // 没有只出现一次的字符
+        return '#';
+    }
+};
+```
+
+后来发现有点麻烦，因为char只需要256个字符，所以创建长度为256的数组即可，数组的元素记录了当前字符的出现次数
+
+```c++
+class Solution {
+public:
+    char firstNotRepeatingChar(string s) {
+        vector<int> count(256);
+        int first = s.size();
+        for(int i = 0; i < s.size(); ++i){
+            ++count[s[i]];
+        }
+        for(int i = 0; i < s.size(); ++i){
+            if(count[s[i]] == 1) return s[i];
+        }
+        return '#';
+    }
+};
+```
+
+### 字符流中第一个只出现一次的字符
+
+[AcWing](https://www.acwing.com/problem/content/60/)，[nowcoder](https://www.nowcoder.com/practice/00de97733b8e4f97a3fb5c680ee10720?tpId=13&tqId=11207&tPage=1&rp=1&ru=/ta/coding-interviews&qru=/ta/coding-interviews/question-ranking)
+
+请实现一个函数用来找出字符流中第一个只出现一次的字符。例如，当从字符流中只读出前两个字符"go"时，第一个只出现一次的字符是"g"。当从该字符流中读出前六个字符“google"时，第一个只出现一次的字符是"l"。
+输出描述:
+如果当前字符流没有存在出现一次的字符，返回#字符。
+
+因为是字符流很长，不能全部存储下来，不过没关系，就像上题我自己想的那样，用哈希表（实际上用长度为256的数组表示），一个哈希表count表示出现次数，另外一个哈希表first表示只出现一次的字符出现的位置pos，在查找函数中，遍历first，在有效元素中（pos不等于-1）中查找最小的pos
+
+注意ASCII中为0的字符是空字符，而'0'是序号为48的字符，`char(48)`返回`'0'`，`int('0')`返回`48`
+
+```c++
+class Solution{
+public:
+    vector<int> count;
+    vector<int> first;
+    int k = 0;
+    //Insert one char from stringstream
+    void insert(char ch){
+        if(count.empty()){
+            for(int i = 0; i < 256; ++i){
+                count.push_back(0);
+                first.push_back(-1);
+            }
+        }
+        if(count[ch] == 0){
+            first[ch] = k;
+        }
+        else{
+            first[ch] = -1; // 之前出现过，-1失效
+        }
+        ++count[ch];
+        ++k;
+    }
+    //return the first appearence once char in current stringstream
+    char firstAppearingOnce(){
+        int index = k;
+        char ch = '0';
+        for(int i = 0; i < first.size(); ++i){
+            if(first[i] != -1 && first[i] < index){
+                index = first[i];
+                ch = i;
+            }
+        }
+        if(index != k){
+            return ch;
+        }
+        return '#';
     }
 };
 ```
