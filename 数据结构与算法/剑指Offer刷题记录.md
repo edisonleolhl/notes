@@ -2,7 +2,7 @@
 
 ## 数组
 
-### 第3题：数组中的重复数组
+### 面试题3-1：数组中的重复数组
 
 题目描述
 
@@ -104,7 +104,7 @@ public:
 };
 ```
 
-### 不修改数组找出重复的数字
+### 面试题3-2：不修改数组找出重复的数字
 
 题目：在一个长度为n+1的数组里的所有数字都在1到n的范围内，所以数组中至少有一个数字是重复的。请找出数组中任意一个重复的数字，但不能修改输入的数组。例如，如果输入长度为8的数组{2, 3, 5, 4, 3, 2, 6, 7}，那么对应的出是重复的数字2或者3。
 
@@ -155,7 +155,7 @@ int countRange(const int* numbers, int length, int start, int end)
 }
 ```
 
-### 第4题：二维数组中的查找
+### 面试题4：二维数组中的查找
 
 在一个二维数组中（每个一维数组的长度相同），每一行都按照从左到右递增的顺序排序，每一列都按照从上到下递增的顺序排序。请完成一个函数，输入这样的一个二维数组和一个整数，判断数组中是否含有该整数。
 
@@ -469,7 +469,7 @@ private:
 
 除了效率之外，递归还有可能引起更严重的问题：**调用栈溢出**。前面分析中提到需要为每一次函数调用在内存栈中分配空间，而每个进程的栈的容量是有限的。当递归调用的层级太多时，就会超出栈的容量，从而导致调用栈溢出。
 
-### 面试题10：斐波那契数列
+### 面试题10-1：斐波那契数列
 
 大家都知道斐波那契数列，现在要求输入一个整数n，请你输出斐波那契数列的第n项（从0开始，第0项为0）。
 n<=39
@@ -507,7 +507,7 @@ public:
 };
 ```
 
-### 跳台阶
+### 面试题10-2：跳台阶
 
 一只青蛙一次可以跳上1级台阶，也可以跳上2级。求该青蛙跳上一个n级的台阶总共有多少种跳法（先后次序不同算不同的结果）。
 
@@ -531,7 +531,7 @@ public:
 };
 ```
 
-### 变态跳台阶
+### 面试题10-3：变态跳台阶
 
 一只青蛙一次可以跳上1级台阶，也可以跳上2级……它也可以跳上n级。求该青蛙跳上一个n级的台阶总共有多少种跳法。
 
@@ -1028,7 +1028,7 @@ void Print1ToMaxOfNDigits(int n){
 }
 ```
 
-### 面试题18：删除链表的节点
+### 面试题18-1：删除链表的节点
 
 题目：给定单向链表的头指针和一个结点指针，定义一个函数在0（1）时间删除该结点。
 
@@ -1036,9 +1036,9 @@ void Print1ToMaxOfNDigits(int n){
 
 之所以需要从头开始查找，是因为我们需要得到将被删除的结点的前面一个结点。在单向链表中，结点中没有指向前一个结点的指针，所以只好从链表的头结点开始顺序查找。
 
-那是不是一定需要得到被删除的结点的前一个结点呢？答案是否定的。我们可以很方便地得到要删除的结点的一下结点。如果我们把下一个结点的内容复制到需要删除的结点上覆盖原有的内容，再把下一个结点删除，那是不是就相当于把当前需要删除的结点删除了？
+那是不是一定需要得到被删除的结点的前一个结点呢？答案是否定的。我们可以很方便地得到要删除的结点的下一结点。如果我们把下一个结点的内容复制到需要删除的结点上覆盖原有的内容，再把下一个结点删除，那是不是就相当于把当前需要删除的结点删除了？
 
-### 删除链表中的重复节点
+### 面试题18-2：删除链表中的重复节点
 
 在一个排序的链表中，存在重复的结点，请删除该链表中重复的结点，重复的结点不保留，返回链表头指针。 例如，链表1->2->3->3->4->4->5 处理后为 1->2->5
 
@@ -1493,7 +1493,7 @@ public:
 };
 ```
 
-### 面试23：链表中环的入口结点
+### 面试题23：链表中环的入口结点
 
 给一个链表，若其中包含环，请找出该链表的环的入口结点，否则，输出null。
 
@@ -1985,9 +1985,7 @@ public:
 };
 ```
 
-### 面试题32：从上到下打印二叉树
-
-#### 题目一：不分行从上到下打印二叉树
+### 面试题32-1：不分行从上到下打印二叉树
 
 从上到下，从左到右打印二叉树，同一层节点按照从左到右的顺序打印，不分行
 
@@ -2009,7 +2007,7 @@ void LayerTraversal(TreeNode* root){
 }
 ```
 
-#### 题目二：分行从上到下打印二叉树
+### 面试题32-2：分行从上到下打印二叉树
 
 在题目一的基础上拓展，要求每一层打印一行
 
@@ -2038,7 +2036,7 @@ void LayerTraversalWithNewline(TreeNode* root){
 }
 ```
 
-#### 题目三：之字形打印二叉树
+### 面试题32-3：之字形打印二叉树
 
 在题目二的基础上拓展，要求按照之字形换行打印二叉树，也就是第一行按照从左到右打印，换行，第二行从右往左打印，换行，以此类推
 
@@ -2389,7 +2387,7 @@ public:
 };
 ```
 
-### 面试题38：字符串的排列
+### 面试题38-1：字符串的排列
 
 输入一个字符串,按字典序打印出该字符串中字符的所有排列。例如输入字符串abc,则打印出由字符a,b,c所能排列出来的所有字符串abc,acb,bac,bca,cab和cba。
 
@@ -2464,7 +2462,7 @@ public:
 };
 ```
 
-### 正方体顶点
+### 面试题38-2：正方体顶点
 
 现有8个数字的数组，把这8个数字放在正方体的8个顶点上，能否使得正方体上三组相对的面上的4个顶点的和都相等
 
@@ -2506,7 +2504,7 @@ public:
 };
 ```
 
-### n皇后问题
+### 面试题38-3：n皇后问题
 
 如何能够在 8×8 的国际象棋棋盘上放置八个皇后，使得任何一个皇后都无法直接吃掉其他的皇后？为了达到此目的，任两个皇后都不能处于同一条横行、纵行或斜线上
 
@@ -3457,7 +3455,7 @@ public:
 };
 ```
 
-### 第 48 题：最长不重复字符串的子字符串
+### 面试题48：最长不重复字符串的子字符串
 
 请从字符串中找出一个最长的不包含重复字符的子字符串，计算该最长子字符串的长度。
 
@@ -3662,7 +3660,7 @@ public:
 };
 ```
 
-### 面试题50：第一个只出现一次的字符
+### 面试题50-1：第一个只出现一次的字符
 
 牛客网的题目出的太烂了，找到[AcWing](https://www.acwing.com/problem/content/description/59/)上的
 
@@ -3727,7 +3725,7 @@ public:
 };
 ```
 
-### 字符流中第一个只出现一次的字符
+### 面试题50-2：字符流中第一个只出现一次的字符
 
 [AcWing](https://www.acwing.com/problem/content/60/)，[nowcoder](https://www.nowcoder.com/practice/00de97733b8e4f97a3fb5c680ee10720?tpId=13&tqId=11207&tPage=1&rp=1&ru=/ta/coding-interviews&qru=/ta/coding-interviews/question-ranking)
 
@@ -3779,3 +3777,1037 @@ public:
     }
 };
 ```
+
+### 面试题51：数组中的逆序对
+
+[AcWing](https://www.acwing.com/problem/content/61/)，牛客网的题目很奇怪
+
+在数组中的两个数字如果前面一个数字大于后面的数字，则这两个数字组成一个逆序对。
+
+输入一个数组，求出这个数组中的逆序对的总数。
+
+样例
+输入：[1,2,3,4,5,6,0]
+
+输出：6
+
+暴力，时间O(n^2)
+
+```c++
+class Solution {
+public:
+    int inversePairs(vector<int>& nums) {
+        int count = 0;
+        for(int i = 0; i < nums.size(); ++i){
+            for(int j = i; j < nums.size(); ++j){
+                if(nums[i] > nums[j]){
+                    ++count;
+                }
+            }
+        }
+        return count;
+    }
+};
+```
+
+优化：归并排序的典型应用。归并排序的基本思想是分治，在治的过程中有前后数字的大小对比，此时就是统计逆序对的最佳时机。归并排序的时间复杂度为O(nlogn)，空间复杂度为O(n)
+
+(a) 把长度为4的数组分解成两个长度为2的子数组；
+(b) 把长度为2的数组分解成两个成都为1的子数组；
+(c) 把长度为1的子数组 合并、排序并统计逆序对 ；
+(d) 把长度为2的子数组合并、排序，并统计逆序对；
+
+![20200124154056.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200124154056.png)
+
+在上图（a）和（b）中，我们先把数组分解成两个长度为2的子数组，再把这两个子数组分别拆成两个长度为1的子数组。接下来一边合并相邻的子数组，一边统计逆序对的数目。在第一对长度为1的子数组{7}、{5}中7大于5，因此（7,5）组成一个逆序对。同样在第二对长度为1的子数组{6}、{4}中也有逆序对（6,4）。由于我们已经统计了这两对子数组内部的逆序对，因此需要把这两对子数组 排序 如上图（c）所示， 以免在以后的统计过程中再重复统计。
+
+接下来我们统计两个长度为2的子数组子数组之间的逆序对。合并子数组并统计逆序对的过程如下图如下图所示。
+
+我们先用两个指针分别指向两个子数组的末尾，并每次比较两个指针指向的数字。如果第一个子数组中的数字大于第二个数组中的数字，则构成逆序对，并且逆序对的数目等于第二个子数组中剩余数字的个数，如下图（a）和（c）所示。如果第一个数组的数字小于或等于第二个数组中的数字，则不构成逆序对，如图b所示。每一次比较的时候，我们都把较大的数字从后面往前复制到一个辅助数组中，确保 辅助数组（记为copy） 中的数字是递增排序的。在把较大的数字复制到辅助数组之后，把对应的指针向前移动一位，接下来进行下一轮比较。当前merge的最后，把辅助数组覆盖原数组的对应位置
+
+过程：先把数组分割成子数组，先统计出子数组内部的逆序对的数目，然后再统计出两个相邻子数组之间的逆序对的数目。在统计逆序对的过程中，还需要对数组进行排序。如果对排序算法很熟悉，我们不难发现这个过程实际上就是归并排序
+
+```c++
+链接：https://www.nowcoder.com/questionTerminal/96bd6684e04a44eb80e6a68efc0ec6c5?f=discussion
+来源：牛客网
+
+    int InversePairs(vector<int> data) {
+        int length  = data.size();
+        return mergeSort(data, 0, length-1);
+    }
+    int mergeSort(vector<int>& data, int start, int end) {
+        // 递归终止条件
+        if(start >= end) {
+            return 0;
+        }
+        // 递归
+        int mid = (start + end) / 2;
+        int leftCounts = mergeSort(data, start, mid); // 返回左半部分的逆序对
+        int rightCounts = mergeSort(data, mid+1, end); // 返回右半部分的逆序对
+        // 归并排序，并计算本次逆序对数
+        vector<int> copy(data); // 数组副本，用于归并排序
+        int foreIdx = mid;      // 前半部分的指标
+        int backIdx = end;      // 后半部分的指标
+        int counts = 0;         // 记录本次逆序对数
+        int idxCopy = end;      // 辅助数组的下标
+        while(foreIdx>=start && backIdx >= mid+1) {
+            if(data[foreIdx] > data[backIdx]) {
+                copy[idxCopy--] = data[foreIdx--];
+                // mid~end已排序，backIdx遍历它的的指针，既然data[foreIdx]>data[backIdx]，那么data[foreIdx]也肯定大于data[mid+1] ... data[backIdx-1]，所以count加上backIdx到mid的距离即可
+                counts += backIdx - mid;
+            } else {
+                copy[idxCopy--] = data[backIdx--];
+            }
+        }
+        while(foreIdx >= start) {
+            copy[idxCopy--] = data[foreIdx--];
+        }
+        while(backIdx >= mid+1) {
+            copy[idxCopy--] = data[backIdx--];
+        }
+        // 覆盖原数组
+        for(int i=start; i<=end; i++) {
+            data[i] = copy[i];
+        }
+        return (leftCounts+rightCounts+counts);
+    }
+```
+
+### 面试题52：两个链表的第一个公共结点
+
+[AcWing](https://www.acwing.com/problem/content/62/)
+
+输入两个链表，找出它们的第一个公共结点。
+
+当不存在公共节点时，返回空节点。
+
+样例
+给出两个链表如下所示：
+
+```c++
+A：        a1 → a2
+                   ↘
+                     c1 → c2 → c3
+                   ↗
+B:     b1 → b2 → b3
+```
+
+输出第一个公共节点c1
+
+暴力，在AcWing上超时了，时间复杂度为O(mn)
+
+```c++
+class Solution {
+public:
+    ListNode *findFirstCommonNode(ListNode *headA, ListNode *headB) {
+        if(headA == nullptr || headB == nullptr) return nullptr;
+        ListNode* nodeA = headA;
+        ListNode* nodeB = headB;
+        while(nodeA != nullptr){
+            while(nodeB != nullptr){
+                if(nodeA == nodeB){
+                    return nodeA;
+                }
+                nodeB = nodeB->next;
+            }
+            nodeB = headB;
+            nodeA = nodeA->next;
+        }
+        return nullptr;
+    }
+};
+```
+
+小优化：利用哈希表，用空间换时间，时间复杂度为O(m+n)，空间复杂度为O(m)，没超时
+
+```c++
+class Solution {
+public:
+    ListNode *findFirstCommonNode(ListNode *headA, ListNode *headB) {
+        if(headA == nullptr || headB == nullptr) return nullptr;
+        unordered_set<ListNode*> hash;
+        ListNode* nodeA = headA;
+        while(nodeA != nullptr){
+            hash.insert(nodeA);
+            nodeA = nodeA->next;
+        }
+        ListNode* nodeB = headB;
+        while(nodeB != nullptr){
+            if(hash.find(nodeB) != hash.end()){
+                return nodeB;
+            }
+            nodeB = nodeB->next;
+        }
+        return nullptr;
+    }
+};
+```
+
+另一种小优化：因为两个链表若有重合，形状会像Y一样，我们可以对两个链表从头开始压入栈中，最后，两个栈顶元素是链表尾部元素，如果不同，则说明两个链表没有公共节点，如果相同，则两个栈同时弹出一个，比较次顶元素是否相同，按照这样的操作直到找到最后一个相同的节点，输出即可
+
+```c++
+/**
+ * Definition for singly-linked list.
+ * struct ListNode {
+ *     int val;
+ *     ListNode *next;
+ *     ListNode(int x) : val(x), next(NULL) {}
+ * };
+ */
+class Solution {
+public:
+    ListNode *findFirstCommonNode(ListNode *headA, ListNode *headB) {
+        if(headA == nullptr || headB == nullptr) return nullptr;
+        stack<ListNode*> sa, sb;
+        ListNode* nodeA = headA;
+        ListNode* nodeB = headB;
+        ListNode* same;
+        while(nodeA != nullptr){
+            sa.push(nodeA);
+            nodeA = nodeA->next;
+        }
+        while(nodeB != nullptr){
+            sb.push(nodeB);
+            nodeB = nodeB->next;
+        }
+        if(sa.top() != sb.top()) return nullptr;
+        while(!sa.empty() && !sb.empty() && sa.top() == sb.top()){
+            same = sa.top();
+            sa.pop();
+            sb.pop();
+        }
+        return same;
+    }
+};
+```
+
+最优化：先把两个链表遍历完，记录各自长度len1,len2，让更长的链表先走`step=abs(len1-len2)`步，然后同步步进，每次判断是否相同，若相同则直接输出；若直到尾部都没有公共节点，则说明没有公共节点。该方法不需要辅助空间，只需要多遍历几次即可，时间复杂度仍为O(1)
+
+```c++
+class Solution {
+public:
+    ListNode *findFirstCommonNode(ListNode *headA, ListNode *headB) {
+        if(headA == nullptr || headB == nullptr) return nullptr;
+        ListNode* nodeA = headA;
+        ListNode* nodeB = headB;
+        int len1 = 0;
+        int len2 = 0;
+        int step = 0;
+        while(nodeA != nullptr){
+            nodeA = nodeA->next;
+            ++len1;
+        }
+        while(nodeB != nullptr){
+            nodeB = nodeB->next;
+            ++len2;
+        }
+        nodeA = headA;
+        nodeB = headB;
+        if(len1 > len2){
+            step = len1 - len2;
+            while(step > 0){
+                nodeA = nodeA->next;
+                --step;
+            }
+            while(nodeA != nullptr && nodeB != nullptr){
+                if(nodeA == nodeB){
+                    return nodeA;
+                }
+                nodeA = nodeA->next;
+                nodeB = nodeB->next;
+            }
+        }
+        else{
+            step = len2 - len1;
+            while(step > 0){
+                nodeB = nodeB->next;
+                --step;
+            }
+            while(nodeA != nullptr && nodeB != nullptr){
+                if(nodeA == nodeB){
+                    return nodeA;
+                }
+                nodeA = nodeA->next;
+                nodeB = nodeB->next;
+            }
+        }
+        return nullptr;
+    }
+};
+```
+
+### 面试题53-1：统计一个数字在排序数组中出现的次数
+
+例如输入排序数组[1, 2, 3, 3, 3, 3, 4, 5]和数字3，由于3在这个数组中出现了4次，因此输出4。
+
+样例
+输入：[1, 2, 3, 3, 3, 3, 4, 5] ,  3
+
+输出：4
+
+暴力只需要O(n)时间，一次遍历即可，但这显然不是面试官想要的答案
+
+因为数组已排序，所以可以用二分查找，但是这里要找上下界，最开始我的思路是，先普通的二分查找找到target的某个下标i，再往左往右找到上下界，这个往左往右的逻辑搞晕了我，因为还需要这个方向还需要反向的。
+
+后来看了书上的思路，先找二分查找数组的第一个k，当某次递归找到k时，设当前下标为i，如果i为0或nums[i-1]!=k，则直接返回i即可，此时i就是第一个k的下标，否则再往前二分查找，这样getFirstK的结果就是第一个k的下标first。然后二分查找最后一个k，当某次递归找到k时，设当前下标为i，如果i为nums.size()-1或nums[i+1]!=k，则直接返回i即可，此时i就是最后k的下标，否则再往后二分查找，这样getLastK的结果就是最后k的下标last。最后计算last-frist+1即可
+
+```c++
+class Solution {
+public:
+    int getNumberOfK(vector<int>& nums, int k) {
+        if(nums.empty()) return 0;
+        int first = getFirskK(nums, k, 0, nums.size()-1);
+        if(first == -1) return 0;
+        int last = getLastK(nums, k, 0, nums.size()-1);
+        return last-first+1;
+    }
+    int getLastK(vector<int>& nums, int k, int low, int high){
+        if(low > high) return -1;
+        int mid = (low + high) / 2;
+        if(nums[mid] == k){
+            if(mid == nums.size()-1 || (mid < nums.size()-1 && nums[mid+1] != k)){
+                return mid;
+            }
+            else{
+                low = mid + 1;
+            }
+        }
+        else if(nums[mid] > k){
+            high = mid - 1;
+        }
+        else{
+            low = mid + 1;
+        }
+        return getLastK(nums, k, low, high);
+    }
+    int getFirskK(vector<int>& nums, int k, int low, int high){
+        if(low > high) return -1;
+        int mid = (low + high) / 2;
+        if(nums[mid] > k){
+            high = mid - 1;
+        }
+        else if(nums[mid] < k){
+            low = mid + 1;;
+        }
+        else if(mid == 0 || (mid > 0 && nums[mid-1] != k)){
+            return mid;
+        }
+        else{
+            high = mid - 1;
+        }
+        return getFirskK(nums, k, low, high);
+    }
+};
+```
+
+### 面试题53-2：到n-1中缺失的数字
+
+[AcWing](https://www.acwing.com/problem/content/64/)
+
+一个长度为n-1的递增排序数组中的所有数字都是唯一的，并且每个数字都在范围0到n-1之内。
+
+在范围0到n-1的n个数字中有且只有一个数字不在该数组中，请找出这个数字。
+
+样例
+输入：[0,1,2,4]
+
+输出：3
+
+自己想的二分查找，发现该数组形如0 1 2 3（返回4），0 1 2 4（返回3），1 2 3 4（返回0），所以在二分查找时，判断mid是否等于nums[mid]即可，若等于，则往后查找，若不等于，则往前查找，注意mid等于0或nums.size()-1的情况
+
+其实二分查找就是要找第一个值与下标不相等的元素
+
+```c++
+class Solution {
+public:
+    int getMissingNumber(vector<int>& nums) {
+        if(nums.empty()) return 0;
+        // eg: nums = {0,1,2,4}, {0,1,2,3,4,5,7,8,9}
+        return binarySearch(nums, 0, nums.size()-1);
+    }
+    int binarySearch(vector<int>& nums, int low, int high){
+        if(low > high) return -1;
+        int mid = (low + high) / 2;
+        if(nums[mid] == mid){
+            // 形如0 1 2 3，当前mid=3，发现nums[mid]==mid&&mid==size()-1，所以返回mid+1
+            // 或者形如0 1 2 4 5，当前mid=2，发现nums[mid]==mid&&nums[mid+1]!=mid+1，所以返回mid+1
+            if(mid == nums.size()-1 || nums[mid+1] != mid+1) return mid + 1; 
+            else low = mid + 1;
+        }
+        else{
+            // 形如1 2 3 4，当前mid=0，发现nums[mid]!=mid&&mid==0，所以返回mid
+            // 或者形如 0 2 3 4，当前mid=1，发现nums[mid]!=mid且nums[mid-1]==mid-1，所以返回mid
+            if(mid == 0 || nums[mid-1] == mid-1) return mid;
+            else high = mid - 1;
+        }
+        return binarySearch(nums, low, high);
+    }
+};
+```
+
+### 面试题53-3：数组中数值和下标相等的元素
+
+假设一个单调递增的数组里的每个元素都是整数并且是唯一的。
+
+请编程实现一个函数找出数组中任意一个数值等于其下标的元素。
+
+例如，在数组[-3, -1, 1, 3, 5]中，数字3和它的下标相等。
+
+样例
+输入：[-3, -1, 1, 3, 5]
+
+输出：3
+注意:如果不存在，则返回-1。
+
+二分查找一次性AC，这就很舒服诶！
+
+```c++
+class Solution {
+public:
+    int getNumberSameAsIndex(vector<int>& nums) {
+        if(nums.empty()) return -1;
+        return binarySearch(nums, 0, nums.size()-1);
+    }
+    int binarySearch(vector<int>& nums, int low, int high){
+        if(low > high) return -1;
+        int mid = (low + high) / 2;
+        if(nums[mid] > mid){
+            high = mid - 1;
+        }
+        else if(nums[mid] < mid){
+            low = mid + 1;
+        }
+        else{
+            return mid;
+        }
+        return binarySearch(nums, low, high);
+    }
+};
+```
+
+### 面试题54：二叉搜索树的第k个结点
+
+给定一棵二叉搜索树，请找出其中的第k小的结点。
+
+你可以假设树和k都存在，并且1≤k≤树的总结点数。
+
+样例
+输入：root = [2, 1, 3, null, null, null, null] ，k = 3
+
+```c++
+    2
+   / \
+  1   3
+```
+
+输出：3
+
+第一次尝试，用中序遍历，存入vector中，当vector长度达到k时结束，但是需要O(n)的空间
+
+```c++
+class Solution {
+public:
+    TreeNode* kthNode(TreeNode* root, int k) {
+        // 这不就是中序遍历序列的第k个节点（从1开始）吗
+        if(root == nullptr || k < 1) return nullptr;
+        vector<TreeNode*> vec;
+        InOrderTraversal(root, vec, k);
+        return vec[k-1];
+    }
+    void InOrderTraversal(TreeNode* root, vector<TreeNode*>& vec, int& k){
+        if(root == nullptr) return;
+        if(vec.size() == k) return;
+        InOrderTraversal(root->left, vec, k);
+        vec.push_back(root);
+        InOrderTraversal(root->right, vec, k);
+    }
+};
+```
+
+后来想着，在递归时计数，书上的递归有点复杂，我把ans放在函数体外面，这样会容易理解一点
+
+```c++
+class Solution {
+public:
+    TreeNode* ans;
+    TreeNode* kthNode(TreeNode* root, int k) {
+        if(root == nullptr || k < 1) return nullptr;
+        InOrderTraversal(root, k);
+        return ans;
+    }
+    void InOrderTraversal(TreeNode* root, int& k){
+        if(root == nullptr) return;
+        InOrderTraversal(root->left, k);
+        if(k == 1) ans = root;
+        --k;
+        InOrderTraversal(root->right, k);
+    }
+};
+```
+
+### 面试题55-1：二叉树的深度
+
+[AcWing](https://www.acwing.com/problem/content/67/)
+
+输入一棵二叉树的根结点，求该树的深度。
+
+从根结点到叶结点依次经过的结点（含根、叶结点）形成树的一条路径，最长路径的长度为树的深度。
+
+样例
+输入：二叉树[8, 12, 2, null, null, 6, 4, null, null, null, null]如下图所示：
+    8
+   / \
+  12  2
+     / \
+    6   4
+
+输出：3
+
+第一次尝试：之间递归遍历左右子树，递归函数的参数一个是当前深度cur，一个是已记录的最大深度depth，注意depth要用引用，这样可以修改实参的值
+
+```c++
+class Solution {
+public:
+    int treeDepth(TreeNode* root) {
+        if(root == nullptr) return 0;
+        int cur = 1;
+        int depth = 1;
+        treeDepthCore(root, cur, depth);
+        return depth;
+    }
+    void treeDepthCore(TreeNode* root, int cur, int& depth){
+        if(root == nullptr) return;
+        if(cur > depth) depth = cur;
+        treeDepthCore(root->left, cur+1, depth);
+        treeDepthCore(root->right, cur+1, depth);
+    }
+};
+```
+
+书上的代码思路也很有借鉴意义，十分精简，可以不需要递归函数，如果一棵树只有一个节点，则它的深度为1，如果它只有左子树没有右子树，则它的深度为左子树深度+1，如果它只有右子树没有左子树，则它的深度为右子树深度+1，如果左右子树都有，则它的深度为左右子树深度的较大值+1
+
+```c++
+class Solution {
+public:
+    int treeDepth(TreeNode* root) {
+        if(root == nullptr) return 0;
+        int leftDepth = treeDepth(root->left);
+        int rightDepth = treeDepth(root->right);
+        return leftDepth > rightDepth ? leftDepth+1 : rightDepth+1;
+    }
+};
+```
+
+### 面试题55-2：平衡二叉树
+
+输入一棵二叉树的根结点，判断该树是不是平衡二叉树。
+
+如果某二叉树中任意结点的左右子树的深度相差不超过1，那么它就是一棵平衡二叉树。
+
+注意：
+
+规定空树也是一棵平衡二叉树。
+样例
+输入：二叉树[5,7,11,null,null,12,9,null,null,null,null]如下所示，
+    5
+   / \
+  7  11
+    /  \
+   12   9
+
+输出：true
+
+首先想到，从根节点开始，依次往左右子树递归，比较左右子树深度之差是否大于1，但这样有很多重复的递归！
+
+想了一会，一次性AC，诶嘿，很舒服，用上题的框架，如果不平衡则返回-1，如果平衡，则返回左右子树的深度差
+
+```c++
+class Solution {
+public:
+    bool isBalanced(TreeNode* root) {
+        if(root == nullptr) return true;
+        if(treeDepth(root) == -1){
+            return false;
+        }
+        return true;
+    }
+    // returning -1 means unbalanced
+    int treeDepth(TreeNode* root){
+        if(root == nullptr) return 0;
+        int leftDepth = treeDepth(root->left);
+        int rightDepth = treeDepth(root->right);
+        if((leftDepth == -1 || rightDepth == -1) || (leftDepth - rightDepth > 1 || rightDepth - leftDepth > 1)){
+            return -1;
+        }
+        return leftDepth > rightDepth ? leftDepth+1 : rightDepth+1;
+    }
+};
+```
+
+### 面试题56-1：数组中只出现一次的两个数字
+
+[AcWing](https://www.acwing.com/problem/content/69/)
+
+一个整型数组里除了两个数字之外，其他的数字都出现了两次。
+
+请写程序找出这两个只出现一次的数字。
+
+你可以假设这两个数字一定存在。
+
+样例
+输入：[1,2,3,3,4,4]
+
+输出：[1,2]
+
+第一次尝试：用哈希表存储访问过的数字，若出现过，则删除掉，若没出现，则加入。这种方法没有用到数组的特点，时空都是O(n)，第二次AC
+
+```c++
+class Solution {
+public:
+    vector<int> findNumsAppearOnce(vector<int>& nums) {
+        if(nums.empty()) return vector<int>();
+        vector<int> vec;
+        unordered_set<int> hash;
+        for(int i = 0; i < nums.size(); ++i){
+            if(hash.find(nums[i]) == hash.end()){
+                hash.insert(nums[i]);
+            }
+            else{
+                hash.erase(hash.find(nums[i]));
+            }
+        }
+        for(auto it = hash.begin(); it != hash.end(); ++it){
+            vec.push_back(*it);
+        }
+        return vec;
+    }
+};
+```
+
+优化：数字的异或，时间复杂度为O(n)，空间复杂度为O(1)
+
+因为以前做过只有一个数字出现过一次，其他数字都出现过两次的题目，那个题目可以用异或操作，把数组所有数字异或，最后的结果就是那个只出现过一次的数字，其他成对出现的数字都抵消了。那对于这题，可以把数组分成两个子数组，如果恰好把这两个只出现一次的数字各自分到这两个子数组中，而其他成对出现的数字也是成对的放入两个子数组中，那么问题就可以转换为之前那题的做法，这里的问题是如何划分这两个非常有特点的子数组
+
+可以这样操作，设这两个只出现一次的数字是a与b，先把所有数字异或一遍，得到的结果sum=a xor b，sum肯定不为0，sum的二进制表示肯定有某位是1，根据该位是不是1来区分子数组，a与b肯定会划分到不同的子数组，而其他的成对的数字肯定会成对的进入其中一个子数组
+
+但注意`&`是按位与操作符，例如`5&1=1, 5&4=4, 5&2=0`，所以在判断某个数字num第i位（从0开始）是否为1时，不能直接与2的i次方比较，而应该右移i位，再&1
+
+```c++
+class Solution {
+public:
+    vector<int> findNumsAppearOnce(vector<int>& nums) {
+        if(nums.empty()) return vector<int>();
+        int xorsum = 0;
+        int digit = 0;
+        int num1 = 0;
+        int num2 = 0;
+        for(int i = 0; i < nums.size(); ++i){
+            xorsum ^= nums[i];
+        }
+        while((xorsum & 1) == 0){
+            xorsum = xorsum >> 1;
+            ++digit;
+        }
+        // 根据二进制的第i位是否为1来划分两个子数组，子数组中只有一个只出现一次的数字，异或后的结果就是它自己
+        for(int i = 0; i < nums.size(); ++i){
+            if(isKthBit1(nums[i], digit)) num1 ^= nums[i];
+            else num2 ^= nums[i];
+        }
+        vector<int> vec {num1, num2};
+        return vec;
+    }
+    bool isKthBit1(int num, int digit){
+        while(digit > 0){
+            num = num >> 1;
+            --digit;
+        }
+        if((num & 1) == 1) return true;
+        return false;
+    }
+};
+```
+
+### 面试题56-2：数组中唯一只出现一次的数字
+
+在一个数组中除了一个数字只出现一次之外，其他数字都出现了三次。
+
+请找出那个只出现一次的数字。
+
+你可以假设满足条件的数字一定存在。
+
+思考题：
+
+如果要求只使用 O(n) 的时间和额外 O(1) 的空间，该怎么做呢？
+样例
+输入：[1,1,1,2,2,2,3,4,4,4]
+
+输出：3
+
+思路：
+
+1. 这道题中数字出现了三次，无法像数组中只出现一次的两个数字一样通过利用异或位运算进行消除相同个数字。但是仍然可以沿用位运算的思路。
+2. 将所有数字的二进制表示的对应位都加起来，如果某一位能被三整除，那么只出现一次的数字在该位为0；反之，为1。
+3. 一个int型有32位，每一位不是0就是1。对于三个相同的数，统计每一位出现的频率（可以用一个长度为32的数组记录），那么每一位的频率的和一定能被3整除，
+4. 也就是说频率和不是3就是0。如果有多组三个相同的数，统计的结果也是类似：频率和不是0就是3的倍数。现在其中混进了一个只出现一次的数，没关系也统计到频率和中。
+5. 如果第n位的频率和还是3的倍数，说明只出现一次的这个数第n位是0；如果不能被3整除了，说明只出现一次的这个数第n位是1。由此可以确定这个只出现一次的数的二进制表示，进而求出该数据。
+
+```c++
+class Solution {
+public:
+    int findNumberAppearingOnce(vector<int>& nums) {
+        vector<int> bitSum (32); // int型有32位，统计每一位上出现1的次数
+        int bit = 0;
+        int num = 0;
+        int ans = 0;
+        for(int i = 0; i < nums.size(); ++i){
+            bit = 0;
+            num = nums[i];
+            while(bit < 32){
+                if(num & 1){
+                    ++bitSum[bit];
+                }
+                num = num >> 1;
+                ++bit;
+            }
+        }
+        for(int i = 0; i < 32; ++i){
+            // 当前位的频率和不是3的倍数，说明ans在这位肯定是1
+            if(bitSum[i] % 3 != 0){
+                ans += pow(2, i);
+            }
+        }
+        return ans;
+    }
+};
+```
+
+### 面试题57-1：和为S的两个数字
+
+[AcWing](https://www.acwing.com/problem/content/71/)
+
+输入一个数组和一个数字s，在数组中查找两个数，使得它们的和正好是s。
+
+如果有多对数字的和等于s，输出任意一对即可。
+
+你可以认为每组输入中都至少含有一组满足条件的输出。
+
+样例
+输入：[1,2,3,4] , sum=7
+
+输出：[3,4]
+
+用哈希表存储已经出现过的数字，一次遍历即可，每次遍历时有当前值nums[i]，判断哈希表是否有target-nums[i]，若有则直接返回，若没有则再判断哈希表是否有nums[i]，若没有则nums[i]加入哈希表
+
+```c++
+class Solution {
+public:
+    vector<int> findNumbersWithSum(vector<int>& nums, int target) {
+        unordered_set<int> hash;
+        vector<int> ans;
+        for(int i = 0; i < nums.size(); ++i){
+            if(hash.find(target-nums[i]) == hash.end()){
+                if(hash.find(nums[i]) == hash.end()){
+                    hash.insert(nums[i]);
+                }
+            }
+            else{
+                ans.push_back(nums[i]);
+                ans.push_back(target-nums[i]);
+                break;
+            }
+        }
+        return ans;
+    }
+};
+```
+
+书本上的题目和AcWing的不一样，输入的数组是递增排序的，这其实很简单，不用辅助空间可以实现O(n)，只需要双指针low与high，开始时一个指向头一个指向尾，若nums[low]+nums[high] = target，直接返回nums[low]与nums[high]；若大于，--high；若小于，++low
+
+### 面试题57-2：和为S的连续正数序列
+
+输入一个正数s，打印出所有和为s的连续正数序列（至少含有两个数）。
+
+例如输入15，由于1+2+3+4+5=4+5+6=7+8=15，所以结果打印出3个连续序列1～5、4～6和7～8。
+
+样例
+输入：15
+
+输出：[[1,2,3,4,5],[4,5,6],[7,8]]
+
+自己想的，全都在注释里面了，主要思想是判断每个len是否可能是序列的长度，需要根据len的奇偶性与avg的值来判断，感觉也还不错
+
+```c++
+class Solution {
+public:
+    vector<vector<int> > findContinuousSequence(int sum) {
+        // 这种连续正数序列vec肯定满足：vec.avg()*vec.size()=sum
+        // 而vec.avg()肯定是0.5的倍数
+        // vec.avg()-vec.size()/2 肯定要大于0，也就是序列开头肯定要大于0
+        if(sum < 3) return vector<vector<int> >();
+        vector<vector<int> > ans;
+        vector<int> vec;
+        int len = 3;
+        if(sum % 2){
+            ans.push_back(vector<int>{sum/2, sum/2+1});
+        }
+        while(len < sum/2){
+            // 如果avg是整数
+            if((double) sum/len == sum/len){
+                // 如果len是奇数且序列开头大于0
+                if(len&1 && sum/len-len/2 > 0){
+                    for(int num = sum/len-len/2; num <= sum/len+len/2; ++num){
+                        vec.push_back(num);
+                    }
+                    ans.push_back(vec);
+                    vec.clear();
+                }
+            }
+            // 如果avg不是整数但是是0.5的倍数
+            else if((double) sum*2/len == sum*2/len){
+                // 如果len是偶数且序列开头大于0
+                if(!(len&1) && sum/len+1-len/2 > 0){
+                    for(int num = sum/len+1-len/2; num <= sum/len+len/2; ++num){
+                        vec.push_back(num);
+                    }
+                    ans.push_back(vec);
+                    vec.clear();
+                }
+            }
+            ++len;
+        }
+        return ans;
+    }
+};
+```
+
+看了书上的解答，巧妙运用双指针，应该比我的更简洁，这其实就是滑动窗口的思想，窗口的左右指针只能往后移动
+
+1. 设置两个指针i和j，分别指向连续正数序列的起始和终止
+2. 用tempSum表示当前连续正数序列的和，即tempSum=i+(i+1)+…+j
+3. 以i递增的方式遍历前半个数列(1到(sum+1)/2)，代表查找以i开头的时候结尾j应该是多少。当`tempSum<sum`时，说明当前窗口太小，j应该往后移动；当`tempSum==sum`说明满足题意；当`tempSum>sum`，说明窗口太小，i向后走即可。
+4. 每次移动时，窗口的和只需要加一项或者减一项，所以每次移动可以顺便记录，满足题意时直接加入
+
+注意上述遍历过程中，s=sums=sum的情况下不需要把j往前移动，原因是当进入下一个循环前s−=is−=i，即(i+1)到j的和肯定小于sum。
+
+```c++
+class Solution {
+public:
+    vector<vector<int> > findContinuousSequence(int sum) {
+        if(sum < 3) return vector<vector<int> >();
+        vector<vector<int> > ans;
+        vector<int> vec;
+        int low = 1;
+        int high = 2;
+        int tempSum = low + high;
+        while(low <= (sum+1)/2){
+            if(tempSum == sum){
+                for(int num = low; num <= high; ++num){
+                    vec.push_back(num);
+                }
+                ans.push_back(vec);
+                vec.clear();
+                ++high;
+                tempSum +=high;
+            }
+            else if(tempSum > sum){
+                tempSum -= low;
+                ++low;
+            }
+            else{
+                ++high;
+                tempSum +=high;
+            }
+        }
+        return ans;
+    }
+};
+```
+
+### 面试题58-1：翻转字符串
+
+输入一个英文句子，翻转句子中单词的顺序，但单词内字符的顺序不变。
+
+为简单起见，标点符号和普通字母一样处理。
+
+例如输入字符串"I am a student."，则输出"student. a am I"。
+
+样例
+输入："I am a student."
+
+输出："student. a am I"
+
+第一次尝试：先把整个字符串翻转，然后用空格分开，碰到下一个空格时翻转前面的子字符串，指向当前子字符串头部的迭代器需要在翻转之后重置，并且还需要在上一个是空格，当前不是空格时重置，注意别忘了当跳出for循环时，最后一个单词还没有翻转
+
+```c++
+class Solution {
+public:
+    string reverseWords(string s) {
+        if(s.empty()) return "";
+        if(s.size() == 1) return s;
+        reverse(s.begin(), s.end());
+        auto first = s.begin();
+        for(auto it = s.begin()+1; it != s.end(); ++it){
+            if(*it == ' '){
+                reverse(first, it);
+                first = it;
+            }
+            else if(*(it-1) == ' '){
+                first = it;
+            }
+        }
+        reverse(first, s.end());
+        return s;
+    }
+};
+```
+
+如果面试官要求自己写出reverse函数，还可以证明自己会模板元编程
+
+```c++
+    template <class iterator>
+    void reverse(iterator first, iterator last){
+        int len = 0;
+        iterator cur = first;
+        while(cur != last){
+            ++cur;
+            ++len;
+        }
+        for(int i = 0; i < len/2; ++i){
+            swap(*(first+i), *(last-1-i));
+        }
+    }
+```
+
+### 题目58-2：左旋转字符串
+
+[AcWing](https://www.acwing.com/problem/content/74/)
+
+字符串的左旋转操作是把字符串前面的若干个字符转移到字符串的尾部。
+
+请定义一个函数实现字符串左旋转操作的功能。
+
+比如输入字符串"abcdefg"和数字2，该函数将返回左旋转2位得到的结果"cdefgab"。
+
+注意：
+
+数据保证n小于等于输入字符串的长度。
+样例
+输入："abcdefg" , n=2
+
+输出："cdefgab"
+
+一次性AC没压力，但用到了辅助空间，我觉得这题实际上考的是原地修改数组，不用额外辅助空间
+
+```c++
+class Solution {
+public:
+    string leftRotateString(string str, int n) {
+        if(n == 0) return str;
+        n = n % len;
+        string leftStr (str.begin(), str.begin()+n);
+        string rightStr (str.begin()+n, str.end());
+        return rightStr + leftStr;
+    }
+};
+```
+
+用三次旋转可以不需要辅助空间，先翻转整个字符串，再翻转前size-n长度的子字符串，再翻转后n长度的字符串
+
+```c++
+class Solution {
+public:
+    string leftRotateString(string str, int n) {
+        if(n == 0) return str;
+        int len = str.size();
+        n = n % len;
+        reverse(str.begin(), str.end());
+        reverse(str.begin(), str.begin()+len-n);
+        reverse(str.begin()+len-n, str.end());
+        return str;
+    }
+};
+```
+
+### 面试题59-1：滑动窗口的最大值
+
+[AcWing](https://www.acwing.com/problem/content/75/)
+
+给定一个数组和滑动窗口的大小，请找出所有滑动窗口里的最大值。
+
+例如，如果输入数组[2, 3, 4, 2, 6, 2, 5, 1]及滑动窗口的大小3,那么一共存在6个滑动窗口，它们的最大值分别为[4, 4, 6, 6, 6, 5]。
+
+注意：
+
+数据保证k大于0，且k小于等于数组长度。
+样例
+输入：[2, 3, 4, 2, 6, 2, 5, 1] , k=3
+
+输出: [4, 4, 6, 6, 6, 5]
+
+暴力双层循环，时间复杂度O(mn)，一次性AC
+
+```c++
+class Solution {
+public:
+    vector<int> maxInWindows(vector<int>& nums, int k) {
+        if(nums.empty() || k < 1) return vector<int>();
+        vector<int> maxVec;
+        int curMax = 0;
+        for(int i = 0; i < nums.size()-k+1; ++i){
+            curMax = nums[i];
+            for(int j = i+1; j < i+k; ++j){
+                if(nums[j] > curMax) curMax = nums[j];
+            }
+            maxVec.push_back(curMax);
+        }
+        return maxVec;
+    }
+};
+```
+
+想着进一步优化，看能不能加快窗口内取最大值的效率，但发现得用额外的辅助空间来操作，比如用红黑树，插入删除O(logn)，查找最大值O(1)，但这还不是最优的
+
+优化：时间复杂度为O(n)，空间复杂度为O(1)，用到了双端队列（STL容器deque）
+
+1. 窗口向右滑动的过程实际上就是将处于窗口的第一个数字删除，同时在窗口的末尾添加一个新的数字，这就可以用双向队列来模拟，每次把尾部的数字弹出，再把新的数字压入到头部，然后找队列中最大的元素即可。
+2. 为了更快地找到最大的元素，我们可以在队列中只保留那些可能成为窗口最大元素的数字，去掉那些不可能成为窗口中最大元素的数字。考虑这样一个情况，如果队列中进来一个较大的数字，那么队列中比这个数更小的数字就不可能再成为窗口中最大的元素了，因为这个大的数字是后进来的，一定会比之前早进入窗口的小的数字要晚离开窗口，那么那些早进入且比较小的数字就“永无出头之日”，所以就可以弹出队列。
+3. 于是我们维护一个双向单调队列，队列放的是元素的下标。我们假设该双端队列的队头是整个队列的最大元素所在下标，至队尾下标代表的元素值依次降低。初始时单调队列为空。随着对数组的遍历过程中，每次插入元素前，首先需要看队头是否还能留在队列中，如果当前下标距离队头下标超过了k，则应该出队。同时需要维护队列的单调性，如果nums[i]大于或等于队尾元素下标所对应的值，则当前队尾再也不可能充当某个滑动窗口的最大值了，故需要队尾出队，直至队列为空或者队尾不小于nums[i]。
+4. 始终保持队中元素从队头到队尾单调递减。依次遍历一遍数组，每次队头就是每个滑动窗口的最大值所在下标。
+
+```c++
+class Solution {
+public:
+    vector<int> maxInWindows(vector<int>& nums, int k) {
+        if(nums.empty() || k < 1) return vector<int>();
+        vector<int> maxVec;
+        deque<int> dq;
+        dq.push_back(0);
+        for(int i = 1; i < k; ++i){
+            while(!dq.empty() && nums[i] > nums[dq.back()]){
+                dq.pop_back();
+            }
+            dq.push_back(i);
+        }
+        maxVec.push_back(nums[dq.front()]);
+        for(int i = k; i < nums.size(); ++i){
+            if(!dq.empty() && i - dq.front() >= k){
+                dq.pop_front();
+            }
+            while(!dq.empty() && nums[i] > nums[dq.back()]){
+                dq.pop_back();
+            }
+            dq.push_back(i);
+            maxVec.push_back(nums[dq.front()]);
+        }
+        return maxVec;
+    }
+};
+```
+
+### 面试题59-2：队列的最大值
+
+定义一个队列并实现函数max得到队列里的最大值，要求max、push_back、pop_front的时间复杂度都为O(1)
+
+没有OJ，我自己想的是用两个队列来模拟。每当插入一个元素，其中一个队列就如普通队列一样先进先出，另一个队列则比较最后一个元素与插入元素的大小，若大于插入元素，则插入该元素到队尾；若小于插入元素，则把队尾修改成新插入元素，再往前如果还是大于插入元素，继续修改，直到队头或者有数大于插入元素，最后再插入新插入元素。每当删除一个元素，两个队列直接pop队头即可
+
+书上说这题可以用滑动窗口的思想来做，但是代码写的太特殊了，还定义了结构体，而且在push_back时也像我一样需要从队尾往前修改
