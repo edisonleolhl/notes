@@ -4036,6 +4036,8 @@ public:
 };
 ```
 
+## 知识迁移能力
+
 ### 面试题53-1：统计一个数字在排序数组中出现的次数
 
 例如输入排序数组[1, 2, 3, 3, 3, 3, 4, 5]和数字3，由于3在这个数组中出现了4次，因此输出4。
@@ -4678,7 +4680,7 @@ public:
     }
 ```
 
-### 题目58-2：左旋转字符串
+### 面试题58-2：左旋转字符串
 
 [AcWing](https://www.acwing.com/problem/content/74/)
 
@@ -4811,3 +4813,637 @@ public:
 没有OJ，我自己想的是用两个队列来模拟。每当插入一个元素，其中一个队列就如普通队列一样先进先出，另一个队列则比较最后一个元素与插入元素的大小，若大于插入元素，则插入该元素到队尾；若小于插入元素，则把队尾修改成新插入元素，再往前如果还是大于插入元素，继续修改，直到队头或者有数大于插入元素，最后再插入新插入元素。每当删除一个元素，两个队列直接pop队头即可
 
 书上说这题可以用滑动窗口的思想来做，但是代码写的太特殊了，还定义了结构体，而且在push_back时也像我一样需要从队尾往前修改
+
+## 抽象建模
+
+1. 选择合适的数据结构来表述问题
+2. 分析模型中的内在规律，并用编程语言表述这种规律
+
+### 面试题60：n个骰子的点数
+
+把n个骰子扔在地上，所有骰子朝上一面点数之和为s，输入n，打印s的所有可能的值出现的概率
+
+思路：假设f(m,n)表示投第m个骰子的时候，点数之和为n出现的次数，投第m个骰子的点数之和只与投第m-1个骰子有关。我们得到递归方程：`f(m,n)=f(m-1,n-1)+f(m-1,n-2)+f(m-1,n-3)+f(m-1,n-4)+f(m-1,n-5)+f(m-1,n-6)`，表示本轮点数之和为n出现次数等于上一轮点数之和为n-1,n-2,n-3,n-4,n-5,n-6出现的次数之和。这其实就是动态规划的思想
+
+代码用了两个数组，一个数组的第n项等于另一个数组第n-1、n-2...n-6项的和，在下一循环中，通过改变flag交换这两个数组。
+
+```c++
+int g_maxValue=6;
+void PrintProbability(int n){
+    if(n<1)
+        return;
+    int* pProbability[2];
+    pProbability[0]=new int[g_maxValue*n+1];
+    pProbability[1]=new int[g_maxValue*n+1];
+    for(int i=0;i<=g_maxValue*n;i++){
+        pProbability[0][i]=0;
+        pProbability[1][i]=0;
+    }
+    int flag=0;
+    for(int i=1;i<=g_maxValue;i++)
+        pProbability[flag][i]=1;
+    for(int k=2;k<=n;k++){              // 掷第二次，掷第三次...掷第n次
+        for(int i=0;i<k;i++)            // 掷第k次时，和肯定不小于k，所以前面置零
+            pProbability[1-flag][i]=0;
+        for(int i=k;i<=g_maxValue*k;i++){   // 掷第k次时，和的范围是k~6k，所以每个元素置零后再由另一数组前6个元素相加而得
+            pProbability[1-flag][i]=0;
+            for(int j=1;j<=i && j<=g_maxValue;j++)
+                pProbability[1-flag][i]+=pProbability[flag][i-j];   // 另一个数组第n-1...第n-6项
+        }
+        flag=1-flag;
+    int total=pow((double)g_maxValue,n);
+    for(int i=n;i<=g_maxValue*n;i++){
+        double ratio=(double)pProbability[flag][i]/total;   // 最后flag表示要输出的数组
+        cout<<i<<" "<<ratio<<" "<<endl;
+    }
+    delete[] pProbability[0];
+    delete[] pProbability[1];
+}
+```
+
+### 面试题61：扑克牌的顺子
+
+从扑克牌中随机抽5张牌，判断是不是一个顺子，即这5张牌是不是连续的。
+
+2～10为数字本身，A为1，J为11，Q为12，K为13，大小王可以看做任意数字。
+
+为了方便，大小王均以0来表示，并且假设这副牌中大小王均有两张。
+
+样例1
+输入：[8,9,10,11,12]
+
+输出：true
+样例2
+输入：[0,8,9,11,12]
+
+输出：true
+
+思路：
+
+1. 先对数组排序，因为只有5个元素，sort函数会用插入排序，速度很快的
+2. 然后求出0的数量
+3. 然后求出空位的数量
+4. 根据0的数量和空位的数量，判断是否是顺子
+5. 若是对子，直接返回false；
+
+```c++
+class Solution {
+public:
+    bool isContinuous( vector<int> numbers ) {
+        if(numbers.empty()) return false;
+        sort(numbers.begin(), numbers.end());
+        int zeroCount = 0;
+        // 求出0的数量
+        for(int i = 0; i < numbers.size(); ++i){
+            if(numbers[i] == 0){
+                ++zeroCount;
+            }
+            else{
+                break;
+            }
+        }
+        for(int i = zeroCount+1; i < numbers.size(); ++i){
+            if(numbers[i] == numbers[i-1]) return false;    // 有对子则直接返回
+            while(numbers[i] != numbers[i-1]+1){            // 如果间距大于1，则用0来填补
+                if(zeroCount > 0){
+                    --zeroCount;
+                    ++numbers[i-1];
+                }
+                else{
+                    return false;   // 0用完了但间隙仍大于0，则不是顺子
+                }
+            }
+        }
+        return true;
+    }
+};
+```
+
+也可以不用sort函数，用14个长度的哈希表记录这个五个数值，哈希表的第i个元素的值是数组中i出现的次数，大小王的次数就是hash[0]
+
+```c++
+class Solution {
+public:
+    bool isContinuous( vector<int> numbers ) {
+        if(numbers.empty()) return false;
+        vector<int> hash(14,0); // 初始化hash为14个0的数组，hash[0]==1说明有1个大小王，hash[7]==2说明有2个7
+        for(int i = 0; i < numbers.size(); ++i){
+            ++hash[numbers[i]];
+        }
+        int pre = -1;
+        int continuousCount = 0;
+        for(int i = 1; i < 14; ++i){
+            // 找到第一个非大小王的数字下标
+            if(pre == -1 && hash[i] == 0){
+                continue;
+            }
+            else if(pre == -1){
+                pre = i;
+            }
+            // 有重复值则不可能为顺子
+            if(hash[i] > 1){
+                return false;
+            }
+            // 当前为0，看能不能有大小王代替
+            else if(hash[i] == 0){
+                if(hash[0] > 0){
+                    --hash[0];
+                }
+                else{
+                    return false;
+                }
+            }
+            // 剩下的分支就是当前为1，算在顺子里面
+            pre = i;
+            ++continuousCount;
+            if(continuousCount == 5) break;
+        }
+        return true;
+    }
+};
+```
+
+### 面试题62：圆圈中最后剩下的数字（约瑟夫环问题）
+
+[AcWing](https://www.acwing.com/problem/content/78/)
+
+0, 1, …, n-1这n个数字(n>0)排成一个圆圈，从数字0开始每次从这个圆圈里删除第m个数字。
+
+求出这个圆圈里剩下的最后一个数字。
+
+样例
+输入：n=5 , m=3
+
+输出：3
+
+第二次AC，思路很简单，自己创建一个0~n-1的List，首尾相接，因为没有定义前驱节点的指针，所以删除时必须位于前驱节点吗，然后每次从pre_head开始数m下，删除后面那个节点，如果待删除节点是pre_head节点，则pre_head后移一位，删除时别忘了释放内存
+
+```c++
+class Solution {
+public:
+    struct ListNode{
+        int val;
+        ListNode* next;
+        ListNode(int x): val(x), next(nullptr) { }
+    };
+    int lastRemaining(int n, int m){
+        if(n <= 0 || m <= 0) return -1;
+        ListNode* head = new ListNode(0);
+        ListNode* cur = head;
+        int count = 1;
+        while(count < n){
+            cur->next = new ListNode(count);
+            cur = cur->next;
+            ++count;
+        }
+        cur->next = head; // 首尾相接
+        ListNode* pre_head = cur;
+        while(cur->next != cur){
+            count = m;
+            while(count > 1){ // 找到待删除节点的前驱节点
+                cur = cur->next;
+                --count;
+            }
+            if(cur->next == pre_head) pre_head = cur->next->next; // 如果待删除节点是头结点的前驱节点，则把头结点后移一位
+            delete cur->next;
+            cur->next = cur->next->next; // 删除cur->next节点
+        }
+        return cur->val;
+    }
+};
+```
+
+书上借助了STL容器list，list本身不是环形结构，所以在迭代器指向末尾时要转为开头，整体思路与我的代码相同，时间复杂度为O(mn)，空间复杂度为O(n)
+
+在《剑指offer》上对该问题从数学上分析出了一些规律。首先定义最初的n个数字（0,1,…,n-1）中最后剩下的数字是关于n和m的方程为f(n,m)。
+
+在这n个数字中，第一个被删除的数字是(m-1)%n，为简单起见记为k。那么删除k之后的剩下n-1的数字为0,1,…,k-1,k+1,…,n-1，并且下一个开始计数的数字是k+1。相当于在剩下的序列中，k+1排到最前面，从而形成序列k+1,…,n-1,0,…k-1。该序列最后剩下的数字也应该是关于n和m的函数。由于这个序列的规律和前面最初的序列不一样（最初的序列是从0开始的连续序列），因此该函数不同于前面函数，记为f’(n-1,m)。最初序列最后剩下的数字f(n,m)一定是剩下序列的最后剩下数字f’(n-1,m)，所以f(n,m)=f’(n-1,m)。
+
+接下来我们把剩下的的这n-1个数字的序列k+1,…,n-1,0,…k-1作一个映射，映射的结果是形成一个从0到n-2的序列：
+
+k+1    ->    0
+k+2    ->    1
+…
+n-1    ->    n-k-2
+0   ->    n-k-1
+…
+k-1   ->   n-2
+
+把映射定义为p，则p(x)= (x-k-1)%n，即如果映射前的数字是x，则映射后的数字是(x-k-1)%n。对应的逆映射是p-1(x)=(x+k+1)%n。
+
+由于映射之后的序列和最初的序列有同样的形式，都是从0开始的连续序列，因此仍然可以用函数f来表示，记为f(n-1,m)。根据我们的映射规则，映射之前的序列最后剩下的数字f’(n-1,m)= p-1 [f(n-1,m)]=[f(n-1,m)+k+1]%n。把k=(m-1)%n代入得到f(n,m)=f’(n-1,m)=[f(n-1,m)+m]%n。
+
+经过上面复杂的分析，我们终于找到一个递归的公式。要得到n个数字的序列的最后剩下的数字，只需要得到n-1个数字的序列的最后剩下的数字，并可以依此类推。当n=1时，也就是序列中开始只有一个数字0，那么很显然最后剩下的数字就是0。因此有递推公式：
+
+当n=1时，f(n, m) = 0
+当n>1时，f(n, m) = [f(n-1, m) +m] % n
+
+因此就可以递归求解，复杂度为O(n)O(n)。
+
+```c++
+class Solution {
+public:
+    int lastRemaining(int n, int m){
+        if(n==1)
+            return 0;
+        else
+            return (lastRemaining(n-1,m)+m)%n;
+    }
+};
+```
+
+作者：cornerCao，[链接](https://www.acwing.com/solution/acwing/content/796/)，来源：AcWing，著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+
+### 面试题63：股票的最大利润
+
+[AcWing](https://www.acwing.com/problem/content/79/)
+
+假设把某股票的价格按照时间先后顺序存储在数组中，请问买卖交易该股票可能获得的利润是多少？
+
+例如一只股票在某些时间节点的价格为 [9, 11, 8, 5, 7, 12, 16, 14]。
+
+如果我们能在价格为 5 的时候买入并在价格为 16 时卖出，则能收获最大的利润 11。
+
+样例：
+
+输入：[9, 11, 8, 5, 7, 12, 16, 14]
+
+输出：11
+
+暴力：双层循环，时间复杂度O(n^2)，一次性AC，没什么好说的
+
+优化：其实可以一次遍历搞定，定义diff(i)是数组第i个元素卖出时的最大利润，显然买入越低利润越大，所以要记录前面已访问的最小价格，时间复杂度为O(n)
+
+```c++
+class Solution {
+public:
+    int maxDiff(vector<int>& nums) {
+        if(nums.size() < 2) return 0;
+        int maxProfit = 0;
+        int preMin = nums[0];
+        for(int i = 1; i < nums.size(); ++i){
+            if(nums[i] - preMin > maxProfit){
+                maxProfit = nums[i] - preMin;
+            }
+            else if(nums[i] < preMin){
+                preMin = nums[i];
+            }
+        }
+        return maxProfit;
+    }
+};
+```
+
+## 发散思维能力
+
+求 1+2+…+n，要求不能使用乘除法、for、while、if、else、switch、case 等关键字及条件判断语句（A?B:C）。
+
+样例：
+
+输入：10
+
+输出：55
+
+这是一道考发散思维能力的题目
+
+最直接的想法就是用递归，sum(n) = n+sum(n-1)，但是要注意终止条件，由于求的是1+2+…+n的和，所以需要在n=0的时候跳出递归，但是题目要求不能使用if,while等分支判断，可以考虑利用&&短路运算来终止判断。
+
+时间复杂度分析：递归，复杂度为O(n)O(n)。
+
+```c++
+C++ 代码
+class Solution {
+public:
+    int getSum(int n) {
+        int res = n;
+        (n>0) && (res += getSum(n-1));//利用短路运算终止递归
+        return res;
+    }
+};
+```
+
+还有些奇怪的解法，高斯求和为n*(n+1)/2，但是不能用乘除法，可以像下面这样写
+
+```c++
+class Solution {
+public:
+    int getSum(int n) {
+        char a[n][n+1];
+        return sizeof(a)>>1;
+    }
+};
+```
+
+### 面试题65：不用加减乘除做加法
+
+[AcWing](https://www.acwing.com/problem/content/81/)
+
+写一个函数，求两个整数之和，要求在函数体内不得使用＋、－、×、÷ 四则运算符号。
+
+样例
+输入：num1 = 1 , num2 = 2
+
+输出：3
+
+可以用位运算，int型有32位，最直接的是想到用全加器实现，即对于两个数字的每一位以及上一位的进位Cin，进行异或^操作得到该位的输出值S，进行与&操作得到进位Cout，再把Cout传递到下一位作为下一位的Cin。
+
+时间复杂度分析：由于num1和num2都是int型，因此一共32位，对32位依次进行操作即可。
+
+```c++
+class Solution {
+public:
+    // 全加器的实现，负数用补码表示，也适用
+    int add(int num1, int num2){
+        if(num1 == 0) return num2;
+        if(num2 == 0) return num1;
+        int sum = 0;
+        int bitMask = 1;
+        int bit1 = 0;
+        int bit2 = 0;
+        int carry = 0;
+        for(int i = 0; i < 32; ++i){
+            bit1 = num1 & bitMask;
+            bit2 = num2 & bitMask;
+            sum |= (bit1 ^ bit2) ^ carry;
+            bitMask = bitMask << 1;
+            carry = (bit1&bit2)|(bit1&carry)|(bit2&carry); // 如果直接对表达式移位在AcWing上溢出，原因未知
+            carry = carry << 1;
+        }
+        return sum;
+    }
+};
+```
+
+另一种位运算更加简洁
+
+1. 两个整数做异或^，得到各位相加不进位的运算结果；
+2. 两个整数做与&，然后再左移一位，即得到进位的运算结果；
+3. 将上面两个结果相加，即重复步骤1,2，直至进位的运算结果为0；
+
+位运算有许多坑，比如下面的代码就不行，因为|是按位或、&是按位与，所以左边不能是它自己
+
+```c++
+class Solution {
+public:
+    int add(int num1, int num2){
+        if(num1 == 0) return num2;
+        if(num2 == 0) return num1;
+        while(num2 != 0){      // 当没有进位时，获得最后的结果
+            num1 = num1 ^ num2; // num1表示当前未进位的按位异或的结果
+            num2 = (num1 & num2); // num2表示当前哪些位产生了进位
+            num2 = num2 << 1;   // 下次循环，加上进位
+        }
+        return num1;
+    }
+};
+```
+
+正确代码如，对表达式移位和前面不一样，以后还是分两行写吧，肯定没错
+
+```c++
+class Solution {
+public:
+    int add(int num1, int num2){
+        if(num1 == 0) return num2;
+        if(num2 == 0) return num1;
+        int sum = 0;
+        int carry = 0;
+        while(num2 != 0){      // 当没有进位时，获得最后的结果
+            sum = num1 ^ num2;
+            carry = (num1 & num2) << 1; // 这里直接对表达式移位，在AcWing上AC
+            num1 = sum;
+            num2 = carry;
+        }
+        return sum;
+    }
+};
+```
+
+### 面试题66：构建乘积数组
+
+[AcWing](https://www.acwing.com/problem/content/82/)
+
+给定一个数组A[0, 1, …, n-1]，请构建一个数组B[0, 1, …, n-1]，其中B中的元素B[i]=A[0]×A[1]×… ×A[i-1]×A[i+1]×…×A[n-1]。
+
+不能使用除法。
+
+样例
+输入：[1, 2, 3, 4, 5]
+
+输出：[120, 60, 40, 30, 24]
+思考题：
+
+能不能只使用常数空间？（除了输出的数组之外）
+
+暴力，双重循环，时间O(n^2)，除了结果空间O(1)
+
+```c++
+class Solution {
+public:
+    vector<int> multiply(const vector<int>& A) {
+        if(A.empty()) return vector<int>();
+        vector<int> ans;
+        int product;
+        for(int i = 0; i < A.size(); ++i){
+            product = 1;
+            for(int left = 0; left < i; ++left){
+                product *= A[left];
+            }
+            for(int right = i + 1; right < A.size(); ++right){
+                product *= A[right];
+            }
+            ans.push_back(product);
+        }
+        return ans;
+    }
+};
+```
+
+优化：时间O(n)，除了结果空间O(1)，输入A数组，输出B数组，可以把`B[i]=C[i]*D[i]`，C[i]是左边的乘积，D[i]是右边的乘积，单独计算C与D，最后再乘起来。B数组初始为1，然后两个for循环，从1到size-1，从size-2到0的计算乘积，每次循环把乘积放入结果数组中
+
+像书上那样，画个二位矩阵，更好理解
+
+```c++
+class Solution {
+public:
+    vector<int> multiply(const vector<int>& A) {
+        if(A.empty()) return vector<int>();
+        int len = A.size();
+        vector<int> ans(len, 1);
+        int product = 1;
+        for(int i = 1; i <= len - 1; ++i){
+            product *= A[i-1];
+            ans[i] *= product;  // B[1]=1*A[0]，B[2]=1*A[0]*A[1]
+        }
+        product = 1;
+        for(int i = len - 2; i >= 0; --i){
+            product *= A[i+1];
+            ans[i] *= product; // B[1] = 1 * A[0] * (A[n-1]*A[n-2]*...A[2])
+        }
+        return ans;
+    }
+};
+```
+
+### 面试题67：把字符串转换成整数
+
+请你写一个函数StrToInt，实现把字符串转换成整数这个功能。
+
+当然，不能使用atoi或者其他类似的库函数。
+
+样例：
+
+` 输入："123"
+
+输出：123 `
+
+注意:
+
+你的函数应满足下列条件：
+
+忽略所有行首空格，找到第一个非空格字符，可以是 ‘+/−+/−’ 表示是正数或者负数，紧随其后找到最长的一串连续数字，将其解析成一个整数；整数后可能有任意非数字字符，请将其忽略；从前往后遍历时，如果第一段连续非空格字符串不是一个有效的整数表示，则返回0；
+如果整数大于INT_MAX(2^31 − 1)，请返回INT_MAX；如果整数小于INT_MIN(−2^31) ，请返回INT_MIN；
+
+这题没什么好说，注意各种分支即可，溢出那要小心一点
+
+```c++
+class Solution {
+public:
+    int strToInt(string str) {
+        if(str.empty()) return 0;
+        int len = str.size();
+        int i = 0;
+        int num = 0;
+        int temp = 0;
+        bool isPositive = true;
+        bool inNumSeq = false;
+        while(i < len){
+            if(str[i] == ' ') ++i;
+            else break;
+        }
+        for(;i < len; ++i){
+            if(!inNumSeq){
+                if(str[i] == '+'){
+                    inNumSeq = true;
+                }
+                else if(str[i] == '-'){
+                    isPositive = false;
+                    inNumSeq = true;
+                }
+                else if(str[i] >= '0' && str[i] <= '9'){
+                    num = num*10 + (str[i] - '0');
+                }
+                else{
+                    return 0; // 第一个非空格字符不是正负号也不是数字，直接返回
+                }
+                inNumSeq = true;
+            }
+            else{
+                if(str[i] >= '0' && str[i] <= '9'){
+                    temp = num*10 + (str[i] - '0');
+                    if(num > temp){ // 判断是否溢出
+                        if(isPositive) return INT_MAX;
+                        else return INT_MIN;
+                    }
+                    num = temp;
+                }
+                else{
+                    break;
+                }
+            }
+        }
+        if(!isPositive) num = -num;
+        return num;
+    }
+};
+```
+
+### 面试题68：树中两个结点的最低公共祖先
+
+给出一个二叉树，输入两个树节点，求它们的最低公共祖先。
+
+一个树节点的祖先节点包括它本身。
+
+注意：
+
+输入的二叉树不为空；
+输入的两个节点一定不为空，且是二叉树中的节点；
+样例
+二叉树[8, 12, 2, null, null, 6, 4, null, null, null, null]如下图所示：
+    8
+   / \
+  12  2
+     / \
+    6   4
+
+1. 如果输入的树节点为2和12，则输出的最低公共祖先为树节点8。
+
+2. 如果输入的树节点为2和6，则输出的最低公共祖先为树节点2。
+
+(查找路径) O(n)
+
+分别找出根节点到两个节点的路径，则最后一个公共节点就是最低公共祖先了。时间复杂度分析：需要在树中查找节点，复杂度为O(n)
+
+```c++
+/**
+ * Definition for a binary tree node.
+ * struct TreeNode {
+ *     int val;
+ *     TreeNode *left;
+ *     TreeNode *right;
+ *     TreeNode(int x) : val(x), left(NULL), right(NULL) {}
+ * };
+ */
+class Solution {
+public:
+    TreeNode* lowestCommonAncestor(TreeNode* root, TreeNode* p, TreeNode* q) {
+        if(root == nullptr || p == nullptr || q == nullptr) return nullptr;
+        vector<TreeNode*> pPath;
+        vector<TreeNode*> qPath;
+        findPath(root, p, pPath);
+        findPath(root, q, qPath);
+        vector<TreeNode*>::iterator pIt = pPath.begin();
+        vector<TreeNode*>::iterator qIt = qPath.begin();
+        TreeNode* target = root;
+        while(*pIt == *qIt && pIt != pPath.end() && qIt != qPath.end()){
+            target = *pIt;
+            ++pIt;
+            ++qIt;
+        }
+        return target;
+    }
+    bool findPath(TreeNode* root, TreeNode* target, vector<TreeNode*>& path){
+        if(root == nullptr) return false;   // 递归基
+        path.push_back(root);
+        if(root == target) return true;     // 递归结束
+        bool isFound = findPath(root->left, target, path);
+        if(!isFound) isFound = findPath(root->right, target, path);
+        if(!isFound) path.pop_back();       // 递归复原
+        return isFound;
+    }
+};
+```
+
+(递归) O(n)
+
+考虑在左子树和右子树中查找这两个节点，如果两个节点分别位于左子树和右子树，则最低公共祖先为自己(root)，若左子树中两个节点都找不到，说明最低公共祖先一定在右子树中，反之亦然。考虑到二叉树的递归特性，因此可以通过递归来求得。
+
+时间复杂度分析：需要遍历树，复杂度为 O(n)
+
+```c++
+class Solution {
+public:
+    TreeNode* lowestCommonAncestor(TreeNode* root, TreeNode* p, TreeNode* q) {
+        if(root == nullptr || root == p || root == q) return root;
+        TreeNode* left = lowestCommonAncestor(root->left, p, q);
+        TreeNode* right = lowestCommonAncestor(root->right, p, q);
+        return (left == nullptr) ? right : ((right == nullptr) ? left : root);
+    }
+};
+```
+
+#### 拓展
+
+如果是二叉搜索树，则从根节点开始左右递归，只要当前节点的值处于两个节点之间，那它就是最低公共祖先；如果当前节点的值大于两个节点，则递归左子树；如果当前节点的值小于两个节点，则递归右子树
+
+如果不是二叉搜索树，但有指向父节点的指针，那么问题可以转化为求两个链表的第一个公共节点，这在面试题52中有做过
