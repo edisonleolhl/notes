@@ -639,6 +639,14 @@ google C++编程风格的建议，为了加强可读性和避免隐含依赖，�
 
 ## STL
 
+### 简单实现String
+
+[C++面试中STRING类的一种正确写法-陈硕](https://coolshell.cn/articles/10478.html)
+
+### map的一些问题
+
+[关于 std::set/std::map 的几个为什么-陈硕](https://blog.csdn.net/Solstice/article/details/8521946)
+
 ### STL有什么内容
 
 空间分配器、迭代器、容器、泛型算法、仿函数、配接器
