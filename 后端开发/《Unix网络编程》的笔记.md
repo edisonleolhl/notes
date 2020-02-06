@@ -1806,3 +1806,349 @@ Jun 10 11:04:02 solaris daytimetcpsrv3[28724]: connection from
 ```
 
 因为我的mac找不到inetd以及其配置文件，所以没法测试
+
+## 第14章 高级I/O函数
+
+### 高级I/O函数小结
+
+在**套接字操作上设置时间限制**的方法有三个：
+
+1. 使用alarm函数和SIGALRM信号；
+2. 使用由select提供的时间限制；
+3. 使用较新的SO_RCVTIMEO和SO_SNDTIMEO套接字选项。
+
+第一个方法易于使用，不过涉及信号处理，而信号处理正如我们将在20.5节看到的那样可能导致竞争条件。使用select意味着我们阻塞在指定过时间限制的这个函数上，而不是阻塞在read、write或connect调用上。第三个方法也易于使用，不过并非所有实现都提供。
+
+**recvmsg和sendmsg是所提供的5组I/O函数中最为通用的**。它们组合了如下能力：指定MSG_xxx标志（出自recv和send），返回或指定对端的协议地址（出自recvfrom和sendto），使用多个缓冲区（出自readv和writev）。此外还增加了两个新的特性：给应用进程返回标志，接收或发送辅助数据。
+
+**C标准I/O函数库**也可以用在套接字上，不过这么做将在已经由TCP提供的缓冲级别之上新增一级缓冲。实际上，对由标准I/O函数库执行的缓冲缺乏了解是使用这个函数库最常见的问题。既然套接字不是终端设备，这个潜在问题的常用解决办法就是把标准I/O流设置成不缓冲，或者干脆不要在套接字上使用标准I/O。
+
+**T/TCP是对TCP的一个简单增强版本**，能够在客户和服务器近来彼此通信过的前提下避免三路握手，使得服务器对于客户的请求更快地给出应答。从编程角度看，客户通过调用sendto而不是通常的connect、write和shutdown调用序列发挥T/TCP的优势。
+
+### 套接字超时
+
+在涉及套接字的I/O操作上设置超时的方法有以下3种，第3种仅适用套接字描述符，前两种适合任何描述符。
+
+1. 调用alarm，它在指定超时期满时产生SIGALRM信号。这个方法涉及信号处理，而信号处理在不同的实现上存在差异，而且可能干扰进程中现有的alarm调用。
+2. 在select中阻塞等待I/O（select有内置的时间限制），以此代替直接阻塞在read或write调用上。
+3. 使用较新的SO_RCVTIMEO和SO_SNDTIMEO套接字选项。这个方法的问题在于并非所有实现都支持这两个套接字选项。
+
+#### 使用SIGALM为connect设置超时
+
+我们的connect_timeo函数，它以由调用者指定的超时上限调用connect。它的前3个参数用于调用connect，第四个参数是等待的秒数，源码位于lib/connect_timeo.c
+
+本技术无法延长内核现有的超时，比如Berkeley的内核中connect的超时通常为75s。
+
+本技术还使用了系统调用（connect）的可中断能力，使得它们能够在内核超时发生之前返回，前提是能够直接处理由系统调用返回的EINTR错误。
+
+尽管本例子相当简单，但在多线程化程序中正确使用信号却非常困难（见第26章）。因此我们建议只是在未线程化或单线程化的程序中使用本技术。
+
+#### 使用SIGALRM为recvfrom设置超时
+
+源码位于advio/dgclitimeo3.c
+
+具体流程是：为SIGALRM建立信号处理函数，每次调用recvfrom前通过调用alarm设置一个5s的超时，如果5s还没接收到数据，则输出信息并继续执行，重新计时，如果收到数据，则关掉报警时钟并输出服务器的应答。
+
+这个例子也很简单，但是它只能期待读取单个应答，多余多个应答，在事先计时就不知道是哪个应答
+
+##### 使用select为recvfrom设置超时
+
+源码位于lib/readable_timeo.c，该函数等待一个描述符最多在指定的描述内变为可读
+
+```c++
+/* include readable_timeo */
+#include	"unp.h"
+
+int
+readable_timeo(int fd, int sec)
+{
+	fd_set			rset;
+	struct timeval	tv;
+
+	FD_ZERO(&rset);
+	FD_SET(fd, &rset);
+
+	tv.tv_sec = sec;
+	tv.tv_usec = 0;
+
+	return(select(fd+1, &rset, NULL, NULL, &tv));
+		/* 4> 0 if descriptor is readable */
+}
+/* end readable_timeo */
+
+int
+Readable_timeo(int fd, int sec)
+{
+	int		n;
+
+	if ( (n = readable_timeo(fd, sec)) < 0)
+		err_sys("readable_timeo error");
+	return(n);
+}
+```
+
+该函数流程如下：
+
+1. 首先在读描述符集中打开与调用者给定描述符对应的位，把调用者给定的等待秒数设置在一个timeval结构中。
+2. select等待该描述符变为可读，或者发生超时。本函数的返回值就是select的返回值：出错时为-1，超时发生时为0，否则返回的正值给出已就绪描述符的数目。
+3. 本函数不执行读操作，它只是等待给定描述符变为可读。因此本函数适用于任何类型的套接字，既可以是TCP也可以是UDP。我们可以轻而易举地创建等待描述符变为可写的名为writeable_timeo的类似函数。
+
+下面的例子改编自第8章的dg_cli，这个新版本只是在readable_timeo返回一个正值时才调用recvfrom。直到readable_timeo告知所关注的描述符变为可读后我们才调用recvfrom，这一点保证recvfrom不会阻塞
+
+源码位于advio/dgclitimeo1.c，setsockopt的第四个参数是指向某个timeval结构的指针，其中已填入期望的超时值，如果I/O操作超时，其函数（这里是recvfrom）将返回一个EWOULDBLOCK错误
+
+```c++
+#include	"unp.h"
+
+void
+dg_cli(FILE *fp, int sockfd, const SA *pservaddr, socklen_t servlen)
+{
+	int	n;
+	char	sendline[MAXLINE], recvline[MAXLINE + 1];
+
+	while (Fgets(sendline, MAXLINE, fp) != NULL) {
+
+		Sendto(sockfd, sendline, strlen(sendline), 0, pservaddr, servlen);
+
+		if (Readable_timeo(sockfd, 5) == 0) {
+			fprintf(stderr, "socket timeout\n");
+		} else {
+			n = Recvfrom(sockfd, recvline, MAXLINE, 0, NULL, NULL);
+			recvline[n] = 0;	/* null terminate */
+			Fputs(recvline, stdout);
+		}
+	}
+}
+```
+
+#### 使用SO_RCVTIMEO套接字选项为recvfrom设置超时
+
+最后一个例子展示SO_RCVTIMEO套接字选项如何设置超时。本选项一旦设置到某个描述符（包括指定超时值），其超时设置将应用于该描述符上的所有读操作。**本方法的优势就体现在一次性设置选项上，而前两个方法总是要求我们在欲设置时间限制的每个操作发生之前做些工作**。本套接字选项仅仅应用于读操作，类似的SO_SNDTIMEO选项则仅仅应用于写操作，两者都不能用于为connect设置超时。
+
+下面是使用SO_RCVTIMEO套接字选项的另一个版本的dg_cli函数，源码位于advio/dgclitimeo2.c
+
+```c++
+#include	"unp.h"
+
+void
+dg_cli(FILE *fp, int sockfd, const SA *pservaddr, socklen_t servlen)
+{
+	int				n;
+	char			sendline[MAXLINE], recvline[MAXLINE + 1];
+	struct timeval	tv;
+
+	tv.tv_sec = 5;
+	tv.tv_usec = 0;
+	Setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+
+	while (Fgets(sendline, MAXLINE, fp) != NULL) {
+
+		Sendto(sockfd, sendline, strlen(sendline), 0, pservaddr, servlen);
+
+		n = recvfrom(sockfd, recvline, MAXLINE, 0, NULL, NULL);
+		if (n < 0) {
+			if (errno == EWOULDBLOCK) {
+				fprintf(stderr, "socket timeout\n");
+				continue;
+			} else
+				err_sys("recvfrom error");
+		}
+
+		recvline[n] = 0;	/* null terminate */
+		Fputs(recvline, stdout);
+	}
+}
+```
+
+### recv和send函数（带flags参数的read和write函数）
+
+这两个函数类似标准的read和write函数，不过需要一个额外的参数。
+
+```c++
+#include <sys/socket.h>
+
+ssize_t recv(int sockfd, void *buff, size_t nbytes, int flags);
+
+ssize_t send(int sockfd, const void *buff, size_t nbytes, int flags);
+// 返回：若成功则为读入或写出的字节数，若出错则为-1
+```
+
+recv和send的前3个参数等同于read和write的3个参数。flags参数的值或为0，或为下面列出的一个或多个常值的逻辑或。
+
+- MSG_DONTROUTE（仅send）：本标志告知内核目的主机在某个直接连接的本地网络上，因而**无需执行路由表查找**。
+- MSG_DONTWAIT（both）：本标志在无需打开相应套接字的非阻塞标志的前提下，把单个I/O操作**临时指定为非阻塞**，接着执行I/O操作，然后关闭非阻塞标志。
+- MSG_OOB（both）：对于send，本标志指明即将**发送带外数据**。正如我们将在第24章中讲述的那样，TCP连接上只有一个字节可以作为带外数据发送。对于recv，本标志指明**即将读入的是带外数据**而不是普通数据。
+- MSG_PEEK（仅recv和recvfrom）：本标志适用于recv和recvfrom，它允许我们**查看已可读取的数据**，而且系统不在recv或recvfrom返回后丢弃这些数据。
+- MSG_WAITALL（仅recv）：它告知内核**不要在尚未读入请求数目的字节之前让一个读操作返回**。即使指定了MSG_WAITALL，如果发生下列情况之一：(a)捕获一个信号，(b)连接被终止，(c)套接字发生一个错误，相应的读函数仍有可能返回比所请求字节数要少的数据。
+
+### readv和writev函数（分散读，集中写）
+
+这两个函数类似read和write，不过readv和writev允许单个系统调用读入到或写出自一个或多个缓冲区。这些操作分别称为**分散读（scatter read）和集中写（gather write）**，因为来自读操作的输入数据被分散到多个应用缓冲区中，而来自多个应用缓冲区的输出数据则被集中提供给单个写操作。
+
+```c++
+#include <sys/uio.h>
+ssize_t readv(int filedes, const struct iovec *iov, int iovcnt);
+ssize_t writev(int filedes, const struct iovec *iov, int iovcnt);
+// 返回：若成功则为读入或写出的字节数，若出错则为-1
+```
+
+这两个函数的第二个参数都是指向某个iovec结构数组的一个指针，其中iovec结构在头文件`<sys/uio.h>`中定义：
+
+```c++
+struct iovec {
+　void　 *iov_base;　　　　/* starting address of buffer */
+　size_t　iov_len;　　　　　/* size of buffer */
+};
+```
+
+**readv和writev这两个函数可用于任何描述符**，而不仅限于套接字。另外**writev是一个原子操作**，意味着对于一个基于记录的协议（例如UDP）而言，一次writev调用只产生单个UDP数据报。
+
+我们在7.9节随TCP_NODELAY套接字选项提到过writev的一个用途。当时我们说一个4字节的write跟一个396字节的write可能触发Nagle算法，首选办法之一是针对这两个缓冲区调用writev。
+
+### recvmsg和sendmsg函数（最通用的I/O函数）
+
+两个函数是最通用的I/O函数。**实际上我们可以把所有read、readv、recv和recvfrom调用替换成recvmsg调用**。类似地，各种输出函数调用也可以替换成sendmsg调用。
+
+```c++
+#include <sys/socket.h>
+ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags);
+ssize_t sendmsg(int sockfd, struct msghdr *msg, int flags);
+// 返回：若成功则为读入或写出的字节数，若出错则为-1
+```
+
+这两个函数把大部分参数封装到一个msghdr结构中：
+
+```c++
+struct msghdr {
+　void　　　　　　*msg_name;　　　　　　/* protocol address */
+　socklen_t　　　 msg_namelen;　　　　　/* size of protocol address */
+struct iovec　　*msg_iov;　　　　　　　/* scatter/gather array */
+　int　　　　　　　msg_iovlen;　　　　　　/* # elements in msg_iov */
+　void　　　　　　 *msg_control;　　　　　/* ancillary data (cmsghdr struct) */
+　socklen_t　　　　msg_controllen;　　　　/* length of ancillary data */
+　int　　　　　　　 msg_flags;　　　　　　 /* flags returned by recvmsg() */
+};
+```
+
+msg_name和msg_namelen这两个成员用于套接字未连接的场合（譬如未连接UDP套接字）。它们类似recvfrom和sendto的第五个和第六个参数：msg_name指向一个套接字地址结构，调用者在其中存放接收者（对于sendmsg调用）或发送者（对于recvmsg调用）的协议地址。如果无需指明协议地址（例如对于TCP套接字或已连接UDP套接字），msg_name应置为空指针。msg_namelen对于sendmsg是一个值参数，对于recvmsg却是一个值—结果参数。
+
+msg_iov和msg_iovlen这两个成员指定输入或输出缓冲区数组（即iovec结构数组），类似readv或writev的第二个和第三个参数。
+
+msg_control和msg_controllen这两个成员指定可选的辅助数据的位置和大小。msg_controllen对于recvmsg是一个值—结果参数
+
+我们必须区别它们的两个标志变量，一个是传递值的flags参数，另一个是所传递msghdr结构的msg_flags成员，它传递的是引用，因为传递给函数的是该结构的地址（具体用法太繁琐了，没细看）
+
+### 辅助数据（在sendmsg、recvmsg函数中使用）
+
+**辅助数据（ancillary data）**可通过调用sendmsg和recvmsg这两个函数，使用msghdr结构中的msg_control和msg_controllen这两个成员发送和接收。辅助数据的另一个称谓是**控制信息（control information）**
+
+辅助数据由一个或多个辅助数据对象（ancillary data object）构成，每个对象以一个定义在头文件`<sys/socket.h>`中的cmsghdr结构开头。
+
+```c++
+struct cmsghdr {
+　socklen_t　　　cmsg_len;　　　　 /* length in bytes, including this structure */
+　int　　　　　　cmsg_level;　　　　/* originating protocol　*/
+　int　　　　　　cmsg_type;　　　　 /* protocol-specific type　*/
+　　　/* followed by unsigned char cmsg_data[] */
+}；
+```
+
+msg_control指向第一个辅助数据对象，辅助数据的总长度则由msg_controllen指定。每个对象开头都是一个描述该对象的cmsghdr结构。在cmsg_type成员和实际数据之间可以有填充字节，从数据结尾处到下一个辅助数据对象之前也可以有填充字节。
+
+### 排队的数据量
+
+有时候我们想要在不真正读取数据的前提下知道一个套接字上已有多少数据排队等着读取。有3个技术可用于获悉已排队的数据量。
+
+1. 如果获悉已排队数据量的目的在于避免读操作阻塞在内核中（因为没有数据可读时我们还有其他事情可做），那么可以使用非阻塞式I/O。我们将在第16章中讨论非阻塞式I/O。
+2. 如果我们既想查看数据，又想数据仍然留在接收队列中以供本进程其他部分稍后读取，那么可以使用MSG_PEEK标志
+3. 一些实现支持ioctl的FIONREAD命令。该命令的第三个ioctl参数是指向某个整数的一个指针，内核通过该整数返回的值就是套接字接收队列的当前字节数。
+
+### 套接字和标准I/O
+
+到目前为止的所有例子中，我们一直使用也称为**Unix I/O—**—包括read、write这两个函数及它们的变体（recv、send等等）——的函数执行I/O。这些函数围绕**描述符（descriptor）**工作，通常作为Unix内核中的**系统调用**实现。
+
+执行I/O的另一个方法是使用**标准I/O函数库（standard I/O library）**。这个函数库由ANSI C标准规范，意在便于移植到支持ANSI C的非Unix系统上。标准I/O函数库处理我们直接使用Unix I/O函数时必须考虑的一些细节，譬如自动缓冲输入流和输出流。不幸的是，它对于流的缓冲处理可能导致我们同样必须考虑的一组新的问题。
+
+标准I/O函数库可用于套接字，不过需要考虑以下几点。
+
+1. 通过调用fdopen，可以从任何一个描述符创建出一个标准I/O流。类似地，通过调用fileno，可以获取一个给定标准I/O流对应的描述符。我们第一次遇到fileno是在第6章中，当时我们想在一个标准I/O流上调用select。select只能用于描述符，因此我们不得不获取那个标准I/O流的描述符。
+2. TCP和UDP套接字是全双工的。标准I/O流也可以是全双工的：只要以r+类型打开流即可，r+意味着读写。然而在这样的流上，我们必须在调用一个输出函数之后插入一个fflush、fseek、fsetpos或rewind调用才能接着调用一个输入函数。类似地，调用一个输入函数后也必须插入一个fseek、fsetpos或rewind调用才能调用一个输出函数，除非输入函数遇到一个EOF。fseek、fsetpos和rewind这3个函数的问题是它们都调用lseek，而lseek用在套接字上只会失败。
+3. 解决上述读写问题的最简单方法是为一个给定套接字打开两个标准I/O流：一个用于读，一个用于写。
+
+例子：使用标准I/O的str_echo函数，源码位于advio/str_echo_stdio02.c，TCP回射服务器程序，调用fdopen创建两个标准I/O流，一个用于输入，一个用于输出。把原来的read和writen调用替换成fgets和fputs调用
+
+```c++
+#include	"unp.h"
+
+void
+str_echo(int sockfd)
+{
+	char		line[MAXLINE];
+	FILE		*fpin, *fpout;
+
+	fpin = Fdopen(sockfd, "r");
+	fpout = Fdopen(sockfd, "w");
+
+	while (Fgets(line, MAXLINE, fpin) != NULL)
+		Fputs(line, fpout);
+}
+```
+
+根据makefile，advio/tcpserv02.c服务器程序调用了这个str_echo函数，运行它，客户是advio/tcpcli02，我在mac上测试，跟书上的输出是一样的，输入好几行，但无回射输出，键入EOF后才回射那几行
+
+服务器直到我们键入EOF字符才回射所有文本行的原因在于这里存在一个缓冲问题。以下是实际发生的**步骤**。
+
+1. 我们键入第一行输入文本，它被发送到服务器。
+2. 服务器用fgets读入本行，再用fputs回射本行。
+3. 服务器的标准I/O流被标准I/O函数库完全缓冲。这意味着该函数库把回射行复制到输出流的标准I/O缓冲区，但是不把该缓冲区中的内容写到描述符，因为该缓冲区未满。
+4. 我们键入第二行输入文本，它被发送到服务器。
+5. 服务器用fgets读入本行，再用fputs回射本行。
+6. 服务器的标准I/O函数库再次把回射行复制到输出流的标准I/O缓冲区，但是不把该缓冲区中的内容写到描述符，因为该缓冲区仍未满。
+7. 同样的情形发生在我们键入的第三行文本上。
+8. 我们键入EOF字符，致使我们的str_cli函数（图6-13）调用shutdown，从而发送一个FIN到服务器。
+9. 服务器TCP收取这个FIN，它被fgets读入，致使fgets返回一个空指针。
+10. str_echo函数返回到服务器的main函数（图5-12），子进程通过调用exit终止。
+11. C库函数exit调用标准I/O清理函数。之前由我们的fputs调用填入输出缓冲区中的未满内容现被输出。
+12. 服务器子进程终止，致使它的已连接套接字被关闭，从而发送一个FIN到客户，完成TCP的四分组终止序列。
+13. 我们的str_cli函数收取并输出由服务器回射的三行文本。
+14. str_cli接着在其套接字上收到一个EOF，客户于是终止。
+
+这里的问题出在服务器中由标准I/O函数库自动执行的缓冲之上。标准I/O函数库执行以下**三类缓冲机制**。
+
+1. 完全缓冲（fully buffering）意味着只在出现下列情况时才发生I/O：缓冲区满，进程显式调用fflush，或进程调用exit终止自身。标准I/O缓冲区的通常大小为8192字节。
+2. 行缓冲（line buffering）意味着只在出现下列情况时才发生I/O：碰到一个换行符，进程调用fflush，或进程调用exit终止自身。
+3. 不缓冲（unbuffering）意味着每次调用标准I/O输出函数都发生I/O。
+
+标准I/O函数库的大多数Unix实现使用如下**规则**。
+
+1. 标准错误输出总是不缓冲。
+2. 标准输入和标准输出完全缓冲，除非它们指代终端设备（这种情况下它们行缓冲）。
+3. 所有其他I/O流都是完全缓冲，除非它们指代终端设备（这种情况下它们行缓冲）。
+
+既然套接字不是终端设备，上面的str_echo函数的上述问题就在于输出流（fpout）是完全缓冲的。本问题有两个解决办法。第一个办法是通过调用**setvbuf迫使这个输出流变为行缓冲**。第二个办法是在每次调用fputs之后通过调用**fflush强制输出**每个回射行。然而在现实使用中，这两种办法都易于犯错，与Nagle算法（如7.9节所述）的交互可能也成问题。大多数情况下，最好的解决办法是彻底避免在套接字上使用标准I/O函数库，并且如3.9节所述在缓冲区而不是文本行上执行操作。当标准I/O流的便利性大过对缓冲带来的bug的担忧时，在套接字上使用标准I/O流也可能可行，但这种情况很罕见。
+
+### 高级轮询技术
+
+#### /dev/poll接口
+
+select和poll存在的一个问题是，每次调用它们都得传递待查询的文件描述符。
+
+Solaris上名为/dev/poll的特殊情况提供给了一个可扩展的轮询大龄描述符的方法。轮询设备能在调用之间维持状态，因此轮询进程可以预先设置好待查询描述符的列表，然后进入一个循环等待事件发生，每次循环回来时不必再次设置该列表。
+
+例子：使用/dev/poll的str_cli，源码位于str_cli_poll03.c
+
+#### kqueue接口
+
+FreeBSD随4.1版本引入了kqueue接口。本接口允许进程向内核注册描述所关注kqueue事件的事件过滤器（event filter）。事件除了与select所关注类似的文件I/O和超时外，还有异步I/O、文件修改通知（例如文件被删除或修改时发出的通知）、进程跟踪（例如进程调用exit或fork时发出的通知）和信号处理
+
+### T/TCP：事务目的TCP
+
+T/TCP是对TCP进行过略微修改的一个版本，能够**避免近来彼此通信过的主机之间的三路握手**
+
+T/TCP能够把SYN、FIN和数据组合到单个分节中，前提是数据的大小小于MSS。图14-19展示最小T/TCP事务的时间线。第一个分节是由客户的单个sendto调用产生的SYN、FIN和数据。该分节组合了connect、write和shutdown共三个调用的功能。服务器执行通常的套接字函数调用步骤：socket、bind、listen和accept，其中后者在客户的分节到达时返回。服务器用send发回其应答并关闭套接字。这使得服务器在同一个分节中向客户发出SYN、FIN和应答。比较图14-19和图2-5，我们看到不仅需在网络中传输的分节有所减少（T/TCP需3个，TCP需10个，UDP需2个），而且客户从初始化连接到发送一个请求再到读取相应应答所花费的时间也减少了一个RTT。
+
+![20200206215624.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200206215624.png)
+
+T/TCP的优势在于TCP的所有可靠性（序列号、超时、重传，等等）得以保留，而不像UDP那样把可靠性推给应用程序去实现。T/TCP同样维持TCP的慢启动和拥塞避免措施，UDP应用程序却往往缺乏这些特性。
+
+为了处理T/TCP，套接字API需作些变动。我们指出，在提供T/TCP的系统上TCP应用程序无需任何改动，除非要使用T/TCP的特性。所有现有TCP应用程序继续使用我们已经讲述过的套接字API工作。
