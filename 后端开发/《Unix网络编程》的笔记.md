@@ -1604,15 +1604,15 @@ gethostbyaddr(const char *addr, socklen_t len, int family)
 - 协议：`/etc/protocols`，protoent结构，键值查找函数getprotobyname、getprotobynumber
 - 服务：`/etc/services`，servent结构，键值查找函数getservbyname、getservbyport
 
-### 第12章 IPv4与IPv6的互操作性
+## 第12章 IPv4与IPv6的互操作性
 
 **双栈（dual stacks）**主机上的IPv6服务器既能服务于IPv4客户，又能服务于IPv6客户。IPv4客户发送给这种服务器的仍然是IPv4数据报，不过服务器的协议栈会把客户主机的地址转换成一个IPv4映射的IPv6地址，因为IPv6服务器仅仅处理IPv6套接字地址结构。
 
 类似地，双栈主机上的IPv6客户能够和IPv4服务器通信。客户的解析器会把服务器主机所有的A记录作为IPv4映射的IPv6地址返回给客户，而客户指定这些地址之一调用connect将会使双栈发送一个IPv4 SYN分节。只有少量特殊的客户和服务器需要知道对端使用的具体协议（例如FTP），而IN6_IS_ADDR_V4MAPPED宏可用于判定对端是否在使用IPv4。
 
-### 第13章 守护进程和inetd超级服务器
+## 第13章 守护进程和inetd超级服务器
 
-**守护进程（daemon）**是在后台运行且不与任何控制终端关联的进程。Unix系统通常有很多守护进程在后台运行（约在20～50个的量级），执行不同的管理任务。
+**守护进程（daemon）**是在后台运行且不与任何控制终端关联的进程。Unix系统通常有很多守护进程在后台运行（约在20～50个的量级），执行不同的管理任务。许多网络服务器也作为守护进程运行。
 
 守护进程没有控制终端通常源于它们由系统初始化脚本启动。然而守护进程也可能从某个终端由用户在shell提示符下键入命令行启动，这样的守护进程必须亲自脱离与控制终端的关联，从而避免与作业控制、终端会话管理、终端产生信号等发生任何不期望的交互，也可以避免在后台运行的守护进程非预期地输出到终端。
 
@@ -1626,7 +1626,7 @@ gethostbyaddr(const char *addr, socklen_t len, int family)
 
 因为守护进程没有控制终端，所以当有事发生时它们得寻找一个发出消息的机制。syslog函数是输出这些消息的标准方法，它把这些消息发送给syslogd守护进程。
 
-### syslogd守护进程
+### syslogd守护进程（系统日志）
 
 UNIX系统的syslogd守护进程通常由系统初始化脚本启动，它在启动时会读取`/etc/syslog.conf`配置文件，这样它就知道了该如何处理日志消息，syslogd守护进程在系统工作期间一直运行
 
@@ -1643,5 +1643,166 @@ priority参数是**级别（level）**和**设施（facility）**的结合，lev
 
 message参数是类似printf的格式串，它将被替换为对应当前errno值的出错消息
 
-### daemon_init函数
+### daemon_init函数（把普通进程转为守护进程）
 
+daemon_init函数源码位于lib/daemon_init.c，我就不放出细节了
+
+例子：作为守护进程运行的时间获取服务器程序，源码位于/inetd/daytimetcpsrv2.c
+
+改动的地方只有两个，在程序开始执行处尽早调用我们的daemon_init函数，再把输出客户IP地址和端口号的printf改为调用我们的err_msg函数。
+
+注意在调用daemon_init之前要检查argc。
+
+调用daemon_init之后，所有后续出错消息进入syslog，不再有作为标准错误输出的控制终端可用。
+
+```c++
+#include	"unp.h"
+#include	<time.h>
+
+int
+main(int argc, char **argv)
+{
+	int listenfd, connfd;
+	socklen_t addrlen, len;
+	struct sockaddr	*cliaddr;
+	char buff[MAXLINE];
+	time_t ticks;
+
+	if (argc < 2 || argc > 3)
+		err_quit("usage: daytimetcpsrv2 [ <host> ] <service or port>");
+
+	daemon_init(argv[0], 0);
+
+	if (argc == 2)
+		listenfd = Tcp_listen(NULL, argv[1], &addrlen);
+	else
+		listenfd = Tcp_listen(argv[1], argv[2], &addrlen);
+
+	cliaddr = Malloc(addrlen);
+
+	for ( ; ; ) {
+		len = addrlen;
+		connfd = Accept(listenfd, cliaddr, &len);
+		err_msg("connection from %s", Sock_ntop(cliaddr, len));
+
+		ticks = time(NULL);
+		snprintf(buff, sizeof(buff), "%.24s\r\n", ctime(&ticks));
+		Write(connfd, buff, strlen(buff));
+
+		Close(connfd);
+	}
+}
+```
+
+如果先在主机linux上运行本程序，再从同一个主机进行连接（譬如指定连接到localhost），然后检查/var/adm/messages文件（设施为LOG_USER的消息都发送到该文件），就可能找到类似如下的日志消息（已折行）：
+
+```vim
+Jun 10 09:54:37 linux daytimetcpsrv2[24288]:
+connection from 127.0.0.1.55862
+```
+
+在mac上测试，能建立TCP连接，但是找不到类似的日志文件
+
+### inetd守护进程（超级服务器守护进程）
+
+典型的Unix系统可能存在许多服务器，这些服务器都有一个守护进程与之关联，但1）这些守护进程的启动代码几乎相同（既要创建套接字，又要调用daemon_init函数），2）而又经常处于睡眠状态，所以出现了**inetd守护进程**，inetd简化了程序，又减少了进程数量，它的配置文件是`/etc/inetd.conf`，读取后inetd就知道了要处理哪些服务以及请求到达时要怎么做
+
+inetd守护进程的工作流程如下
+
+1. 启动阶段，读入`/etc/inetd.conf`配置文件，给文件中每个服务创建指定的TCP或UDP套接字，然后都加入描述符集，以供后面的select调用
+2. 为每个套接字调用bind，捆绑相应的众所周知端口（可由getservbyname获得）和通配地址
+3. 对于每个TCP，调用listen，UDP跳过该步骤
+4. 调用select等待任何一个套接字可读，**inetd大部分时间阻塞于此**
+5. 当某个套接字可读，如果是TCP则调用accept函数，UDP跳过该步骤
+6. inetd守护进程调用fork派生进程，TCP与UDP都由子进程处理服务请求，**这里很像标准的并发服务器**。然后，子进程关闭除要处理的套接字描述符之外的所有描述符，然后调用dup2三次，把待处理套接字描述符复制到描述符0、1和2（标准输入、标准输出和标准错误输出），然后关闭原套接字描述符。子进程打开的描述符于是只有0、1和2。**子进程自标准输入读实际是从所处理的套接字读，往标准输出或标准错误输出写实际上是往所处理的套接字写**。最后调用exec执行指定程序，也就是打开对应服务器程序，**描述0、1、2跨exec保持打开**。
+7. 如果是TCP，第6步fork后父进程会close该已连接套接字（就像并发服务器那样），然后再次调用select，等待下一个变为可读的套接字
+
+因为服务器程序是通过fork和exec后执行的，所以知悉客户身份的唯一方法就是getpeername
+
+由于inetd要fork加上exec，所以不适合服务密集型服务器，比如web服务器则使用多种技术将进程控制开销降到最低
+
+> 根据习题13.2：对于由inetd内部处理的5个服务（图2-18），考虑每个服务各有一个TCP版本和一个UDP版本，这样总共10个服务器的实现中，哪些用到了fork调用，哪些不需要fork调用？
+>
+> TCP版本的echo、discard和chargen服务器由inetd派生出来之后作为子进程运行，因为它们需要运行到客户终止连接为止。另外2个TCP服务器time和daytime并不需要inetd派生子进程，因为它们的服务极易实现（即取得当前时间和日期，把它格式化后写出，再关闭连接），于是由inetd直接处理。所有5个UDP服务的处理都不需要inetd派生子进程，因为每个服务对于引发它的任一客户数据报所作的响应只是最多产生一个数据报。因此这5个服务也由inetd直接处理。
+>
+> 我猜测：是不是UDP就不需要inetd工作流程中的fork了？？？因为UDP只需要返回一个数据报，直接返回即可？？？
+
+### deamon_inetd函数（不重要）
+
+可用于已知由inetd启动的服务器程序中
+
+本函数与daemon_init相比显得微不足道，因为所有守护进程化步骤已由inetd在启动时执行。本函数的任务仅仅是为错误处理函数（图D-3）设置daemon_proc标志，并以与图13-4中的调用相同的参数调用openlog。
+
+例子：由inetd作为守护进程启动的时间获取服务器程序，源码位于inetd/daytimetcpsrv3.c
+
+```c++
+#include	"unp.h"
+#include	<time.h>
+
+int
+main(int argc, char **argv)
+{
+	socklen_t		len;
+	struct sockaddr	*cliaddr;
+	char			buff[MAXLINE];
+	time_t			ticks;
+
+	daemon_inetd(argv[0], 0);
+
+	cliaddr = Malloc(sizeof(struct sockaddr_storage));
+	len = sizeof(struct sockaddr_storage);
+	Getpeername(0, cliaddr, &len);
+	err_msg("connection from %s", Sock_ntop(cliaddr, len));
+
+    ticks = time(NULL);
+    snprintf(buff, sizeof(buff), "%.24s\r\n", ctime(&ticks));
+    Write(0, buff, strlen(buff));
+
+	Close(0);	/* close TCP connection */
+	exit(0);
+}
+```
+
+这个程序有两个大的改动。首先，所有套接字创建代码（即对tcp_listen和accept的调用）都消失了。这些步骤改由inetd执行，我们使用描述符0（标准输入）指代已由inetd接受的TCP连接。其次，无限的for循环也消失了，因为本服务器程序将针对每个客户连接启动一次。服务完当前客户后进程就终止。
+
+既然未曾调用tcp_listen，我们不知道由它返回的套接字地址结构的大小，而且既然未曾调用accept，我们也不知道客户的协议地址。我们于是使用sizeof (struct sockaddr_storage)给套接字地址结构分配一个缓冲区，并以描述符0为第一个参数调用getpeername
+
+为了在我们的Solaris系统上运行本例子程序，我们首先赋予本服务一个名字和一个端口，将把如下行加到`/etc/services文件中：
+
+```vim
+mydaytime　　　　9999/tcp
+```
+
+接着把如下行加到`/etc/inetd.conf`文件中：
+
+```vim
+mydaytime　stream　tcp　nowait　 andy
+　　　/home/andy/daytimetcpsrv3　 daytimetcpsrv3
+```
+
+（本行太长已做折行处理。）把可执行文件放到指定的位置后，我们给inetd发送一个SIGHUP信号，告知它重新读入其配置文件。紧接着我们执行netstat命令验证inetd已在TCP端口9999上创建了一个监听套接字：
+
+```shell
+solaris % netstat -na | grep 9999
+　　　*.9999　　　　　　　*.*　　　　　 0　　　　　0 49152　　　　　0 LISTEN
+```
+
+然后从另一个主机访问这个服务器：
+
+```shell
+linux % telnet solaris 9999
+Trying 192.168.1.20...
+Connected to solaris.
+Escape character is '^]'.
+Tue Jun 10 11:04:02 2003
+Connection closed by foreign host.
+```
+
+`/var/adm/messages`文件（这是根据/etc/syslog.conf文件，将LOG_USER设施的消息登记到其中的文件）中有如下的日志消息：
+
+```vim
+Jun 10 11:04:02 solaris daytimetcpsrv3[28724]: connection from
+192.168.1.10.58145
+```
+
+因为我的mac找不到inetd以及其配置文件，所以没法测试
