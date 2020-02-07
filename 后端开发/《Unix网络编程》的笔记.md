@@ -2152,3 +2152,271 @@ T/TCP能够把SYN、FIN和数据组合到单个分节中，前提是数据的大
 T/TCP的优势在于TCP的所有可靠性（序列号、超时、重传，等等）得以保留，而不像UDP那样把可靠性推给应用程序去实现。T/TCP同样维持TCP的慢启动和拥塞避免措施，UDP应用程序却往往缺乏这些特性。
 
 为了处理T/TCP，套接字API需作些变动。我们指出，在提供T/TCP的系统上TCP应用程序无需任何改动，除非要使用T/TCP的特性。所有现有TCP应用程序继续使用我们已经讲述过的套接字API工作。
+
+## 第15章 Unix域协议
+
+**Unix域协议并不是一个实际的协议族，而是在单个主机上执行客户/服务器通信的一种方法**，所用API就是在不同主机上执行客户/服务器通信所用的API（套接字API）。Unix域协议因此可视为IPC方法之一。
+
+Unix域提供两类套接字：字节流套接字（类似TCP）和数据报套接字（类似DUP）。
+
+使用Unix域套接字有以下3个理由。
+
+1. 在同一个主机上，Unix域套接字往往比TCP套接字快出一倍
+2. Unix域套接字可用于在同一个主机上的不同进程之间传递描述符。
+3. Unix域套接字较新的实现把客户的凭证（用户ID和组ID）提供给服务器，从而能够提供额外的安全检查措施。
+
+Unix域中用于标识客户和服务器的协议地址是普通文件系统中的路径名。我们知道IPv4协议地址由一个32位地址和一个16位端口号构成，IPv6协议地址则由一个128位地址和一个16位端口号构成。这些路径名不是普通的Unix文件：除非把它们和Unix域套接字关联起来，否则无法读写这些文件。
+
+### Unix域套接字地址结构
+
+在头文件`<sys/un.h>`中定义的Unix域套接字地址结构
+
+```c++
+struct sockaddr_un{
+    sa_family_t sun_family; // AF_LOCAL
+    char sun_path[104];     // null-terminated pathname
+};
+```
+
+应用进程应该在运行时刻使用sizeof运算符得出本结构的长度，再验证一个路径名是否适合存放到其中的sun_path数组。
+
+存放在sun_path数组中的路径名必须以空字符结尾。实现提供的SUN_LEN宏以一个指向sockaddr_un结构的指针为参数并返回该结构的长度，其中包括路径名中非空字节数。未指定地址通过以空字符串作为路径名指示，也就是一个sun_path[0]值为0的地址结构。它等价于IPv4的INADDR_ANY常值以及IPv6的IN6ADDR_ANY_INIT常值。
+
+POSIX把Unix域协议重新命名为“**本地IPC**”，以消除它对于Unix操作系统的依赖。历史性常值AF_UNIX变为AF_LOCAL。
+
+例子：Unix域套接字的bind调用，命令行参数就是捆绑到套接字上的路径名，如果已存在该路径名，bind会失败，所以要先调用unlink删除它，乙方它已经存在，如果它不存在则无影响。我们使用strncpy复制命令行参数，以免路径名过长导致其溢出结构。既然我们已把该结构初始化为0，并且从sun_path数组的大小中减去1，可以肯定该路径名将以空字符结尾。之后调用bind，并使用SUN_LEN宏计算bind的长度参数。接着调用getsockname取得刚绑定的路径名并显示结果
+
+源码位于unixdomain/unixbind.c
+
+```c++
+#include	"unp.h"
+
+int
+main(int argc, char **argv)
+{
+	int					sockfd;
+	socklen_t			len;
+	struct sockaddr_un	addr1, addr2;
+
+	if (argc != 2)
+		err_quit("usage: unixbind <pathname>");
+
+	sockfd = Socket(AF_LOCAL, SOCK_STREAM, 0);
+
+	unlink(argv[1]);		/* OK if this fails */
+
+	bzero(&addr1, sizeof(addr1));
+	addr1.sun_family = AF_LOCAL;
+	strncpy(addr1.sun_path, argv[1], sizeof(addr1.sun_path)-1);
+	Bind(sockfd, (SA *) &addr1, SUN_LEN(&addr1));
+
+	len = sizeof(addr2);
+	Getsockname(sockfd, (SA *) &addr2, &len);
+	printf("bound name = %s, returned len = %d\n", addr2.sun_path, len);
+	
+	exit(0);
+}
+```
+
+mac无法测试该程序
+
+### socketpair函数（创建两个随后连接起来的套接字，仅用于Unix域套接字）
+
+socketpair函数创建两个随后连接起来的套接字。本函数仅适用于Unix域套接字。
+
+```c++
+#include <sys/socket.h>
+int socketpair(int family, int type, int protocol, int sockfd[2]);
+// 返回：若成功则为非0，若出错则为-1
+```
+
+family参数必须为AF_LOCAL，protocol参数必须为0。type参数既可以是SOCK_STREAM，也可以是SOCK_DGRAM。新创建的两个套接字描述符作为sockfd[0]和sockfd[1]返回。
+
+本函数类似Unix的pipe函数，会返回两个彼此连接的描述符。
+
+这样创建的两个套接字不曾命名，也就是说其中没有涉及隐式的bind调用。
+指定type参数为SOCK_STRAEM调用socketpair得到的结果称为**流管道（stream pipe）**。它与调用pipe创建的普通Unix管道类似，差别在于流管道是全双工的，即两个描述符都是既可读又可写。
+
+### 套接字函数
+
+存在一些差当用于Unix域套接字时，套接字函数存在一些差异和限制（应该是与TCP、UDP套接字函数相比）
+
+- 由bind创建的路径名默认访问权限应为0777（属主用户、组用户和其他用户都可读、可写并可执行），并按照当前umask值进行修正。
+- 与Unix域套接字关联的路径名应该是一个**绝对路径名**，而不是一个相对路径名。避免使用后者的原因是它的解析依赖于调用者的当前工作目录。也就是说，要是服务器捆绑一个相对路径名，客户就得在与服务器相同的目录中（或者必须知道这个目录）才能成功调用connect或sendto。
+- **在connect调用中指定的路径名必须是一个当前绑定在某个打开的Unix域套接字上的路径名，而且它们的套接字类型（字节流或数据报）也必须一致**。出错条件包括：（a）该路径名已存在却不是一个套接字；（b）该路径名已存在且是一个套接字，不过没有与之关联的打开的描述符；（c）该路径名已存在且是一个打开的套接字，不过类型不符（也就是说Unix域字节流套接字不能连接到与Unix域数据报套接字关联的路径名，反之亦然）。
+- 调用connect连接一个Unix域套接字涉及的权限测试等同于调用open以只写方式访问相应的路径名。
+- Unix域字节流套接字类似TCP套接字：它们都为进程提供一个**无记录边界**的字节流接口。
+- 如果对于某个Unix域字节流套接字的connect调用发现这个监听套接字的队列已满（4.5节），调用就**立即返回一个ECONNREFUSED错误**。这一点不同于TCP：如果TCP监听套接字的队列已满，TCP监听端就忽略新到达的SYN，而TCP连接发起端将数次发送SYN进行重试。
+- Unix域数据报套接字类似于UDP套接字：它们都提供一个保留记录边界的不可靠的数据报服务。
+- 在一个未绑定的Unix域套接字上发送数据报**不会自动给这个套接字捆绑一个路径名**，这一点不同于UDP套接字：在一个未绑定的UDP套接字上发送UDP数据报导致给这个套接字捆绑一个**临时端口**。这一点意味着除非数据报发送端已经捆绑一个路径名到它的套接字，否则数据报接收端无法发回应答数据报。类似地，对于某个Unix域数据报套接字的connect调用不会给本套接字捆绑一个路径名，这一点不同于TCP和UDP。
+
+### Unix域字节流客户/服务器程序
+
+改编自第5章的TCP回射客户/服务器程序，源码位于unixdomain/unixstrserv01.c，两个套接字地址结构的数据类型现在是sockaddr_un。socket的第一个参数是AF_LOCAL，用以创建一个Unix域字节流套接字。unp.h中定义的UNIXSTR_PATH常值为/tmp/unix.str。我们首先unlink该路径名，以防早先某次运行本程序导致该路径名已经存在；然后在调用bind前初始化套接字地址结构。unlink出错没有关系。
+注意，这里的bind调用不同于图15-2中的调用。这里我们指定套接字地址结构的大小（bind的第三个参数）是sockaddr_un结构总的大小，而不是只把路径名占用的字节数计算在内。这两个长度都是有效的，因为路径名必须以空字符结尾。与第5章使用同样的str_echo函数。
+
+```c++
+#include	"unp.h"
+
+int
+main(int argc, char **argv)
+{
+	int					listenfd, connfd;
+	pid_t				childpid;
+	socklen_t			clilen;
+	struct sockaddr_un	cliaddr, servaddr;
+	void				sig_chld(int);
+
+	listenfd = Socket(AF_LOCAL, SOCK_STREAM, 0);
+
+	unlink(UNIXSTR_PATH);
+	bzero(&servaddr, sizeof(servaddr));
+	servaddr.sun_family = AF_LOCAL;
+	strcpy(servaddr.sun_path, UNIXSTR_PATH);
+
+	Bind(listenfd, (SA *) &servaddr, sizeof(servaddr));
+
+	Listen(listenfd, LISTENQ);
+
+	Signal(SIGCHLD, sig_chld);
+
+	for ( ; ; ) {
+		clilen = sizeof(cliaddr);
+		if ( (connfd = accept(listenfd, (SA *) &cliaddr, &clilen)) < 0) {
+			if (errno == EINTR)
+				continue;		/* back to for() */
+			else
+				err_sys("accept error");
+		}
+
+		if ( (childpid = Fork()) == 0) {	/* child process */
+			Close(listenfd);	/* close listening socket */
+			str_echo(connfd);	/* process request */
+			exit(0);
+		}
+		Close(connfd);			/* parent closes connected socket */
+	}
+}
+```
+
+下面是Unix域字节流协议的回射客户程序，同样改写自第5章，源码位于unixdomain/unixstrcli01.c，str_cli函数与之前一样
+
+```c++
+#include	"unp.h"
+
+int
+main(int argc, char **argv)
+{
+	int					sockfd;
+	struct sockaddr_un	servaddr;
+
+	sockfd = Socket(AF_LOCAL, SOCK_STREAM, 0);
+
+	bzero(&servaddr, sizeof(servaddr));
+	servaddr.sun_family = AF_LOCAL;
+	strcpy(servaddr.sun_path, UNIXSTR_PATH);
+
+	Connect(sockfd, (SA *) &servaddr, sizeof(servaddr));
+
+	str_cli(stdin, sockfd);		/* do it all */
+
+	exit(0);
+}
+```
+
+### Unix域数据报客户/服务器程序
+
+改编自第8章UDP回射服务器程序，源码位于unixdomain/unixdgserv01.c
+
+两个套接字地址结构的数据类型现在是sockaddr_un。socket的第一个参数是AF_LOCAL，用于创建一个Unix域数据报套接字。unp.h中定义的UNIXDG_PATH常值为/tmp/unix.dg。我们首先unlink该路径名，以防早先某次运行本程序导致该路径名已经存在，然后在调用bind之前初始化套接字地址结构。unlink出错没有关系。使用同样的dg_echo函数。
+
+改编自第8章UDP回射客户程序，源码位于unixdomain/unixdgcli01.c。
+
+含有服务器地址的套接字地址结构现在是一个sockaddr_un结构。我们还分配这样的一个结构以存放客户的地址。socket的第一个参数是AF_LOCAL。
+与UDP客户不同的是，当使用Unix域数据报协议时，我们必须显式bind一个路径名到我们的套接字，这样服务器才会有能回射应答的路径名。我们调用tmpnam赋值一个唯一的路径名，然后把它bind到该套接字。回顾15.4节，我们知道由一个未绑定的Unix域数据报套接字发送数据报不会隐式地给这个套接字捆绑一个路径名。因此要是我们省掉这一步，那么服务器在dg_echo函数中的recvfrom调用将返回一个空路径名，这个空路径名将导致服务器在调用sendto时发生错误。使用同样的的dg_cli函数。
+
+### 描述符传递（跨进程亲缘关系）
+
+当考虑从一个进程到另一个进程传递打开的描述符时，我们通常会想到：
+
+- fork调用返回之后，子进程共享父进程的所有打开的描述符；
+- exec调用执行之后，所有描述符通常保持打开状态不变。
+
+第一个例子中，进程先打开一个描述符，再调用fork，然后父进程关闭这个描述符，子进程则处理这个描述符。这样一个打开的描述符就从父进程传递到子进程。然而我们也可能想让子进程打开一个描述符并把它传递给父进程。
+当前的Unix系统提供了用于从一个进程向任一其他进程传递任一打开的描述符的方法。也就是说，这两个进程之间无需存在亲缘关系，譬如父子进程关系。这种技术要求首先在这两个进程之间创建一个Unix域套接字，然后使用sendmsg跨这个套接字发送一个特殊消息。这个消息由内核来专门处理，会把打开的描述符从发送进程传递到接收进程。
+
+流程如下：
+
+1. 创建一个字节流的或数据报的Unix域套接字。
+    1. 如果目标是fork一个子进程，让子进程打开待传递的描述符，再把它传递回父进程，那么父进程可以预先调用**socketpair**创建一个可用于在父子进程之间交换描述符的流管道。
+    2. 如果进程之间没有亲缘关系，那么服务器进程必须创建一个**Unix域字节流套接字**（因为Unix域数据报套接字容易丢失），bind一个路径名到该套接字，以允许客户进程connect到该套接字。然后客户可以向服务器发送一个打开某个描述符的请求，服务器再把该描述符通过Unix域套接字传递回客户。
+2. 发送进程调用以下函数打开描述符：open、pipe、mkfifo、socket和accept。可以**在进程之间传递的描述符不限类型**，这就是我们称这种技术为“描述符传递”而不是“文件描述符传递”的原因。
+3. 发送进程创建一个msghdr结构（14.5节），其中含有待传递的描述符。发送进程调用sendmsg跨来自步骤1的Unix域套接字发送该描述符。至此我们说这个描述符“**在飞行中（in flight）**”。即使发送进程在调用sendmsg之后但在接收进程调用recvmsg（见下一步骤）之前关闭了该描述符，对于接收进程它仍然保持打开状态。发送一个描述符会使该描述符的引用计数加1。
+4. 接收进程调用recvmsg在来自步骤1的Unix域套接字上接收这个描述符。这个描述符在接收进程中的描述符号不同于它在发送进程中的描述符号是正常的。**传递一个描述符并不是传递一个描述符号**，而是涉及在接收进程中创建一个新的描述。
+
+例子：描述符传递，源码位于unixdomain/mycat.c，调用了my_open函数，位于unixdomain/myopen.c
+
+我们现在给出一个描述符传递的例子。这是一个名为mycat的程序，它通过命令行参数取得一个路径名，打开这个文件，再把文件的内容复制到标准输出。该程序调用我们名为my_open的函数，而不是调用普通的Unix open函数。my_open创建一个流管道，并调用fork和exec启动执行另一个程序，期待输出的文件由这个程序打开。该程序随后必须把打开的描述符通过流管道传递回父进程。
+
+![20200207123813.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200207123813.png)
+
+myopen函数逻辑如下：
+
+1. 通过调用socketpair创建一个流管道后的mycat进程。我们以[0]和[1]标示socketpair返回的两个描述符。
+2. mycat进程接着调用fork，子进程再调用exec执行openfile程序。父进程关闭[1]描述符（流管道的两端之间没有差异，我们也可以让子进程关闭[1]，让父进程关闭[0]）。在子进程中，子进程关闭[0]描述符。流管道另一端的描述符号格式化输出到argsockfd字符数组，打开方式则格式化输出到argmode字符数组。这里调用snprintf进行格式化输出是因为exec的参数必须是字符串。子进程随后调用execl执行openfile程序。该函数不会返回，除非它发生错误。一旦成功，openfile 程序的main函数就开始执行。
+3. 父进程必须给openfile程序传递三条信息：(1)待打开文件的路径名，(2)打开方式（只读、读写或只写），(3)流管道本进程端（图中标为[1]）对应的描述符号。我们选择将这三条信息作为命令行参数在调用exec时进行传递。当然我们也可以通过流管道将这三条信息作为数据发送。openfile程序在通过流管道发送回打开的描述符后便终止。该程序的退出状态告知父进程文件能否打开，若不能则同时告知发生了什么类型的错误。
+4. 父进程关闭流管道的另一端并调用waitpid等待子进程终止。子进程的终止状态在status变量中返回，我们首先检查该程序是否正常终止（也就是说并非被某个信号终止），若正常终止则接着调用WEXITSTATUS宏把终止状态转换成退出状态，退出状态的取值在0～255之间。我们马上会看到，如果openfile程序在打开所请求文件时碰到一个错误，它将以相应的errno值作为退出状态终止自身。
+5. 接着给出的read_fd函数通过流管道接收描述符。除了描述符外，我们还读取1个字节的数据，但不对数据进行任何处理。
+
+myopen源码如下：
+
+```c++
+#include	"unp.h"
+
+int
+my_open(const char *pathname, int mode)
+{
+	int			fd, sockfd[2], status;
+	pid_t		childpid;
+	char		c, argsockfd[10], argmode[10];
+
+	Socketpair(AF_LOCAL, SOCK_STREAM, 0, sockfd);
+
+	if ( (childpid = Fork()) == 0) {		/* child process */
+		Close(sockfd[0]);
+		snprintf(argsockfd, sizeof(argsockfd), "%d", sockfd[1]);
+		snprintf(argmode, sizeof(argmode), "%d", mode);
+		execl("./openfile", "openfile", argsockfd, pathname, argmode,
+			  (char *) NULL);
+		err_sys("execl error");
+	}
+
+	/* parent process - wait for the child to terminate */
+	Close(sockfd[1]);			/* close the end we don't use */
+
+	Waitpid(childpid, &status, 0);
+	if (WIFEXITED(status) == 0)
+		err_quit("child did not terminate");
+	if ( (status = WEXITSTATUS(status)) == 0)
+		Read_fd(sockfd[0], &c, 1, &fd);
+	else {
+		errno = status;		/* set errno value from child's status */
+		fd = -1;
+	}
+
+	Close(sockfd[0]);
+	return(fd);
+}
+```
+
+read_fd函数过于琐碎，不放源码了，它调用recvmsg在一个Unix域套接字上接收数据和描述符，它前三个参数和read函数一样，**第四格参数是指向某个整数的指针，用于返回收取的描述符**。
+
+在openfile程序中调用了write_fd，它调用sendmsg跨一个Unix域套接字发送一个描述符，openfile程序把描述符传递回父进程后就终止了
+
+通过执行另一个程序来打开文件的优势在于，另一个程序可以是一个setuid到root的程序，能够打开我们通常没有打开权限的文件。该程序能够把通常的Unix权限概念（用户、用户组和其他用户）扩展到它想要的任何形式的访问检查。
+
+### 接收发送者的凭证
+
+通过Unix域套接字作为辅助数据传递的另一种数据是**用户凭证（user credential）**。作为辅助数据的凭证其具体封装方式和发送方式往往特定于操作系统。
+
+凭证传递仍然是一个尚未普及且无统一规范的特性，然而因为它是对Unix域协议的一个尽管简单却也重要的补充，所以我们还是要介绍一下它。当客户和服务器进行通信时，服务器通常需以一定手段获悉客户的身份，以便验证客户是否有权限请求相应服务。
