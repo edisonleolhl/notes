@@ -1078,7 +1078,7 @@ SCTP是一个较新的传输协议，于2000年在IETF得到标准化（而TCP�
 
 本章讲述在名字和数值地址间进行转换的函数：
 
-gethostbyname和gethostbyaddr在主机名字与**IPv4地址**之间进行转换
+gethostbyname和gethostbyaddr在主机名字��**IPv4地址**之间进行转换
 
 getservbyname和getservbyport在服务名字和端口号之间进行转换。
 
@@ -2420,3 +2420,636 @@ read_fd函数过于琐碎，不放源码了，它调用recvmsg在一个Unix域�
 通过Unix域套接字作为辅助数据传递的另一种数据是**用户凭证（user credential）**。作为辅助数据的凭证其具体封装方式和发送方式往往特定于操作系统。
 
 凭证传递仍然是一个尚未普及且无统一规范的特性，然而因为它是对Unix域协议的一个尽管简单却也重要的补充，所以我们还是要介绍一下它。当客户和服务器进行通信时，服务器通常需以一定手段获悉客户的身份，以便验证客户是否有权限请求相应服务。
+
+## 第16章 非阻塞式I/O
+
+### 关于阻塞式I/O与非阻塞式I/O的概述
+
+套接字的默认状态是阻塞的。这就意味着当发出一个不能立即完成的套接字调用时，其进程将被**投入睡眠**，等待相应操作完成。可能阻塞的套接字调用可分为以下四类。
+
+1. 输入操作，包括read、readv、recv、recvfrom和recvmsg共5个函数。
+    - 如果某个进程对一个阻塞的TCP套接字（默认设置）调用这些输入函数之一，而且该套接字的接收缓冲区中没有数据可读，该进程将被投入睡眠，直到有一些数据到达。
+      - 既然TCP是字节流协议，该进程的唤醒就是只要有一些数据到达，这些数据既可能是单个字节，也可以是一个完整的TCP分节中的数据。如果想等到某个固定数目的数据可读为止，那么可以调用我们的readn函数（第3章），或者指定MSG_WAITALL标志（第14章）。
+      - 既然UDP是数据报协议，如果一个阻塞的UDP套接字的接收缓冲区为空，对它调用输入函数的进程将被投入睡眠，直到有UDP数据报到达。
+    - 对于非阻塞的套接字，如果输入操作不能被满足（对于TCP套接字即至少有一个字节的数据可读，对于UDP套接字即有一个完整的数据报可读），相应调用将立即返回一个EWOULDBLOCK错误。
+2. 输出操作，包括write、writev、send、sendto和sendmsg共5个函数。
+    - 对于一个TCP套接字我们已在2.11节说过，内核将从应用进程的缓冲区到该套接字的发送缓冲区复制数据。对于阻塞的套接字，如果其发送缓冲区中没有空间，进程将被投入睡眠，直到有空间为止。
+    - 对于一个非阻塞的TCP套接字，如果其发送缓冲区中根本没有空间，输出函数调用将立即返回一个EWOULDBLOCK错误。如果其发送缓冲区中有一些空间，返回值将是内核能够复制到该缓冲区中的字节数。这个字节数也称为**不足计数（short count）**。
+    - 我们还在2.11节说过，**UDP套接字不存在真正的发送缓冲区**。内核只是复制应用进程数据并把它沿协议栈向下传送，渐次冠以UDP首部和IP首部。因此对一个阻塞的UDP套接字（默认设置），输出函数调用将不会因与TCP套接字一样的原因而阻塞，不过有可能会因其他的原因而阻塞。
+3. 接受外来连接，即accept函数。
+    - 如果对一个阻塞的套接字调用accept函数，并且尚无新的连接到达，调用进程将被投入睡眠。
+    - 如果对一个非阻塞的套接字调用accept函数，并且尚无新的连接到达，accept调用将立即返回一个EWOULDBLOCK错误
+4. 发起外出连接，即用于TCP的connect函数。（回顾一下，我们知道connect同样可用于UDP，不过它不能使一个“真正”的连接建立起来，它只是使内核保存对端的IP地址和端口号。）
+    - TCP连接的建立涉及一个三路握手过程，而且connect函数一直要等到客户收到对于自己的SYN的ACK为止才返回。这意味着TCP的每个connect总会阻塞其调用进程至少一个到服务器的RTT时间。
+    - 如果对一个非阻塞的TCP套接字调用connect，并且连接不能立即建立，那么连接的建立能照样发起（譬如送出TCP三路握手的第一个分组），不过会返回一个EINPROGRESS错误。注意这个错误不同于上述三个情形中返回的错误。另请注意有些连接可以立即建立，通常发生在服务器和客户处于同一个主机的情况下。因此即使对于一个非阻塞的connect，我们也得预备connect成功返回的情况发生。
+
+### 非阻塞读和写：str_cli函数（修订版）
+
+再次回到第5章和第6章的str_cli函数。6.4节讲过的使用了select的版本仍使用阻塞式I/O。这是有缺陷的，比如，如果在标准输入有一行文本可读，我们就调用read读入它，再调用writen把它发送给服务器。然而如果套接字发送缓冲区已满，writen调用将会阻塞。在进程阻塞于writen调用期间，可能有来自套接字接收缓冲区的数据可供读取。类似地，如果从套接字中有一行输入文本可读，那么一旦标准输出比网络还要慢，进程照样可能阻塞于后续的write调用。
+
+不幸的是，非阻塞式I/O的加入让本函数的缓冲区管理显著地复杂化了，因此我们将分片介绍这个函数。我们已在第6章和第14章中讨论过在套接字上使用标准I/O的潜在问题和困难，它们在非阻塞式I/O操作中显得尤为突出。本例子中继续避免使用标准I/O。
+
+我们维护着两个缓冲区：to容纳从标准输入到服务器去的数据，fr容纳自服务器到标准输出来的数据。图16-1展示了to缓冲区的组织和指向该缓冲区中的指针。
+
+![20200207145032.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200207145032.png)
+
+其中toiptr指针指向从标准输入读入的数据可以存放的下一个字节。tooptr指向下一个必须写到套接字的字节。有（toiptr-tooptr）个字节需写到套接字。可从标准输入读入的字节数是（&to［MAXLINE］-toiptr）。一旦tooptr移动到toiptr，这两个指针就一起恢复到缓冲区开始处。
+
+![20200207145050.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200207145050.png)
+
+str_cli源码位于nonblock/strclinonb.c，先给出第一部分的逻辑与源码
+
+1. 使用fcntl把所用3个描述符都设置为非阻塞，包括连接到服务器的套接字、标准输入和标准输出。
+2. 初始化指向两个缓冲区的指针，并把最大的描述符号加1，以用作select的第一个参数。
+3. 主循环，两个描述符集都先清零再打开最多2位。
+    - 如果在标准输入上尚未读到EOF，而且在to缓冲区中有至少一个字节的可用空间，那就打开读描述符集中对应标准输入的位。
+    - 如果在fr缓冲区中有至少一个字节的可用空间，那就打开读描述符集中对应套接字的位。
+    - 如果在to缓冲区中有要写到套接字的数据，那就打开写描述符集中对应套接字的位。
+    - 如果在fr缓冲区中有要写到标准输出的数据，那就打开写描述符集中对应标准输出的位。
+4. 调用select，等待4个可能条件中任何一个变为真。我们没有为本select调用设置超时。
+
+```c++
+#include	"unp.h"
+
+void
+str_cli(FILE *fp, int sockfd)
+{
+	int			maxfdp1, val, stdineof;
+	ssize_t		n, nwritten;
+	fd_set		rset, wset;
+	char		to[MAXLINE], fr[MAXLINE];
+	char		*toiptr, *tooptr, *friptr, *froptr;
+
+	val = Fcntl(sockfd, F_GETFL, 0);
+	Fcntl(sockfd, F_SETFL, val | O_NONBLOCK);
+
+	val = Fcntl(STDIN_FILENO, F_GETFL, 0);
+	Fcntl(STDIN_FILENO, F_SETFL, val | O_NONBLOCK);
+
+	val = Fcntl(STDOUT_FILENO, F_GETFL, 0);
+	Fcntl(STDOUT_FILENO, F_SETFL, val | O_NONBLOCK);
+
+	toiptr = tooptr = to;	/* initialize buffer pointers */
+	friptr = froptr = fr;
+	stdineof = 0;
+
+	maxfdp1 = max(max(STDIN_FILENO, STDOUT_FILENO), sockfd) + 1;
+	for ( ; ; ) {
+		FD_ZERO(&rset);
+		FD_ZERO(&wset);
+		if (stdineof == 0 && toiptr < &to[MAXLINE])
+			FD_SET(STDIN_FILENO, &rset);	/* read from stdin */
+		if (friptr < &fr[MAXLINE])
+			FD_SET(sockfd, &rset);			/* read from socket */
+		if (tooptr != toiptr)
+			FD_SET(sockfd, &wset);			/* data to write to socket */
+		if (froptr != friptr)
+			FD_SET(STDOUT_FILENO, &wset);	/* data to write to stdout */
+
+		Select(maxfdp1, &rset, &wset, NULL, NULL);
+```
+
+下面是str_cli函数的第二部分（下载的源码多了ifdef的内容，书上没有ifdef），包含select返回后执行的4个测试中的前两个。第一个if（标准输入可读）内的逻辑如下，第二个if（套接字可读）的分析类似。
+
+1. 如果标准输入可读，那就调用read。指定的第三个参数是to缓冲区中的可用空间量。
+2. 如果发生一个EWOULDBLOCK错误，我们就忽略它。通常情况下这种条件“不应该发生”，因为这种条件意味着，select告知我们相应描述符可读，然而read该描述符却返回EWOULDBLOCK错误，不过我们无论如何还是处理这种条件。
+3. 如果read返回0，那么输出一行文本到标准错误输出以表示这个EOF，同时输出当前时间。我们还设置stdineof标志。如果在to缓冲区中不再有数据要发送（即tooptr等于toiptr），那就调用shutdown发送FIN到服务器。如果在to缓冲区中仍有数据要发送，FIN的发送就得推迟到缓冲区中数据已写到套接字之后。
+4. 当read返回数据时，我们相应地增加toiptr。我们还打开写描述符集中与套接字对应的位，使得以后在本循环内对该位的测试为真，从而导致调用write写到套接字。
+
+```c++
+		if (FD_ISSET(STDIN_FILENO, &rset)) {
+			if ( (n = read(STDIN_FILENO, toiptr, &to[MAXLINE] - toiptr)) < 0) {
+				if (errno != EWOULDBLOCK)
+					err_sys("read error on stdin");
+
+			} else if (n == 0) {
+#ifdef	VOL2
+				fprintf(stderr, "%s: EOF on stdin\n", gf_time());
+#endif
+				stdineof = 1;			/* all done with stdin */
+				if (tooptr == toiptr)
+					Shutdown(sockfd, SHUT_WR);/* send FIN */
+
+			} else {
+#ifdef	VOL2
+				fprintf(stderr, "%s: read %d bytes from stdin\n", gf_time(), n);
+#endif
+				toiptr += n;			/* # just read */
+				FD_SET(sockfd, &wset);	/* try and write to socket below */
+			}
+		}
+
+		if (FD_ISSET(sockfd, &rset)) {
+			if ( (n = read(sockfd, friptr, &fr[MAXLINE] - friptr)) < 0) {
+				if (errno != EWOULDBLOCK)
+					err_sys("read error on socket");
+
+			} else if (n == 0) {
+#ifdef	VOL2
+				fprintf(stderr, "%s: EOF on socket\n", gf_time());
+#endif
+				if (stdineof)
+					return;		/* normal termination */
+				else
+					err_quit("str_cli: server terminated prematurely");
+
+			} else {
+#ifdef	VOL2
+				fprintf(stderr, "%s: read %d bytes from socket\n",
+								gf_time(), n);
+#endif
+				friptr += n;		/* # just read */
+				FD_SET(STDOUT_FILENO, &wset);	/* try and write below */
+			}
+		}
+```
+
+本函数最后一部分是另外两个if分支，分别对应于标准输出可写、套接字可写，第一个if分支逻辑如下：
+
+1. 如果标准输出可写而且要写的字节数大于0（`friptr-froptr>0`），那就调用write。如果返回EWOULDBLOCK错误，那么不做任何处理。注意这种条件完全可能发生，因为本函数第二部分末尾的代码在不清楚write是否会成功的前提下就打开了写描述符集中与标准输出对应的位。
+2. 如果write成功，froptr就增以写出的字节数。如果输出指针（froptr）追上输入指针（friptr），这两个指针就同时恢复为指向缓冲区开始处。
+
+第二个if分支类似于刚才讲解的处理标准输出可写条件的if语句。唯一的差别是当输出指针追上输入指针时，不仅这两个指针同时恢复到缓冲区开始处，而且如果已经在标准输入上遇到EOF就要发送FIN到服务器。
+
+```c++
+		if (FD_ISSET(STDOUT_FILENO, &wset) && ( (n = friptr - froptr) > 0)) {
+			if ( (nwritten = write(STDOUT_FILENO, froptr, n)) < 0) {
+				if (errno != EWOULDBLOCK)
+					err_sys("write error to stdout");
+
+			} else {
+#ifdef	VOL2
+				fprintf(stderr, "%s: wrote %d bytes to stdout\n",
+								gf_time(), nwritten);
+#endif
+				froptr += nwritten;		/* # just written */
+				if (froptr == friptr)
+					froptr = friptr = fr;	/* back to beginning of buffer */
+			}
+		}
+
+		if (FD_ISSET(sockfd, &wset) && ( (n = toiptr - tooptr) > 0)) {
+			if ( (nwritten = write(sockfd, tooptr, n)) < 0) {
+				if (errno != EWOULDBLOCK)
+					err_sys("write error to socket");
+
+			} else {
+#ifdef	VOL2
+				fprintf(stderr, "%s: wrote %d bytes to socket\n",
+								gf_time(), nwritten);
+#endif
+				tooptr += nwritten;	/* # just written */
+				if (tooptr == toiptr) {
+					toiptr = tooptr = to;	/* back to beginning of buffer */
+					if (stdineof)
+						Shutdown(sockfd, SHUT_WR);	/* send FIN */
+				}
+			}
+		}
+```
+
+按照书上的方法测试，我们从这幅时间线图可以看出客户/服务器数据交换的动态性。使用非阻塞式I/O使程序能**发挥动态性的优势**，只要I/O操作有可能发生，就执行合适的读操作或写操作。通过使用select函数，我们让内核可以告诉我们何时某个I/O操作可以发生。
+
+![20200207161548.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200207161548.png)
+
+#### str_cli的较简单版本
+
+考虑到代码的复杂性，把程序编写成非阻塞式I/O的努力是否值得呢？回答是否定的。每当我们发现需要使用非阻塞式I/O时，更简单的办法通常是把应用程序任务划分到多个进程（使用fork）或多个线程（第26章）。
+
+下面是str_cli函数的另一个版本，该函数使用fork把当前进程划分成两个进程。子进程把来自服务器的文本行复制到标准输出，父进程把来自标准输入的文本行复制到服务器，**TCP是全双工的**，如下所示
+
+![20200207162033.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200207162033.png)
+
+源码位于nonblock/strclifork.c，我们在图中明确地指出所用TCP连接是全双工的，而且**父子进程共享同一个套接字：父进程往该套接字中写，子进程从该套接字中读**。尽管套接字只有一个，其接收缓冲区和发送缓冲区也分别只有一个，然而这个套接字却有两个描述符在引用它：一个在父进程中，另一个在子进程中。
+
+我们同样需要考虑进程终止序列。正常的终止序列从在标准输入上遇到EOF之时开始发生。父进程读入来自标准输入的EOF后调用shutdown发送FIN。（父进程不能调用close，见习题15.1。）但当这发生之后，子进程需继续从服务器到标准输出执行数据复制，直到在套接字上读到EOF。
+
+服务器进程过早终止也有可能发生（5.12节）。要是发生这种情况，子进程将在套接字上读到EOF。这样的子进程必须告知父进程停止从标准输入到套接字复制数据（见习题16.2）。在图16-10中，子进程向父进程发送一个SIGTERM信号，以防父进程仍在运行（见习题16.3）。如此处理的另一个手段是子进程无为地终止，使得父进程（如果仍在运行的话）捕获一个SIGCHLD信号。
+
+父进程完成数据复制后调用pause让自己进入睡眠状态，直到捕获一个信号（子进程来的SIGTERM信号），尽管它不主动捕获任何信号。SIGTERM信号的默认行为是终止进程，这对于本例子是合适的。我们让父进程等待子进程的目的在于精确测量调用此版str_cli函数的TCP客户程序的执行时钟时间。正常情况下子进程在父进程之后结束，然而我们用于测量时钟时间的是shell内部命令time，它要求父进程持续到测量结束时刻。
+
+注意该版本相比本节前面给出的非阻塞版本体现的简单性。非阻塞版本同时管理4个不同的I/O流，而且由于这4个流都是非阻塞的，我们不得不考虑对于所有4个流的部分读和部分写问题。然而在fork版本中，每个进程只处理2个I/O流，从一个复制到另一个。**这里不需要非阻塞式I/O，因为如果从输入流没有数据可读，往相应的输出流就没有数据可写**。
+
+```c++
+#include	"unp.h"
+
+void
+str_cli(FILE *fp, int sockfd)
+{
+	pid_t	pid;
+	char	sendline[MAXLINE], recvline[MAXLINE];
+
+	if ( (pid = Fork()) == 0) {		/* child: server -> stdout */
+		while (Readline(sockfd, recvline, MAXLINE) > 0)
+			Fputs(recvline, stdout);
+
+		kill(getppid(), SIGTERM);	/* in case parent still running */
+		exit(0);
+	}
+
+		/* parent: stdin -> server */
+	while (Fgets(sendline, MAXLINE, fp) != NULL)
+		Writen(sockfd, sendline, strlen(sendline));
+
+	Shutdown(sockfd, SHUT_WR);	/* EOF on stdin, send FIN */
+	pause();
+	return;
+}
+```
+
+#### str_cli执行时间
+
+354.0秒，停等版本（图5-5）。
+12.3秒，select加阻塞式I/O版本（图6-13）。
+6.9秒，非阻塞式I/O版本（图16-3）。
+8.7秒，fork版本（图16-10）。
+8.5秒，线程化版本（图26-2）。
+
+非阻塞版本几乎比select加阻塞式I/O版本快出一倍。fork版本比非阻塞版本稍慢，然而考虑到非阻塞版本代码相比fork版本代码的复杂性，我们推荐简单得多的fork版本。
+
+### 非阻塞connect
+
+当在一个非阻塞的TCP套接字上调用connect时，connect将立即返回一个EINPROGRESS错误，不过已经发起的TCP三路握手继续进行。我们接着使用select检测这个连接或成功或失败的已建立条件。非阻塞的connect有三个用途。
+
+1. 我们可以把**三路握手叠加在其他处理上**。完成一个connect要花一个RTT时间（2.5节），而RTT波动范围很大，从局域网上的几个毫秒到几百个毫秒甚至是广域网上的几秒。这段时间内也许有我们想要执行的其他处理工作可执行。
+2. 我们可以使用这个技术**同时建立多个连接**。这个用途已随着Web浏览器变得流行起来，我们将在16.5节给出这样的一个例子。
+3. 既然使用select等待连接的建立，我们可以给select指定一个时间限制，使得我们能够缩短connect的超时。许多实现有着从75秒钟到数分钟的connect超时时间。应用程序有时想要一个更短的超时时间，实现方法之一就是使用非阻塞connect。我们已在14.2节讨论过在套接字操作上设置超时时间的其他方法。
+
+非阻塞connnct虽然听似简单，却有一些我们必须处理的细节。
+
+1. 尽管套接字是非阻塞的，如果连接到的服务器在同一个主机上，那么当我们调用connect时，连接通常立刻建立。我们必须处理这种情形。
+2. 源自Berkeley的实现（和POSIX）有关于select和非阻塞connect的以下两个规则：（1）当连接成功建立时，描述符变为可写（TCPv2第531页）；（2）当连接建立遇到错误时，描述符变为既可读又可写（TCPv2第530页）。
+
+### 非阻塞connect：时间获取客户程序
+
+客户程序源码位于lib/connect_nonb.c，使用时把普通的connect函数改为connect_nonb，前三个参数一样，第四个参数是等待连接完成的描述，值为0即不设置超时。
+
+connect_nonb函数逻辑如下：
+
+1. 调用fcntl把套接字设置为非阻塞。
+2. 发起非阻塞connect。期望的错误是EINPROGRESS，表示连接建立已经启动但是尚未完成（TCPv2第466页）。connect返回的任何其他错误返回给本函数的调用者。
+3. 然后我们可以在等待连接建立完成期间做任何我们想做的事情。
+4. 如果非阻塞connect返回0，那么连接已经建立。我们已经说过，当服务器处于客户所在主机时这种情况可能发生。
+5. 调用select等待套接字变为可读或可写。我们清零rset，打开这个描述符集中对应sockfd的位，然后将rset复制到wset。复制描述符集的赋值可能是一个结构赋值，因为描述符集通常作为结构表示。我们还初始化timeval结构，然后调用select。如果调用者把第四个参数指定为0（表示使用默认超时时间），那么我们必须把select的最后一个参数指定为一个空指针，而不是一个值为0的timeval结构（后者意味着根本不等待）。
+6. 如果select返回0，那么超时发生，我们于是返回ETIMEOUT错误给调用者。我们还要关闭套接字，以防止已经启动的三路握手继续下去。
+7. 如果描述符变为可读或可写，我们就调用getsockopt取得套接字的待处理错误（使用SO_ERROR套接字选项）。如果连接成功建立，该值将为0。如果连接建立发生错误，该值就是对应连接错误的errno值（譬如ECONNREFUSED、ETIMEDOUT等）。
+8. 恢复套接字的文件状态标志并返回。如果自getsockopt返回的error变量为非0值，我们就把该值存入errno，函数本身返回-1。
+
+注意：非阻塞connect是非常不易移植的（具体实现与特定操作系统相关），较简单的技术是为每个连接创建一个线程
+
+```c++
+#include	"unp.h"
+
+int
+connect_nonb(int sockfd, const SA *saptr, socklen_t salen, int nsec)
+{
+	int				flags, n, error;
+	socklen_t		len;
+	fd_set			rset, wset;
+	struct timeval	tval;
+
+	flags = Fcntl(sockfd, F_GETFL, 0);
+	Fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
+
+	error = 0;
+	if ( (n = connect(sockfd, saptr, salen)) < 0)
+		if (errno != EINPROGRESS)
+			return(-1);
+
+	/* Do whatever we want while the connect is taking place. */
+
+	if (n == 0)
+		goto done;	/* connect completed immediately */
+
+	FD_ZERO(&rset);
+	FD_SET(sockfd, &rset);
+	wset = rset;
+	tval.tv_sec = nsec;
+	tval.tv_usec = 0;
+
+	if ( (n = Select(sockfd+1, &rset, &wset, NULL,
+					 nsec ? &tval : NULL)) == 0) {
+		close(sockfd);		/* timeout */
+		errno = ETIMEDOUT;
+		return(-1);
+	}
+
+	if (FD_ISSET(sockfd, &rset) || FD_ISSET(sockfd, &wset)) {
+		len = sizeof(error);
+		if (getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &error, &len) < 0)
+			return(-1);			/* Solaris pending error */
+	} else
+		err_quit("select error: sockfd not set");
+
+done:
+	Fcntl(sockfd, F_SETFL, flags);	/* restore file status flags */
+
+	if (error) {
+		close(sockfd);		/* just in case */
+		errno = error;
+		return(-1);
+	}
+	return(0);
+}
+```
+
+### 非阻塞connect：Web客户程序（可以打开多个TCP连接来加速，但是对网络不利）
+
+客户先建立一个与某个Web服务器的HTTP连接，再获取一个主页（homepage）。该主页往往含有多个对于其他网页（Web page）的引用。客户可以使用非阻塞connect同时获取多个网页，以此取代每次只获取一个网页的串行获取手段。
+
+在处理Web客户时，第一个连接独立执行，来自该连接的数据含有多个引用，随后用于访问这些引用的多个连接则并行执行。
+
+既然准备同时处理多个非阻塞connect，我们就不能使用图16-11中的connect_nonb函数，因为它直到连接已经建立才返回。我们必须自行管理这些（可能尚未成功建立的）连接。
+
+我们的程序最多读20个来自Web服务器的文件。最大并行连接数、服务器的主机名以及要从服务器获取的每个文件的文件名都会作为命令行参数指定。
+
+nonblocl/web.h是每个文件都包含的头文件，本程序最多读MAXFILES个来自Web服务器的文件。file结构包含关于每个文件的信息：文件名（复制自命令行参数）、文件所在服务器主机名或IP地址、用于读取文件的套接字描述符以及用于指定准备对文件执行什么操作（连接、读取或完成）的一组标志。
+
+```c++
+#include	"unp.h"
+
+#define	MAXFILES	20
+#define	SERV		"80"	/* port number or service name */
+
+struct file {
+  char	*f_name;			/* filename */
+  char	*f_host;			/* hostname or IPv4/IPv6 address */
+  int    f_fd;				/* descriptor */
+  int	 f_flags;			/* F_xxx below */
+} file[MAXFILES];
+
+#define	F_CONNECTING	1	/* connect() in progress */
+#define	F_READING		2	/* connect() complete; now reading */
+#define	F_DONE			4	/* all done */
+
+#define	GET_CMD		"GET %s HTTP/1.0\r\n\r\n"
+
+			/* globals */
+int		nconn, nfiles, nlefttoconn, nlefttoread, maxfd;
+fd_set	rset, wset;
+
+			/* function prototypes */
+void	home_page(const char *, const char *);
+void	start_connect(struct file *);
+void	write_get_cmd(struct file *);
+```
+
+main函数源码位于nonblock/web.c，逻辑如下（把书上的两部分结合在一起了），home_page、start_connect、write_get_cmd函数附后：
+
+1. 首先以命令行参数填写file结构数组
+2. 接着给出的home_page函数创建一个TCP连接，发出一个命令到服务器，然后读取主页。这是第一个连接，需在我们开始并行建立多个连接之前独自完成。
+3. 初始化读与写描述符集，maxfd是select需要的最大描述符（我们把它初始化成-1，因为描述符都是非负的），nlefttoread是仍待读取的文件数（当它到达0时程序任务完成），nlefttoconn是尚无TCP连接的文件数，nconn是当前打开着的连接数（它不能超过第一个命令行参数）。
+4. 主循环；只要还有文件要处理（nlefttoread大于0）就循环，如果没有到达最大并行连接数而且另有连接需要建立，那就找到一个尚未处理的文件（由值为0的f_flags指示），然后调用start_connect发起另一个连接。活跃连接数（nconn）增1，仍待建立连接数（nlefttoconn）减1。
+5. select等待的不是可读条件就是可写条件。有一个非阻塞connect正在进展的描述符可能会同时开启这两个描述符集，而连接建立完毕并正在等待来自服务器的数据的描述符只会开启读描述符集。
+6. 遍查file结构数组中的每个元素，确定哪些描述符需要处理。对于设置了F_CONNECTING标志的一个描述符，如果它在读描述符集或写描述符集中对应的位已打开，那么非阻塞connect已经完成。正如我们随图16-11讲述的那样，我们调用getsockopt获取该套接字的待处理错误。如果该值为0，那么连接已经成功建立。这种情况下我们关闭该描述符在写描述符集中对应的位，然后调用write_get_cmd发送HTTP请求到服务器。
+7. 对于设置了F_READING标志的一个描述符，如果它在读描述符集中对应的位已打开，我们就调用read。如果相应连接被对端关闭，我们就关闭该套接字，并设置F_DONE标志，然后关闭该描述符在读描述符集中对应的位，把活动连接数和要处理的连接总数都减1。
+
+本程序还有两个优化手段（但因避免复杂而没有采用）：
+
+1. 当select告知已经就绪的那么多描述符被处理完之后，我们可以终止select之后的for循环。
+2. 如果可能的话我们可以减小maxfd的值，省得select检查那些不再设置的描述符位。
+
+```c++
+/* include web1 */
+#include	"web.h"
+
+int
+main(int argc, char **argv)
+{
+	int		i, fd, n, maxnconn, flags, error;
+	char	buf[MAXLINE];
+	fd_set	rs, ws;
+
+	if (argc < 5)
+		err_quit("usage: web <#conns> <hostname> <homepage> <file1> ...");
+	maxnconn = atoi(argv[1]);
+
+	nfiles = min(argc - 4, MAXFILES);
+	for (i = 0; i < nfiles; i++) {
+		file[i].f_name = argv[i + 4];
+		file[i].f_host = argv[2];
+		file[i].f_flags = 0;
+	}
+	printf("nfiles = %d\n", nfiles);
+
+	home_page(argv[2], argv[3]);
+
+	FD_ZERO(&rset);
+	FD_ZERO(&wset);
+	maxfd = -1;
+	nlefttoread = nlefttoconn = nfiles;
+	nconn = 0;
+/* end web1 */
+/* include web2 */
+	while (nlefttoread > 0) {
+		while (nconn < maxnconn && nlefttoconn > 0) {
+				/* 4find a file to read */
+			for (i = 0 ; i < nfiles; i++)
+				if (file[i].f_flags == 0)
+					break;
+			if (i == nfiles)
+				err_quit("nlefttoconn = %d but nothing found", nlefttoconn);
+			start_connect(&file[i]);
+			nconn++;
+			nlefttoconn--;
+		}
+
+		rs = rset;
+		ws = wset;
+		n = Select(maxfd+1, &rs, &ws, NULL, NULL);
+
+		for (i = 0; i < nfiles; i++) {
+			flags = file[i].f_flags;
+			if (flags == 0 || flags & F_DONE)
+				continue;
+			fd = file[i].f_fd;
+			if (flags & F_CONNECTING &&
+				(FD_ISSET(fd, &rs) || FD_ISSET(fd, &ws))) {
+				n = sizeof(error);
+				if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &n) < 0 ||
+					error != 0) {
+					err_ret("nonblocking connect failed for %s",
+							file[i].f_name);
+				}
+					/* 4connection established */
+				printf("connection established for %s\n", file[i].f_name);
+				FD_CLR(fd, &wset);		/* no more writeability test */
+				write_get_cmd(&file[i]);/* write() the GET command */
+
+			} else if (flags & F_READING && FD_ISSET(fd, &rs)) {
+				if ( (n = Read(fd, buf, sizeof(buf))) == 0) {
+					printf("end-of-file on %s\n", file[i].f_name);
+					Close(fd);
+					file[i].f_flags = F_DONE;	/* clears F_READING */
+					FD_CLR(fd, &rset);
+					nconn--;
+					nlefttoread--;
+				} else {
+					printf("read %d bytes from %s\n", n, file[i].f_name);
+				}
+			}
+		}
+	}
+	exit(0);
+}
+/* end web2 */
+
+```
+
+home_page函数位于nonblock/home_page.c，tcp_connect会建立一个与服务器的连接，发出一个HTTP GET命令以获取主页（文件名经常是/）。读取应答（我们不对应答做任何操作），然后关闭连接。
+
+```c++
+#include	"web.h"
+
+void
+home_page(const char *host, const char *fname)
+{
+	int		fd, n;
+	char	line[MAXLINE];
+
+	fd = Tcp_connect(host, SERV);	/* blocking connect() */
+
+	n = snprintf(line, sizeof(line), GET_CMD, fname);
+	Writen(fd, line, n);
+
+	for ( ; ; ) {
+		if ( (n = Read(fd, line, MAXLINE)) == 0)
+			break;		/* server closed connection */
+
+		printf("read %d bytes of home page\n", n);
+		/* do whatever with data */
+	}
+	printf("end-of-file on home page\n");
+	Close(fd);
+}
+```
+
+start_connect函数位于nonblock/start_connect.c，逻辑如下：
+
+1. 调用我们的host_serv函数（图11-9）查找并转换主机名和服务名，它返回指向某个addrinfo结构数组的一个指针。我们只使用其中第一个结构。创建一个TCP套接字并利用fcntl把它设置为非阻塞。
+2. 发起非阻塞connect，并把相应文件的标志设置为F_CONNECTING。在读描述符集和写描述符集中对应的位打开套接字描述符，因为select将等待其中任何一个条件变为真作为连接已建立完毕的指示。我们还根据需要更新maxfd的值。
+3. 如果connect成功返回，那么连接已经建立，于是调用write_get_cmd函数（接着给出）发送一个命令到服务器。
+
+```c++
+#include	"web.h"
+
+void
+start_connect(struct file *fptr)
+{
+	int				fd, flags, n;
+	struct addrinfo	*ai;
+
+	ai = Host_serv(fptr->f_host, SERV, 0, SOCK_STREAM);
+
+	fd = Socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
+	fptr->f_fd = fd;
+	printf("start_connect for %s, fd %d\n", fptr->f_name, fd);
+
+		/* 4Set socket nonblocking */
+	flags = Fcntl(fd, F_GETFL, 0);
+	Fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+
+		/* 4Initiate nonblocking connect to the server. */
+	if ( (n = connect(fd, ai->ai_addr, ai->ai_addrlen)) < 0) {
+		if (errno != EINPROGRESS)
+			err_sys("nonblocking connect error");
+		fptr->f_flags = F_CONNECTING;
+		FD_SET(fd, &rset);			/* select for reading and writing */
+		FD_SET(fd, &wset);
+		if (fd > maxfd)
+			maxfd = fd;
+
+	} else if (n >= 0)				/* connect is already done */
+		write_get_cmd(fptr);	/* write() the GET command */
+}
+```
+
+write_get_cmd函数位于nonblock/write_get_cmd.c，它发送一个HTTP GET命令到服务器，首先构造命令并写出到套接字（fptr->f_fd)，设置相应文件的F_READING标志，它同时清除F_CONNECTING标志（如果设置了的话）。该标志向main函数主循环指出，本描述符已经准备好提供输入。在读描述符集中打开与本描述符对应的位，并根据需要更新maxfd。
+
+
+```c++
+#include	"web.h"
+
+void
+write_get_cmd(struct file *fptr)
+{
+	int		n;
+	char	line[MAXLINE];
+
+	n = snprintf(line, sizeof(line), GET_CMD, fptr->f_name);
+	Writen(fptr->f_fd, line, n);
+	printf("wrote %d bytes for %s\n", n, fptr->f_name);
+
+	fptr->f_flags = F_READING;			/* clears F_CONNECTING */
+
+	FD_SET(fptr->f_fd, &rset);			/* will read server's reply */
+	if (fptr->f_fd > maxfd)
+		maxfd = fptr->f_fd;
+}
+```
+
+### 非阻塞accept（解决定时问题）
+
+第6章中陈述过，当有一个已完成的连接准备好被accept时，select将作为可读描述符返回该连接的监听套接字。因此，如果我们使用select在某个监听套接字上等待一个外来连接，那就没有必要把该监听套接字设置为非阻塞，这是因为如果select告诉我们该套接字上已有连接就绪，那么随后的accept调用不应该阻塞。
+
+不幸的是，这里存在一个可能让我们掉入陷阱的**定时问题**
+
+下面位于nonblock/tcpcli03.c的程序把第5章的TCP回射客户程序改写成建立连接后发送一个RST到服务器，它使用了SO_LINGER套接字选项，把l_onoff标志设置为1，把l_linger时间设置为0，这样会导致调用close时会在TCP套接字上发送一个RST。
+
+```c++
+#include	"unp.h"
+
+int
+main(int argc, char **argv)
+{
+	int					sockfd;
+	struct linger		ling;
+	struct sockaddr_in	servaddr;
+
+	if (argc != 2)
+		err_quit("usage: tcpcli <IPaddress>");
+
+	sockfd = Socket(AF_INET, SOCK_STREAM, 0);
+
+	bzero(&servaddr, sizeof(servaddr));
+	servaddr.sin_family = AF_INET;
+	servaddr.sin_port = htons(SERV_PORT);
+	Inet_pton(AF_INET, argv[1], &servaddr.sin_addr);
+
+	Connect(sockfd, (SA *) &servaddr, sizeof(servaddr));
+
+	ling.l_onoff = 1;		/* cause RST to be sent on close() */
+	ling.l_linger = 0;
+	Setsockopt(sockfd, SOL_SOCKET, SO_LINGER, &ling, sizeof(ling));
+	Close(sockfd);
+
+	exit(0);
+}
+```
+
+在第6章的TCP回射服务器程序也稍作修改（下面两行带星号的是新增行），在select返回监听套接字的可读条件后但在调用accept前暂停，这是在模拟一个繁忙的服务器
+
+```c++
+　　 if (FD_ISSET(listenfd, &rset)) {　　　　/* new client connection */
++　　　　printf("listening socket readable\n");
++　　　　sleep(5);
+　　　　 clilen = sizeof(cliaddr);
+　　　　 connfd = Accept(listenfd, (SA *) &cliaddr, &clilen);
+```
+
+这样有可能会进入这样的场景：
+
+1. 客户调用刚才的tcpcli03所示建立一个连接并随后中止它。
+2. select向服务器进程返回可读条件，不过服务器要过一小段时间才调用accept（比如延后5秒）。
+3. 在服务器从select返回到调用accept期间，服务器TCP收到来自客户的RST。
+4. 这个已完成的连接被服务器TCP驱除出队列，我们假设队列中没有其他已完成的连接。
+5. 服务器调用accept（sleep完毕），但是由于没有任何已完成的连接，服务器于是阻塞。
+
+服务器会一直阻塞在accept调用上，直到其他某个客户建立一个连接为止。但是在此期间，就以图6-22给出的服务器程序为例，服务器单纯阻塞在accept调用上，无法处理任何其他已就绪的描述符。
+
+本问题和6.8节讲述的拒绝服务攻击多少有些类似，不过对于这个新的缺陷，一旦另有客户建立一个连接，服务器就会脱出阻塞中的accept。
+
+本问题的解决方法如下：
+
+1. 当使用select获悉某个监听套接字上何时有已完成连接准备好被accept时，总是把这个监听套接字设置为非阻塞。
+2. 在后续的accept调用中忽略以下错误：EWOULDBLOCK（源自Berkeley的实现，客户中止连接时）、ECONNABORTED（POSIX实现，客户中止连接时）、EPROTO（SVR4实现，客户中止连接时）和EINTR（如果有信号被捕获）。
