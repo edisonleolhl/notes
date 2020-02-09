@@ -3526,3 +3526,732 @@ POSIX通过aio_XXX函数提供真正的异步I/O。这些函数允许进程指�
 
 基于UDP的NTP服务器程序使用了信号驱动式I/O，这是为数不多的信号驱动式I/O的应用。服务器主循环接收来自客户的一个请求数据报并发送回一个应答数据报。当有一个新的数据报到达时，SIGIO信号处理函数读入该数据报，同时记录它的到达时刻，然后将它置于另一个队列中，以便主服务器循环移走并处理。
 
+## 第26章 线程（比进程更快，但共享全局变量与描述符，所以需要同步机制：互斥量与条件变量）
+
+### 概述
+
+在传统的UNIX模型中，当一个进程需要另一个实体来完成某事时，它就fork一个子进程并让子进程去执行处理。Unix上的大多数网络服务器程序就是这么编写的，正如我们在早先讲解的并发服务器程序例子中看到的那样：父进程accept一个连接，fork一个子进程，该子进程处理与该连接对端的客户之间的通信。
+
+尽管这种范式多少年来一直用得挺好，fork调用却存在一些问题。
+
+1. fork是昂贵的。fork要把父进程的内存映像复制到子进程，并在子进程中复制所有描述符，如此等等。当今的实现使用称为**写时复制（copy-on-write）**的技术，用以避免在子进程切实需要自己的副本之前把父进程的数据空间复制到子进程。然而即便有这样的优化措施，fork仍然是昂贵的。
+2. fork返回之后父子进程之间信息的传递需要**进程间通信（IPC）**机制。调用fork之前父进程向尚未存在的子进程传递信息相当容易，因为子进程将从父进程数据空间及所有描述符的一个副本开始运行。然而从子进程往父进程返回信息却比较费力。
+
+> 写时复制（Copy-on-write，简称COW）是一种计算机程序设计领域的优化策略。其核心思想是，如果有多个调用者（callers）同时要求相同资源（如内存或磁盘上的数据存储），他们会共同获取相同的指针**指向相同的资源**，直到某个调用者**试图修改**资源的内容时，系统才会真正复制一份专用副本（private copy）给该调用者，而其他调用者所见到的最初的资源仍然保持不变。这过程对其他的调用者都是透明的（transparently）。此作法主要的优点是如果调用者没有修改该资源，就不会有副本（private copy）被创建，因此多个调用者只是读取操作时可以共享同一份资源。
+
+线程有助于解决这两个问题。线程有时称为**轻权进程（lightweight process**），因为线程比进程“权重轻些”（感觉翻译为轻量级线程更好）。也就是说，线程的创建可能比进程的创建快10～100倍。
+
+同一进程内的所有线程共享相同的全局内存。这使得线程之间易于共享信息，然而伴随这种简易性而来的却是**同步（synchronization）**问题。
+
+同一进程内的所有线程除了共享全局变量外还共享：
+
+- 进程指令；
+- 大多数数据；
+- 打开的文件（即描述符）；
+- 信号处理函数和信号处置；
+- 当前工作目录；
+- 用户ID和组ID。
+
+不过每个线程有各自的：
+
+- 线程ID；
+- 寄存器集合，包括程序计数器和栈指针；
+- 栈（用于存放局部变量和返回地址）；
+- errno；
+- 信号掩码；
+- 优先级。
+
+信号处理函数可以类比作某种线程。这就是说在传统的UNIX模型中，我们有主执行流（也称为主控制流，即一个线程）和某个信号处理函数（另一个线程）。如果主执行流正在更改某个链表时发生一个信号，而且该信号的处理函数也试图更改该链表，那么后果通常是灾难性的。主执行流和信号处理函数共享同样的全局变量，不过它们有各自的栈。
+
+我们在本章讲解的是POSIX线程，也称为Pthread。
+
+### 基本线程函数：创建和终止
+
+讲解5个基本线程函数
+
+#### pthread_create函数
+
+当一个程序由exec启动执行时，称为**初始线程（initial thread）**或**主线程（main thread）**的单个线程就创建了。其余线程则由pthread_create函数创建。
+
+```c++
+#include <pthread.h>
+int pthread_create(pthread_t *tid, const pthread_attr_t *attr, void *(*func)(void *), void *arg);
+// 返回：若成功则为0，若出错则为正的Exxx值
+```
+
+一个进程内的每个线程都由一个**线程ID（thread ID）**标识，其数据类型为pthread_t（往往是unsigned int）。如果新的线程成功创建，其ID就通过tid指针返回。
+
+每个线程都有许多**属性（attribute）**：优先级、初始栈大小、是否应该成为一个守护线程，等等。我们可以在创建线程时通过初始化一个取代默认设置的pthread_attr_t变量指定这些属性。通常情况下我们采纳默认设置，这时我们把attr参数指定为空指针。
+
+创建一个线程时我们最后指定的参数是由该线程执行的函数及其参数。该线程通过调用这个函数开始执行，然后或者显式地终止（通过调用pthread_exit），或者隐式地终止（通过让该函数返回）。该函数的地址由func参数指定，该函数的唯一调用参数是指针arg。如果我们需要给该函数传递多个参数，我们就得把它们打包成一个结构，然后把这个结构的地址作为单个参数传递给这个起始函数。
+
+注意func和arg的声明。func所指函数作为参数接受一个通用指针（void *），又作为返回值返回一个通用指针（void *）。这使得我们可以把一个指针（它指向我们期望的任何内容）传递给线程，又允许线程返回一个指针（它同样指向我们期望的任何内容）。
+
+**通常情况下Pthread函数的返回值成功时为0，出错时为某个非0值**。与套接字函数及大多数系统调用出错时返回-1并置errno为某个正值的做法不同的是，Pthread函数出错时作为函数返回值返回正值错误指示。举例来说，如果pthread_create因在线程数目上超过某个系统限制而不能创建新线程，函数返回值将是EAGAIN。Pthread函数不设置errno。成功为0出错为非0这个约定不成问题，因为`<sys/errno.h>`头文件中所有的Exxx值都是正值。0值从来不被赋予任何Exxx名字。
+
+#### pthread_join函数
+
+我们可以通过调用pthread_join等待一个给定线程终止。对比线程和UNIX进程，pthread_create类似于fork，pthread_join类似于waitpid。
+
+```c++
+#include <pthread.h>
+int pthread_join(pthread_t *tid, void **status);
+// 返回：若成功则为0，若出错则为正的Exxx值
+```
+
+我们必须指定要等待线程的tid。不幸的是，Pthread没有办法等待任意一个线程（类似指定进程ID参数为-1调用waitpid）
+
+#### pthread_self函数
+
+每个线程都有一个在所属进程内标识自身的ID。线程ID由pthread_create返回，而且我们已经看到pthread_join使用它。每个线程使用pthread_self获取自身的线程ID。
+
+```c++
+#include <pthread.h>
+pthread_t pthread_self(void);
+// 返回：调用线程的线程ID
+```
+
+对比线程和UNIX进程，pthread_self类似于getpid。
+
+####　pthread_detach函数
+
+一个线程或者**是可汇合的（joinable，默认值）**，或者是**脱离的（detached）**。当一个可汇合的线程终止时，它的线程ID和退出状态将留存到另一个线程对它调用pthread_join。脱离的线程却像守护进程，当它们终止时，所有相关资源都被释放，我们不能等待它们终止。如果一个线程需要知道另一个线程什么时候终止，那就最好保持第二个线程的可汇合状态。
+pthread_detach函数把指定的线程转变为脱离状态。
+
+```c++
+#include <pthread.h>
+int pthread_detach(pthread_t tid);
+// 返回：若成功则为0，若出错则为正的Exxx值
+```
+
+本函数通常由想让自己脱离的线程调用，就如以下语句：
+
+```c++
+pthread_detach(pthread_self());
+```
+
+#### pthread_exit函数
+让一个线程终止的方法之一是调用pthread_exit。
+
+```c++
+#include <pthread.h>
+void pthread_exit(void *status);
+// 不返回到调用者
+```
+
+如果本线程未曾脱离，它的线程ID和退出状态将一直留存到调用进程内的某个其他线程对它调用pthread_join。
+
+指针status不能指向局部于调用线程的对象，因为线程终止时这样的对象也消失。
+
+让一个线程终止的另外两个方法是。
+
+1. 启动线程的函数（即pthread_create的第三个参数）可以返回。既然该函数必须声明成返回一个void指针，它的返回值就是相应线程的终止状态。
+2. 如果进程的main函数返回或者任何线程调用了exit，整个进程就终止，其中包括它的任何线程。
+
+### 使用线程的str_cli函数
+
+回顾前文，第5章的str_cli函数，先是使用了停-等协议的版本（不适合批量输入），然后又使用fork创建出新进程的版本，第6章使用阻塞式I/O和select函数的版本，第16章使用非阻塞式I/O版本，现在给出使用线程的版本，源码位于threads/strclithread.c
+
+```c++
+#include	"unpthread.h"
+
+void	*copyto(void *);
+
+static int	sockfd;		/* global for both threads to access */
+static FILE	*fp;
+
+void
+str_cli(FILE *fp_arg, int sockfd_arg)
+{
+	char		recvline[MAXLINE];
+	pthread_t	tid;
+
+	sockfd = sockfd_arg;	/* copy arguments to externals */
+	fp = fp_arg;
+
+	Pthread_create(&tid, NULL, copyto, NULL);
+
+	while (Readline(sockfd, recvline, MAXLINE) > 0)
+		Fputs(recvline, stdout);
+}
+
+void *
+copyto(void *arg)
+{
+	char	sendline[MAXLINE];
+
+	while (Fgets(sendline, MAXLINE, fp) != NULL)
+		Writen(sockfd, sendline, strlen(sendline));
+
+	Shutdown(sockfd, SHUT_WR);	/* EOF on stdin, send FIN */
+
+	return(NULL);
+		/* 4return (i.e., thread terminates) when EOF on stdin */
+}
+```
+
+逻辑如下：
+
+1. 这是我们首次碰到unpthread.h头文件。它包含我们通常的unp.h头文件，接着包含POSIX的`<pthread.h>`头文件，然后定义我们为pthread_XXX函数编写的包裹函数的函数原型，这些包裹函数都以Pthread_打头。
+2. 我们将要创建的线程需要str_cli的2个参数：fp（输入文件的标准I/O库FILE指针）和sockfd（连接到服务器的TCP套接字描述符）。为简单起见，我们把这2个参数值保存到外部变量中。另一个技巧是把这两个值放到一个结构中，然后把指向这个结构的一个指针作为参数传递给我们将要创建的线程。
+3. 创建线程，新线程ID返回到tid中。由新线程执行的函数是copyto。没有参数传递给该线程。
+4. 主线程调用readline和fputs，把从套接字读入的每个文本行复制到标准输出。
+5. 当str_cli函数返回时，main函数通过调用exit终止进程，进程内的所有线程也随之被终止。
+6. copyto线程只是把读自标准输入的每个文本行复制到套接字。当在标准输入上读得EOF时，它通过调用shutdown从套接字送出FIN，然后返回。从启动该线程的函数return来终止该线程。
+
+### 使用线程的TCP回射服务器程序
+
+改编自第5章的TCP回射服务器程序，改为每个客户使用一个线程，而不是每个客户使用一个子进程，源码位于threads/tcpserv01.c
+
+```c++
+#include	"unpthread.h"
+
+static void	*doit(void *);		/* each thread executes this function */
+
+int
+main(int argc, char **argv)
+{
+	int				listenfd, connfd;
+	pthread_t		tid;
+	socklen_t		addrlen, len;
+	struct sockaddr	*cliaddr;
+
+	if (argc == 2)
+		listenfd = Tcp_listen(NULL, argv[1], &addrlen);
+	else if (argc == 3)
+		listenfd = Tcp_listen(argv[1], argv[2], &addrlen);
+	else
+		err_quit("usage: tcpserv01 [ <host> ] <service or port>");
+
+	cliaddr = Malloc(addrlen);
+
+	for ( ; ; ) {
+		len = addrlen;
+		connfd = Accept(listenfd, cliaddr, &len);
+		Pthread_create(&tid, NULL, &doit, (void *) connfd);
+	}
+}
+
+static void *
+doit(void *arg)
+{
+	Pthread_detach(pthread_self());
+	str_echo((int) arg);	/* same function as before */
+	Close((int) arg);		/* done with connected socket */
+	return(NULL);
+}
+```
+
+逻辑如下：
+
+1. accept返回之后，改为调用pthread_create取代调用fork。我们传递给doit函数的唯一参数是已连接套接字描述符connfd。
+2. 我们把整数描述符connfd类型强制转换成void指针。ANSI C并不保证这么做能够起作用。只有在整数的大小小于或等于指针的大小的系统上，这样的类型强制转换才能起作用。所幸的是大多数UNIX实现具备这个特征。
+3. doit是由线程执行的函数。线程首先让自身脱离，因为主线程没有理由等待它创建的每个线程。然后调用图5-3中的str_echo函数。该函数返回之后，我们必须close已连接套接字，因为本线程和主线程共享所有的描述符。对于使用fork的情形，子进程就不必close已连接套接字，因为子进程旋即终止，而所有打开的描述符在进程终止时都将被关闭（参见习题26.2）。
+
+还要注意的是，主线程不关闭已连接套接字，而在调用fork的并发服务器程序中我们却总是反着做。这是因为**同一进程内的所有线程共享全部描述符**，要是主线程调用close，它就会终止相应的连接。创建新线程并不影响已打开描述符的引用计数，这一点不同于fork。
+
+malloc和free这两个函数历来是不可冲入的。POSIX要求malloc和free是**线程安全的（thread-safe）**，通常要求库函数内部执行某种形式的同步。
+
+本程序中有一个微妙的错误，我们将在26.5节详细讲解。你能指出这个错误吗？（见习题26.5）
+
+### 线程特定数据
+
+把一个未线程化的程序转换成使用线程的版本时，有时会碰到因其中有函数使用静态变量而引起的一个常见编程错误。在无需考虑重入的环境下编写使用静态变量的函数无可非议，然而当同一进程内的不同线程（信号处理函数也视为线程）几乎同时调用这样的函数时就可能会有问题发生，因为这些函数使用的静态变量无法为不同的线程保存各自的值。
+
+### Web客户与同时连接
+
+改编自第16章的例子，改写成用线程代替非阻塞connect，改用线程后，可以让套接字停留在默认的阻塞模式
+
+源代码位于threads/web01.c，main函数逻辑如下：
+
+1. 在file结构中增加了一个成员f_tid（线程ID）。这段代码其余部分与图16-15类似。在线程版本中我们不再使用select，因而不需要任何描述符集或变量maxfd。
+2. home_page函数就是第6章的，没有改动
+3. 如果创建另一个线程的条件（nconn小于maxnconn）能够满足，我们就创建一个。每个新线程执行的函数是do_get_read，传递给它的参数是指向file结构的指针。
+4. 通过指定第一个参数为0调用Solaris线程函数thr_join，等待任何一个线程终止。不幸的是，Pthreads没有提供等待任一线程终止的手段，pthread_join函数要求我们显式指定想要等待的线程（所以这里用了Solaris的线程函数）
+
+```c++
+/* include web1 */
+#include	"unpthread.h"
+#include	<thread.h>		/* Solaris threads */
+
+#define	MAXFILES	20
+#define	SERV		"80"	/* port number or service name */
+
+struct file {
+  char	*f_name;			/* filename */
+  char	*f_host;			/* hostname or IP address */
+  int    f_fd;				/* descriptor */
+  int	 f_flags;			/* F_xxx below */
+  pthread_t	 f_tid;			/* thread ID */
+} file[MAXFILES];
+#define	F_CONNECTING	1	/* connect() in progress */
+#define	F_READING		2	/* connect() complete; now reading */
+#define	F_DONE			4	/* all done */
+
+#define	GET_CMD		"GET %s HTTP/1.0\r\n\r\n"
+
+int		nconn, nfiles, nlefttoconn, nlefttoread;
+
+void	*do_get_read(void *);
+void	home_page(const char *, const char *);
+void	write_get_cmd(struct file *);
+
+int
+main(int argc, char **argv)
+{
+	int			i, n, maxnconn;
+	pthread_t	tid;
+	struct file	*fptr;
+
+	if (argc < 5)
+		err_quit("usage: web <#conns> <IPaddr> <homepage> file1 ...");
+	maxnconn = atoi(argv[1]);
+
+	nfiles = min(argc - 4, MAXFILES);
+	for (i = 0; i < nfiles; i++) {
+		file[i].f_name = argv[i + 4];
+		file[i].f_host = argv[2];
+		file[i].f_flags = 0;
+	}
+	printf("nfiles = %d\n", nfiles);
+
+	home_page(argv[2], argv[3]);
+
+	nlefttoread = nlefttoconn = nfiles;
+	nconn = 0;
+/* end web1 */
+/* include web2 */
+	while (nlefttoread > 0) {
+		while (nconn < maxnconn && nlefttoconn > 0) {
+				/* 4find a file to read */
+			for (i = 0 ; i < nfiles; i++)
+				if (file[i].f_flags == 0)
+					break;
+			if (i == nfiles)
+				err_quit("nlefttoconn = %d but nothing found", nlefttoconn);
+
+			file[i].f_flags = F_CONNECTING;
+			Pthread_create(&tid, NULL, &do_get_read, &file[i]);
+			file[i].f_tid = tid;
+			nconn++;
+			nlefttoconn--;
+		}
+
+		if ( (n = thr_join(0, &tid, (void **) &fptr)) != 0)
+			errno = n, err_sys("thr_join error");
+
+		nconn--;
+		nlefttoread--;
+		printf("thread id %d for %s done\n", tid, fptr->f_name);
+	}
+
+	exit(0);
+}
+/* end web2 */
+```
+
+每个线程执行的do_get_read函数位于threads/web01.c。该函数建立TCP连接，给服务器发送一个HTTP GET命令，并读入来自服务器的应答。函数逻辑：
+
+1. 调用tcp_connect函数创建一个TCP套接字并建立一个连接。该套接字是一个通常的阻塞式套接字，因此线程将阻塞在connect调用中，直到连接建立。
+2. 调用write_get_cmd构造HTTP GET命令并把它发送到服务器。它和第16章同名函数的唯一区别是线程版本不调用FD_SET，也不使用maxfd。
+3. 写出请求后随即读入服务器的应答。连接被服务器关闭时设置F_DONE标志并返回，从而终止本线程。
+
+```c++
+/* include do_get_read */
+void *
+do_get_read(void *vptr)
+{
+	int					fd, n;
+	char				line[MAXLINE];
+	struct file			*fptr;
+
+	fptr = (struct file *) vptr;
+
+	fd = Tcp_connect(fptr->f_host, SERV);
+	fptr->f_fd = fd;
+	printf("do_get_read for %s, fd %d, thread %d\n",
+			fptr->f_name, fd, fptr->f_tid);
+
+	write_get_cmd(fptr);	/* write() the GET command */
+
+		/* 4Read server's reply */
+	for ( ; ; ) {
+		if ( (n = Read(fd, line, MAXLINE)) == 0)
+			break;		/* server closed connection */
+
+		printf("read %d bytes from %s\n", n, fptr->f_name);
+	}
+	printf("end-of-file on %s\n", fptr->f_name);
+	Close(fd);
+	fptr->f_flags = F_DONE;		/* clears F_READING */
+
+	return(fptr);		/* terminate thread */
+}
+/* end do_get_read */
+
+/* include write_get_cmd */
+void
+write_get_cmd(struct file *fptr)
+{
+	int		n;
+	char	line[MAXLINE];
+
+	n = snprintf(line, sizeof(line), GET_CMD, fptr->f_name);
+	Writen(fptr->f_fd, line, n);
+	printf("wrote %d bytes for %s\n", n, fptr->f_name);
+
+	fptr->f_flags = F_READING;			/* clears F_CONNECTING */
+}
+/* end write_get_cmd */
+
+/* include home_page */
+void
+home_page(const char *host, const char *fname)
+{
+	int		fd, n;
+	char	line[MAXLINE];
+
+	fd = Tcp_connect(host, SERV);	/* blocking connect() */
+
+	n = snprintf(line, sizeof(line), GET_CMD, fname);
+	Writen(fd, line, n);
+
+	for ( ; ; ) {
+		if ( (n = Read(fd, line, MAXLINE)) == 0)
+			break;		/* server closed connection */
+
+		printf("read %d bytes of home page\n", n);
+		/* do whatever with data */
+	}
+	printf("end-of-file on home page\n");
+	Close(fd);
+}
+/* end home_page */
+```
+
+### 互斥锁（重要）
+
+在上节的main函数中，主循环将递减nconn和nlefttoread，我们本来可以把这两个递减操作放在do_get_read函数中，让每个线程在即将终止之前递减这两个计数器。然而这么做却是一个微妙而重大的并发编程错误。
+
+把计数器递减代码放在每个线程均执行的函数中的问题在于那两个变量是全局的，而不是特定于线程的。如果一个线程在递减某个变量的中途被挂起，而另一个线程执行并递减同一个变量，那就可能导致错误。举例来说，假设C编译器将递减运算符转换成3条机器指令：从内存装载到寄存器、递减寄存器、从寄存器存储到内存。考虑如下可能的情形。
+
+1. 线程A运行，把nconn的值（3）装载到一个寄存器。
+2. 系统把运行线程从A切换到B。A的寄存器被保存，B的寄存器则被恢复。
+3. 线程B执行与C表达式nconn--相对应的3条指令，把新值2存储到nconn。
+4. 一段时间之后，系统把运行线程从B切换回A。A的寄存器被恢复，A从原来离开的地方（即3指令序列中的第二条指令）继续执行，把那个寄存器的值从3递减为2，再把值2存储到nconn。
+
+最终的结果是nconn本该为1实际却为2。这是错误的运行结果。
+
+我们称线程编程为**并发编程（concurrent programming）**或**并行编程（parallel programming）**，因为多个线程可以并发地（或并行地）运行且访问相同的变量。虽然我们刚讨论的错误情形以单CPU系统为前提，但是如果线程A和B同时运行在某个多处理器系统的不同CPU上，潜在的运行差错仍然可能发生。对于通常的Unix编程，我们不会碰到这些并发编程问题，因为调用fork之后，父子进程之间除了描述符外不共享任何东西。然而当我们讨论在进程之间的共享内存区时，仍然会碰到同类问题。
+
+位于threads/example01.c的例子展现了这个问题，它创建两个线程，然后让每个线程递增同一个全局变量5000次，运行这个程序，发现有的值出现了两次，多次运行这个程序，结果还有可能不一样
+
+```c++
+#include	"unpthread.h"
+
+#define	NLOOP 5000
+
+int				counter;		/* incremented by threads */
+
+void	*doit(void *);
+
+int
+main(int argc, char **argv)
+{
+	pthread_t	tidA, tidB;
+
+	Pthread_create(&tidA, NULL, &doit, NULL);
+	Pthread_create(&tidB, NULL, &doit, NULL);
+
+		/* 4wait for both threads to terminate */
+	Pthread_join(tidA, NULL);
+	Pthread_join(tidB, NULL);
+
+	exit(0);
+}
+
+void *
+doit(void *vptr)
+{
+	int		i, val;
+
+	/*
+	 * Each thread fetches, prints, and increments the counter NLOOP times.
+	 * The value of the counter should increase monotonically.
+	 */
+
+	for (i = 0; i < NLOOP; i++) {
+		val = counter;
+		printf("%d: %d\n", pthread_self(), val + 1);
+		counter = val + 1;
+	}
+
+	return(NULL);
+}
+```
+
+解决方法是用**互斥锁（mutex，代表mutual exclusion）**保护这个共享变量。按照Pthread，互斥锁是类型为pthread_mutex_t的变量。我们使用以下两个函数为一个互斥锁上锁和解锁。
+
+```c++
+#include <pthread.h>
+int pthread_mutex_lock(pthread_mutex_t *mptr);
+int pthread_mutex_unlock(pthread_mutex_t *mptr);
+// 均返回：若成功则为0，若出错则为正的Exxx值
+```
+
+如果试图上锁已被另外某个线程锁住的一个互斥锁，本线程将被阻塞，直到该互斥锁被解锁为止。
+
+位于threads/example02.c的代码使用了互斥锁保护共享变量，我摩恩声明一个名为counter_mutex的互斥锁，线程在操纵counter变量之前必须锁住该互斥锁。无论何时运行这个程序，其输出总是正确的：计数器值被单调地递增，所显示的最终值总是10000。
+
+使用互斥锁上锁的开销有多大呢？把图26-17和图26-18中的程序改为循环50000次，并在把输出定向到/dev/null的前提下测量时间。没有互斥的不正确版本和使用互斥锁的正确版本之间的CPU时间差别是10%。这个结果告诉我们互斥锁上锁并没有太大开销。
+
+```c++
+#include	"unpthread.h"
+
+#define	NLOOP 5000
+
+int				counter;		/* incremented by threads */
+pthread_mutex_t	counter_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+void	*doit(void *);
+
+int
+main(int argc, char **argv)
+{
+	pthread_t	tidA, tidB;
+
+	Pthread_create(&tidA, NULL, &doit, NULL);
+	Pthread_create(&tidB, NULL, &doit, NULL);
+
+		/* 4wait for both threads to terminate */
+	Pthread_join(tidA, NULL);
+	Pthread_join(tidB, NULL);
+
+	exit(0);
+}
+
+void *
+doit(void *vptr)
+{
+	int		i, val;
+
+	/*
+	 * Each thread fetches, prints, and increments the counter NLOOP times.
+	 * The value of the counter should increase monotonically.
+	 */
+
+	for (i = 0; i < NLOOP; i++) {
+		Pthread_mutex_lock(&counter_mutex);
+
+		val = counter;
+		printf("%d: %d\n", pthread_self(), val + 1);
+		counter = val + 1;
+
+		Pthread_mutex_unlock(&counter_mutex);
+	}
+
+	return(NULL);
+}
+```
+
+### 条件变量（常与互斥锁配合，在等待某个条件时投入睡眠）
+
+互斥锁适合于防止同时访问某个共享变量，但是我们需要另外某种在等待某个条件发生期间能让我们进入睡眠的东西。
+
+对于本章前面的web服务器，如果Solaris的thr_join替换成pthread_join。在知道某个线程已经终止之前，我们无法调用这个Pthread函数（作者认为这是pthread_join的一个缺点，即我们得指定哪个线程要终止了）。我们首先声明一个计量已终止线程数的全局变量，并使用一个互斥锁保护它。
+
+```c++
+int ndone;　　　　　　/* number of terminated threads */
+pthread_mutex_t ndone_mutex = PTHREAD_MUTEX_INITIALIZER;
+```
+
+我们接着要求每个线程在即将终止之前谨慎使用所关联的互斥锁递增这个计数器。
+
+```c++
+void *
+do_get_read(void *vptr)
+{
+　　...
+　　Pthread_mutex_lock(&ndone_mutex);
+　　ndone++;
+　　Pthread_mutex_unlock(&ndone_mutex);
+　　return(fptr);　　　　/* terminate thread */
+}
+```
+
+问题是怎样编写主循环。主循环需要一次又一次地锁住这个互斥锁以便检查是否有任何线程终止了。
+
+```c++
+while (nlefttoread > 0) {
+　　while (nconn < maxnconn && nlefttoconn > 0) {
+　　　　　　/* find a file to read */
+　　　　...
+　　}
+　　　　/* See if one of the threads is done */
+　　Pthread_mutex_lock(&ndone_mutex);
+　　if (ndone > 0) {
+　　　　for (i = 0; i < nfiles; i++) {
+　　　　　　if (file[i].f_flags & F_DONE) {
+　　　　　　　　Pthread_join(file[i].f_tid, (void **) &fptr);
+　　　　　　　　/* update file[i] for terminated thread */
+　　　　　　　　...
+　　　　　　}
+　　　　}
+　　}
+　　Pthread_mutex_unlock(&ndone_mutex);
+}
+```
+
+如此编写主循环尽管正确，却意味着主循环永远不进入睡眠，它就是不断地循环，每次循环回来检查一下ndone。这种方法称为**轮询（polling）**，相当浪费CPU时间。
+
+我们需要一个让主循环进入睡眠，直到某个线程通知它有事可做才醒来的方法。**条件变量（condition variable）**结合互斥锁能够提供这个功能。**互斥锁提供互斥机制，条件变量提供信号机制**。
+
+按照Pthread，条件变量是类型为pthread_cond_t的变量。以下两个函数使用条件变量。第二个函数的名字中“signal”一词并不指称Unix的SIGxxx信号。
+
+```c++
+#include <pthread.h>
+int pthread_cond_wait(pthread_cond_t *cptr, pthread_mutex_t *mptr);
+int pthread_cond_signal(pthread_cond_t *cptr);
+// 均返回：若成功则为0，若出错则为正的Exxx值
+```
+
+回到我们的Web客户程序例子，现在我们给计数器ndone同时关联一个条件变量和一个互斥锁。
+
+```c++
+int　　　　　　　　　ndone;
+pthread_mutex_t　　 ndone_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t　　　ndone_cond　= PTHREAD_COND_INITIALIZER;
+```
+
+通过在持有该互斥锁期间递增该计数器并发送信号到该条件变量，一个线程通
+知主循环自身即将终止。
+
+```c++
+Pthread_mutex_lock(&ndone_mutex);
+ndone++;
+Pthread_cond_signal(&ndone_cond);
+Pthread_mutex_unlock(&ndone_mutex);
+```
+
+主循环阻塞在pthread_cond_wait调用中，等待某个即将终止的线程发送信号到与ndone关联的条件变量。
+
+```c++
+while (nlefttoread > 0) {
+　　while (nconn < maxnconn && nlefttoconn > 0) {
+　　　　　　/* find a file to read */
+　　　　...
+　　}
+　　　　/* Wait for one of the threads to terminate */
+　　Pthread_mutex_lock(&ndone_mutex);
+　　while (ndone == 0)
+　　　　Pthread_cond_wait(&ndone_cond, &ndone_mutex);
+　　for (i = 0; i < nfiles; i++) {
+　　　　if (file[i].f_flags & F_DONE) {
+　　　　　　Pthread_join(file[i].f_tid, (void **) &fptr);
+　　　　　　/* update file[i] for terminated thread */
+　　　　　　...
+　　　　}
+　　}
+　　Pthread_mutex_unlock(&ndone_mutex);
+}
+```
+
+注意，主循环仍然只是在持有互斥锁期间检查ndone变量。然后，如果发现无事可做，那就调用pthread_cond_wait。**该函数把调用线程投入睡眠并释放调用线程持有的互斥锁。此外，当调用线程后来从pthread_cond_wait返回时（其他某个线程发送信号到与ndone关联的条件变量之后），该线程再次持有该互斥锁**。
+
+为什么每个条件变量都要关联一个互斥锁呢？因为“条件”通常是线程之间共享的某个变量的值。允许不同线程**设置和测试该变量要求有一个与该变量关联的互斥锁**。
+
+pthread_cond_signal通常唤醒等在相应条件变量上的单个线程。有时候一个线程知道自己应该唤醒多个线程，这种情况下它可以调用pthread_cond_broadcast唤醒等在相应条件变量上的所有线程。
+
+```c++
+#include <pthread.h>
+int pthread_cond_broadcast(pthread_cond_t *cptr);
+int pthread_cond_timedwait(pthread_cond_t *cptr, pthread_mutex_t *mptr, const struct timespec *abstime);
+// 均返回：若成功则为0，若出错则为正的Exxx值
+```
+
+pthread_cond_timedwait允许线程设置一个**阻塞时间的限制**。abstime是一个timespec结构（我们已在6.9节随pselect函数定义过该结构），指定该函数必须返回时刻的系统时间，即使到时候相应条件变量尚未收到信号。如果发生这样的超时，那就返回ETIME错误。
+
+这个时间值是一个**绝对时间（absolute time）**，而不是一个**时间增量（time delta）**。也就是说abstime参数是函数应该返回时刻的系统时间——从UTC时间以来的秒数和纳秒数。这一点不同于select和pselect，它们指定的是从调用时刻开始到函数应该返回时刻的秒数和微秒数（对于pselect为纳秒数）。通常采用的过程是：调用gettimeofday获取当前时间（作为一个timeval结构），把它复制到一个timespec结构中，再加上期望的时间限制。例如：
+
+```c++
+struct timeval　　　　tv;
+struct timespec　　　　ts;
+if (gettimeofday(&tv, NULL) <　0)
+　　err_sys("gettimeofday error");
+ts.tv_sec　　= tv.tv_sec + 5;　　　　　　/* 5 seconds in future */
+ts.tv_nsec　　= tv.tv_usec * 1000;　　/* microsec to nanosec */
+pthread_cond_timedwait( ... , &ts);
+```
+
+使用绝对时间取代增量时间的优点是，如果该函数过早返回（可能是因为捕获了某个信号），那么不必改动timespec结构参数的内容就可以再次调用该函数，缺点是首次调用该函数之前不得不调用gettimeofday。
+
+### Web客户与同时连接（续）
+
+对于本章前面的web客户程序，把Solaris的thr_join函数替换为pthread_join，因为我们必须指定要等待哪个线程结束，而普通的轮询耗费大量CPU，所以我们使用条件变量结合互斥锁实现更省资源的方法，源代码位于threads/web03.c
+
+全局变量的唯一变动是增加一个新标志和一个条件变量。
+
+```c++
+#define　　　　F_JOINED　　　　8　　　　/* main has pthread_join'ed */
+int　　　　　　　　　　ndone;　　　　　　/* number of terminated threads */
+pthread_mutex_t　　　 ndone_mutex　　　= PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t　　　　ndone_cond　　　 = PTHREAD_COND_INITIALIZER;
+```
+
+do_get_read函数的唯一变动是在本线程终止之前递增ndone并通知主循环。
+
+```c++
+　　printf("end-of-file on %s\n", fptr->f_name);
+　　Close(fd);
+　　Pthread_mutex_lock(&ndone_mutex);
+　　fptr->f_flags = F_DONE;　　　　　/* clears F_READING */
+　　ndone++;
+　　Pthread_cond_signal(&ndone_cond);
+　　Pthread_mutex_unlock(&ndone_mutex);
+　　return(fptr);　　　　　　/* terminate thread */
+}
+```
+
+主循环的新版本如下，我们等待ndone变为非0，这个测试必须在上锁时进行，睡眠由pthread_cond_wait执行，当发现某个线程终止时，遍历所有file结构找出这个线程
+
+```c++
+	while (nlefttoread > 0) {
+		while (nconn < maxnconn && nlefttoconn > 0) {
+				/* 4find a file to read */
+			for (i = 0 ; i < nfiles; i++)
+				if (file[i].f_flags == 0)
+					break;
+			if (i == nfiles)
+				err_quit("nlefttoconn = %d but nothing found", nlefttoconn);
+
+			file[i].f_flags = F_CONNECTING;
+			Pthread_create(&tid, NULL, &do_get_read, &file[i]);
+			file[i].f_tid = tid;
+			nconn++;
+			nlefttoconn--;
+		}
+
+			/* 4Wait for thread to terminate */
+		Pthread_mutex_lock(&ndone_mutex);
+		while (ndone == 0)
+			Pthread_cond_wait(&ndone_cond, &ndone_mutex);
+
+		for (i = 0; i < nfiles; i++) {
+			if (file[i].f_flags & F_DONE) {
+				Pthread_join(file[i].f_tid, (void **) &fptr);
+
+				if (&file[i] != fptr)
+					err_quit("file[i] != fptr");
+				fptr->f_flags = F_JOINED;	/* clears F_DONE */
+				ndone--;
+				nconn--;
+				nlefttoread--;
+				printf("thread %d for %s done\n", fptr->f_tid, fptr->f_name);
+			}
+		}
+		Pthread_mutex_unlock(&ndone_mutex);
+	}
+
+	exit(0);
+}
+```
