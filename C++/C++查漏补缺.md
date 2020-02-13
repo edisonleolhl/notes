@@ -57,42 +57,42 @@
 3. 存储方式不同：宏定义不分配内存，仅仅是展开而已；const常量会在内存中分配，
 4. 常量只在类中有效只能用const，而且const数据成员只在某个对象生存期内是常量，对于整个类而言是可变的，因为类可以有多个对象，每个对象的const成员值可以不同（不能在类中初始化const数据成员）
 
-### RAII是什么
+### RAII是什么（C++的重要思想！）
 
-RAII，也称为“资源获取就是初始化”，是c++等编程语言常用的管理资源、避免内存泄露的方法。它保证在任何情况下，使用对象时先构造对象，最后析构对象。
+RAII，也称为**资源获取就是初始化（Resource Acquisition Is Initialization**，是c++等编程语言常用的管理资源、避免内存泄露的方法。它保证在任何情况下，使用对象时先构造对象，最后析构对象。智能指针是最具代表的技术。
 
 ### 说一说智能指针
 
-智能指针是一个类似指针的类，提供了内存管理的功能，当指针不再被使用时，它指向的内存会自动被释放，这就比原生指针要好，原生指针有可能会因为忘记释放所申请的空间，而造成内存泄漏，而用智能指针就没这个顾虑。C++11支持shared_ptr, weak_ptr, unique_ptr，auto_ptr（被弃用）
+智能指针是一个类似指针的类，提供了内存管理的功能，当指针不再被使用时，它指向的内存会自动被释放，这就比原生指针要好，原生指针有可能会因为忘记释放所申请的空间，而造成内存泄漏，而用智能指针就没这个顾虑。C++11支持shared_ptr, weak_ptr, unique_ptr，auto_ptr（被弃用）。这些智能指针位于`<memory>`中
 
-- auto_ptr采取所有权模式，可以被其他auto_ptr剥夺（转移），所以很容易引起内存泄露
-- unique_ptr是独占式拥有，解决了auto_ptr被剥夺的问题，unique_ptr禁止了赋值和复制构造，保证同一时间内只有一个智能指针可以指向该对象
-- shared_ptr是共享，多个智能指针可以指向相同对象，该对象及其相关资源会在“最后一个引用被销毁”时释放，采用引用计数统计被几个智能指针共享
-- weak_ptr是一种弱引用，指向shared_ptr所管理的对象，可从一个shared_ptr或另一个weak_ptr来构造，它的构造和析构不会引起引用计数的增加或减少，所以weak_ptr有可能指向已经释放的内存，所以在使用之前需要检查是否为空指针
+- auto_ptr采取所有权模式，可以被拷贝（构造or赋值）时，原auto_ptr指为nullptr，即auto_ptr被其他auto_ptr**剥夺**（转移），所以很容易引起内存泄露（粗心的程序员可能仍然会解引用原auto_ptr）
+- unique_ptr是独占式拥有，解决了auto_ptr被剥夺的问题，unique_ptr禁止了拷贝（构造or赋值），保证同一时间内只有一个智能指针可以指向该对象，如果真的需要转移，可以使用**借助move实现移动构造**，原unique_ptr置为nullptr（但粗心的程序员可能仍然会解引用原来的unique_ptr）
+- shared_ptr是共享，允许拷贝（构造or赋值），允许多个智能指针可以指向相同对象，每当，每次有一个shared_ptr关联到某个对象上时（拷贝构造or拷贝赋值），计数值就加上1；相反，每次有一个shared_ptr析构时，相应的计数值就减去1。当计数值减为0的时候，就执行对象的析构函数，此时该对象才真正被析构！如果用了移动（构造or赋值），那么原shared_ptr为空，并且指向对象的引用计数不会改变（相当于-1+1=0）
+- weak_ptr是一种**弱引用**，指向shared_ptr（强引用）所管理的对象，可从一个shared_ptr或另一个weak_ptr来构造，它的构造和析构不会引起引用计数的增加或减少。weak_ptr并没有重载operator->和operator *操作符，因此**不可直接通过weak_ptr使用对象**。weak_ptr提供了expired()与lock()成员函数，前者用于判断weak_ptr指向的对象是否已被销毁，后者返回其所指对象的shared_ptr智能指针(对象销毁时返回”空”shared_ptr)
 
-[话说智能指针发展之路](https://blog.csdn.net/Jacketinsysu/article/details/53343534)
+[话说智能指针发展之路](https://blog.csdn.net/Jacketinsysu/article/details/53343534)（为了取消歧义，把复制都改为了拷贝，并且确定了是拷贝构造还是拷贝赋值）
 
 ```c++
 {
     auto_ptr<string> ps1(new string("Hello, auto_ptr!"));
     auto_ptr<string> ps2;
     ps2 = ps1;
-    //【E1】下面这行注释掉才可正确运行，因为ps1被ps2剥夺，ps1此时指向null，解引用当然会刨槽
+    //【E1】下面这行注释掉才可正确运行，因为ps1被ps2剥夺，ps1此时指向null，解引用当然会报错
     //cout << "ps1: " << *ps1 << endl;
     cout << "ps2: " << *ps2 << endl;
 }
 
 {
     unique_ptr<string> ps1(new string("Hello, unique_ptr!"));
-    // unique_ptr<string> ps2(ps1);// 编译将会出错！因为禁止复制
-    // unique_ptr<string> ps2 = ps1;// 编译将会出错！因为禁止赋值
+    // unique_ptr<string> ps2(ps1);// 编译将会出错！因为禁止拷贝构造
+    // unique_ptr<string> ps2 = ps1;// 编译将会出错！因为禁止拷贝赋值
     unique_ptr<string> ps2 = move(ps1); //编译通过，ps1被转移了，此时ps1指向null
 }
 
 {
     shared_ptr<string> ps1(new string("Hello, shared_ptr!"));
-    shared_ptr<string> ps3(ps1);    // 允许复制
-    shared_ptr<string> ps2 = ps1;   // 允许赋值
+    shared_ptr<string> ps3(ps1);    // 允许拷贝构造
+    shared_ptr<string> ps2 = ps1;   // 允许拷贝赋值
     cout << "Count is: " << ps1.use_count() << ", " << ps2.use_count() << ", " << ps3.use_count() << endl;  // Count is: 3, 3, 3
     cout << "ps1 is: " << *ps1 << ", ptr value is: " << ps1.get() << endl;
     cout << "ps2 is: " << *ps2 << ", ptr value is: " << ps2.get() << endl;
@@ -109,15 +109,22 @@ RAII，也称为“资源获取就是初始化”，是c++等编程语言常用�
 
 两个shared_ptr相互引用时会发生循环引用(“你中有我，我中有你”)，使引用计数失效，从而导致内存泄露
 
-weak_ptr弱指针可以解决这个问题，weak_ptr的构造和析构不会影响引用计数，它指向shared_ptr所管理的对象，也可以检测到所管理的对象是否已经被释放，从而避免非法访问
+weak_ptr弱指针可以解决这个问题，weak_ptr的构造和析构不会影响引用计数，它指向shared_ptr所管理的对象，也可以检测到所管理的对象是否已经被释放，从而避免非法访问。
+
+weak_ptr也可以调用lock()函数，如果管理对象没有被释放，则提升为shared_ptr，如果管理对象已经释放，调用lock()函数也不会有异常
+
+#### shared_ptr导致循环引用
+
+考虑下面的例子，A类与B类都有一个指向对方的shared_ptr成员，创建a_obj与b_obj，首先把if语句块注释掉，先测试它们不循环引用的情况
 
 ```c++
-
+#include <iostream>
+#include <memory>
 class B;
 class A
 {
 public:
-    //weak_ptr<B> pb;
+    // weak_ptr<B> pb;
     shared_ptr<B> pb;
     ~A()
     {
@@ -128,31 +135,88 @@ public:
 class B
 {
 public:
-    //weak_ptr<A> pa;
+    // weak_ptr<A> pa;
     shared_ptr<A> pa;
     ~B()
     {
         cout <<"kill B\n";
     }
 };
-
-int main(int argc, char** argv)
+int main()
 {
-    shared_ptr<A> sa(new A());
-    shared_ptr<B> sb(new B());
+    A* a_obj = new A();
+    B* b_obj = new B();
+    shared_ptr<A> sa(a_obj);
+    shared_ptr<B> sb(b_obj);
+    cout<<"sa use count:"<<sa.use_count()<<endl;
+    // if(sa && sb)
+    // {
+    //     ;
+    // }
+    cout<<"sa use count:"<<sa.use_count()<<endl;
+```
+
+没有循环引用，通过下面的输出，可以看到a_obj与b_obj都已经正确地调用了析构函数。
+
+```shell
+sa use count:1
+sa use count:1
+kill B
+kill A
+```
+
+为了探究use count的返回情况，修改if语句：
+
+```c++
+    if(sa && sb)
+    {
+        shared_ptr<A> tempsa(sa);
+        cout<<"sa use count:"<<sa.use_count()<<endl;
+    }
+```
+
+输出如下，证实了局部引用在退出作用域时取消引用，use count会减1。
+
+```shell
+sa use count:1
+sa use count:2
+sa use count:1
+kill B
+kill A
+```
+
+接下来修改if语句，探究a_obj与b_obj的shared_ptr互相引用对方时的场景
+
+```c++
     if(sa && sb)
     {
         sa->pb=sb;
         sb->pa=sa;
+        cout<<"sa use count:"<<sa.use_count()<<endl;
     }
-    cout<<"sa use count:"<<sa.use_count()<<endl;    // sa use count:2
-    return 0;
-}
 ```
 
-上面的代码运行结果为：sa use count:2， 注意此时sa,sb都没有释放，产生了内存泄露问题！！！
+输出如下，结束if语句块时，use count没有-1，证明了引用计数失效；程序结束时也没有kill B、kill A的输出，说明a_obj与b_obj没有正确析构
 
-即A内部有指向B，B内部有指向A，这样对于A，B必定是在A析构后B才析构，对于B，A必定是在B析构后才析构A，这就是循环引用问题，违反常规，导致内存泄露。
+```shell
+sa use count:1
+sa use count:2
+sa use count:2
+```
+
+总结：**循环引用导致引用计数失效，最后导致无法正确析构，造成内存泄漏**
+
+#### weak_ptr解决循环引用
+
+只需要把class A与class B中的成员类型改为`weak_ptr<B>`与`weak_ptr<A>`即可，输出如下，引用计数正常工作，两个对象也正确析构了
+
+```shell
+sa use count:1
+sa use count:1
+sa use count:1
+kill B
+kill A
+```
 
 ### 数组和指针的联系、区别
 
@@ -168,7 +232,7 @@ int main(int argc, char** argv)
 指向的位置是不可知的，随机的，没有限制的，不可预测的
 
 1. 未初始化的指针
-2. 指针释放后未置空
+2. 指针释放后未置空（有时也叫**空悬指针（dangling pointer）
 3. 指针操作超越边界，如访问数组时
 
 ### 说一下函数指针
@@ -792,7 +856,7 @@ reserve(size_type n)：改变当前容器的最大容量（capacity）,它不会
 3. 信号量：它是一个计数器，可以用来控制多个进程对共享资源的访问，主要用于实现进程间的互斥与同步，而不是用于存储进程间通信数据
 4. 信号：信号是一种比较复杂的通信方式，用于通知接收进程某个事件已经发生。主要作为进程间以及同一进程不同线程之间的同步手段。
 5. 共享内存（最快的）：多个进程可以访问同一块内存空间，不同进程可以及时看到对方进程中对共享内存中数据得更新。这种方式需要依靠某种同步操作，如互斥锁和信号量等
-6. 套接字socket：可用于不同机器间的进程通信
+6. **套接字socket**：可用于不同机器间的进程通信，根据陈硕的建议，进程间通信只用TCP
 
 ### 线程间通信/线程间的同步方式
 
@@ -846,6 +910,7 @@ fork
 
 1. 父进程使用fork拷贝出来一个父进程的副本，只拷贝了父进程的页表，两个进程都读同一块内存，当有进程写的时候使用写时拷贝机制（见下点）分配内存
 2. fork从父进程返回子进程的pid，从子进程返回0.
+3. fork(2)是内核调用,fork(3)是posix库调用
 
 wait
 
@@ -1483,7 +1548,7 @@ Query，按照如下步骤执行你的算法：
 
 ### 单例模式的懒汉式加载，如果并发访问怎么办
 
-使用锁机制，防止多次访问。具体做法，第一次判断为空不加锁，若为空，再进行加锁判断是否为空，若为空则生成对象。
+使用锁机制，防止多次访问。具体做法，第一次判断为空不加锁，若为空，再进行加锁判断是否为空，若为空则生成对象。这叫double checked locking
 
 ### 工厂模式
 
