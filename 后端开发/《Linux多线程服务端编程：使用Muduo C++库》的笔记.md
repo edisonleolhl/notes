@@ -565,7 +565,7 @@ Reactor模型的优点很明显，编程不难，效率也不错。不仅可以�
 
 在默认情况下，我会使用第3种，即non-blocking IO＋one loop per thread模式来编写多线程C++网络服务程序（Muduo就是这种模式）。
 
-####　one loop per thread（不是thread per connection)
+#### one loop per thread（不是thread per connection)
 
 此种模型下，程序里的每个IO线程有一个event loop（或者叫Reactor），用于处理读写和定时事件（无论周期性的还是单次的），代码框架跟本章第二节的代码一样。
 
@@ -1151,3 +1151,323 @@ muduo日志库处理日志堆积的方法很简单：**直接丢掉多余的日�
 但经过测试，还是异步日志较好，muduo的异步日志实现用了一个全局锁，尽管临界区很小，但是如果线程很多，**锁争用（lock contention）**也可能影响性能。
 
 为了简化实现，目前muduo日志库只允许指定日志文件的名字，不允许指定其路径。日志库会把日志文件写到当前路径，因此可以在启动脚本（shell脚本）里改变当前路径，以达到相同的目的。
+
+## 第6章 muduo网络库简介
+
+线程安全、只支持Linux、只支持TCP、只支持IPv4，只考虑内网，只支持一种使用模式：非阻塞IO+one event loop per thread，不支持阻塞IO
+
+### muduo网络库的安装
+
+CMake、Boost、静态编译
+
+### 目录结构
+
+![20200213191918.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200213191918.png)
+
+muduo/base目录是一些基础库，都是用户可见的类
+
+![20200213192338.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200213192338.png)
+
+网络核心库：muduo是基于Reactor模式的网络库，其核心是个事件循环EventLoop，用于响应计时器和IO事件。muduo采用基于对象（object-based）而非面向对象（objectoriented）的设计风格，其事件回调接口多以boost::function＋boost::bind表达，用户在使用muduo的时候不需要继承其中的class。网络库核心位于muduo/net和muduo/net/poller，一共不到4300行代码，以下灰底表示用户不可见的内部类。
+
+![20200213192522.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200213192522.png)
+
+网络附属库：它们不是核心内容，在使用的时候需要链接相应的库，例如-lmuduo_http、-lmuduo_inspect等等。HttpServer和Inspector暴露出一个http界面，用于监控进程的状态，类似于Java JMX（§9.5）。
+附属模块位于muduo/net/{http,inspect,protorpc}等处。
+
+![20200213192708.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200213192708.png)
+
+#### 代码结构
+
+muduo的头文件明确分为客户可见和客户不可见两类。以下是安装之后暴露的头文件和库文件。对于使用muduo库而言，只需要掌握5个关键类：Buffer、EventLoop、TcpConnection、TcpClient、TcpServer。
+
+图6-1是muduo的网络核心库的头文件包含关系，用户可见的为白底，用户不可见的为灰底。
+
+![20200213192821.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200213192821.png)
+
+公开接口：
+
+- Buffer仿Netty ChannelBuffer的buffer class，数据的读写通过buffer进行。用户代码不需要调用read(2)/write(2)，只需要处理收到的数据和准备好要发送的数据（§7.4）。
+- InetAddress封装IPv4地址（end point），注意，它不能解析域名，只认IP地址。因为直接用**gethostbyname(3)解析域名会阻塞IO线程**。
+- EventLoop事件循环（反应器Reactor），每个线程只能有一个EventLoop实体，它负责IO和定时器事件的分派。它用eventfd(2)来异步唤醒，这有别于传统的用一对pipe(2)的办法。它用TimerQueue作为计时器管理，用Poller作为IO multiplexing。
+- EventLoopThread启动一个线程，在其中运行EventLoop::loop()。
+- TcpConnection整个网络库的核心，封装一次TCP连接，注意它不能发起连接。
+- TcpClient用于编写网络客户端，能发起连接，并且有重试功能。
+- TcpServer用于编写网络服务器，接受客户的连接。
+
+在这些类中，TcpConnection的生命期依靠shared_ptr管理（即用户和库共同控制）。Buffer的生命期由TcpConnection控制。其余类的生命期由用户控制。Buffer和InetAddress具有值语义，可以拷贝；其他class都是对象语义，不可以拷贝。
+
+内部实现：
+
+- Channel是selectable IO channel，负责注册与响应IO事件，注意它不拥有file descriptor。它是Acceptor、Connector、EventLoop、TimerQueue、TcpConnection的成员，生命期由后者控制。
+- Socket是一个RAIIhandle，封装一个filedescriptor，并在析构时关闭fd。它是Acceptor、TcpConnection的成员，生命期由后者控制。EventLoop、TimerQueue也拥有fd，但是不封装为Socket class。
+- SocketsOps封装各种Sockets系统调用。
+- Poller是PollPoller和EPollPoller的基类，采用“电平触发”的语意。它是EventLoop的成员，生命期由后者控制。
+- PollPoller和EPollPoller封装poll(2)和epoll(4)两种IO multiplexing后端。poll的存在价值是便于调试，因为poll(2)调用是上下文无关的，用strace(1)很容易知道库的行为是否正确。
+- Connector用于发起TCP连接，它是TcpClient的成员，生命期由后者控制。
+- Acceptor用于接受TCP连接，它是TcpServer的成员，生命期由后者控制。
+- TimerQueue用timerfd实现定时，这有别于传统的设置poll/epoll_wait的等待时长的办法。TimerQueue用std::map来管理Timer，常用操作的复杂度是O(logN)，N为定时器数目。它是EventLoop的成员，生命期由后者控制。
+- EventLoopThreadPool用于创建IO线程池，用于把TcpConnection分派到某个EventLoop线程上。它是TcpServer的成员，生命期由后者控制。
+
+图6-2是muduo的简化类图，Buffer是TcpConnection的成员。
+
+![20200213193416.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200213193416.png)
+
+#### 例子
+
+muduo附带了十几个示例程序，编译出来有近百个可执行文件。这些例子位于 目录，其中包括从Boost.Asio、Java Netty、Python Twisted等处移植过来的例子。这些例子基本覆盖了常见的服务端网络编程功能点，从这些例子可以充分学习非阻塞网络编程。
+
+![20200213193520.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200213193520.png)
+
+#### 线程模型
+
+muduo的线程模型符合我主张的**one loop per thread＋thread pool**模型。每个线程最多有一个EventLoop，每个TcpConnection必须归某个EventLoop管理，所有的IO会转移到这个线程。换句话说，**一个file descriptor只能由一个线程读写**。TcpConnection所在的线程由其所属的EventLoop决定，这样我们可以很方便地把不同的TCP连接放到不同的线程去，也可以把一些TCP连接放到一个线程里。TcpConnection和EventLoop是线程安全的，可以跨线程调用。
+
+TcpServer直接支持多线程，它有两种模式：
+
+- 单线程，accept(2)与TcpConnection用同一个线程做IO。
+- 多线程，accept(2)与EventLoop在同一个线程，另外创建一个EventLoopThreadPool，新到的连接会按round-robin方式分配到线程池
+
+以下转自[muduo多线程的处理](https://www.jianshu.com/p/7e023dd5fb79)
+
+muduo是基于one loop per thread模型的。那么什么是one loop per thread模型呢？
+
+字面意思上讲就是每个线程里有个loop,即消息循环。我们知道服务器必定有一个监听的socket和1到N个连接的socket，每个socket也必定有网络事件。我们可以启动设定数量的线程，让这些线程来承担网络事件。
+
+每个进程默认都会启动一个线程，即这个线程不需要我们手动去创建，称之为主线程。一般地我们让主线程来承担监听socket的网络事件。至于连接socket的事件要不要在主线程中处理，这个得看我们启动其他线程即工作线程的数量。如果启动了工作线程，那么连接socket的网络事件一定是在工作线程中处理的。
+
+每个线程的事件处理都是在一个EventLoop的while循环中，而**每一个EventLoop都有一个多路事件复用解析器epoller**。循环的主体部分是等待epoll事件触发，从而处理事件。主线程EventLoop的epoller会添加监听socket可读事件，而工作线程只添加了定时器处理事件（每个EventLoop都会有，主线程有EventLoop,当然也添加了定时器处理事件）。在没有事件触发之前，epoller都是阻塞的，导致线程被挂起。
+
+当有连接来到时，挂起的主线程恢复，会执行新连接的回调函数。在该函数中，会从线程池中取得一个线程来接管新连接socket的处理。那么问题来了，既然工作线程已经阻塞了，那他是如何处理新连接socket相关事件的呢，也就是什么时候恢复呢？
+
+原来，每个EventLoop还有一个**wakeup事件**。主线程通知工作线程去处理事件的时候，工作线程发现不在本线程的时间片中，于是唤醒工作线程了。
+
+### 使用教程
+
+muduo只支持Linux 2.6.x下的并发非阻塞TCP网络编程，它的核心是每个IO线程一个事件循环，**把IO事件分发到回调函数上**
+
+#### TCP网络编程本质论
+
+基于事件的非阻塞网络编程是编写高性能并发网络服务程序的主流模式，头一次使用这种方式编程通常需要转换思维模式。把原来“主动调用recv(2)来接收数据，主动调用accept(2)来接受新连接，主动调用send(2)来发送数据”的思路换成“注册一个收数据的回调，网络库收到数据会调用我，直接把数据提供给我，供我消费。注册一个接受连接的回调，网络库接受了新连接会回调我，直接把新的连接对象传给我，供我使用。需要发送数据的时候，只管往连接中写，网络库会负责无阻塞地发送。
+
+我认为，TCP网络编程最本质的是处理三个半事件：
+
+- 1 **连接的建立**，包括服务端接受（accept）新连接和客户端成功发起（connect）连接。TCP连接一旦建立，客户端和服务端是平等的，可以各自收发数据。
+- 2 **连接的断开**，包括主动断开（close、shutdown）和被动断开（read(2)返回0）。
+- 3 **消息到达**，文件描述符可读。这是最为重要的一个事件，对它的处理方式决定了网络编程的风格（阻塞还是非阻塞，如何处理分包，应用层的缓冲如何设计，等等）。
+- 3.5　**消息发送完毕**，这算半个。对于低流量的服务，可以不必关心这个事件；另外，这里的“发送完毕”是指将数据写入操作系统的缓冲区，将由TCP协议栈负责数据的发送与重传，不代表对方已经收到数据。
+
+#### echo服务的实现
+
+muduo的使用非常简单，不需要从指定的类派生，也不用覆写虚函数，只需要注册几个回调函数去处理前面提到的三个半事件就行了。
+下面以经典的echo回显服务为例：
+
+1．定义EchoServer class，不需要派生自任何基类。位于examples/simple/echo/echo.h
+
+![20200214095703.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200214095703.png)
+
+在构造函数里注册回调函数。位于examples/simple/echo.cc
+
+![20200214095739.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200214095739.png)
+
+2．实现EchoServer::onConnection()和EchoServer::onMessage()。
+
+![20200214095750.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200214095750.png)
+
+L37和L40是echo服务的“业务逻辑”：把收到的数据原封不动地发回客户端。注意我们不用担心L40的send(msg)是否完整地发送了数据，因为muduo网络库会帮我们管理发送缓冲区。
+这两个函数体现了“基于事件编程”的典型做法，即程序主体是被动等待事件发生，事件发生之后网络库会调用（回调）事先注册的**事件处理函数（event handler）**
+
+在onConnection()函数中，conn参数是TcpConnection对象的shared_ptr，TcpConnection::connected()返回一个bool值，表明目前连接是建立还是断开，TcpConnection的peerAddress()和localAddress()成员函数分别返回对方和本地的地址（以InetAddress对象表示的IP和port）。
+
+在onMessage()函数中，conn参数是收到数据的那个TCP连接；buf是已经收到的数据，buf的数据会累积，直到用户从中取走（retrieve）数据。注意buf是指针，表明用户代码可以修改（消费）buffer；time是收到数据的确切时间，即epoll_wait(2)返回的时间，注意这个时间通常比read(2)发生的时间略早，可以用于正确测量程序的消息处理延迟。另外，Timestamp对象采用pass-by-value，而不是pass-by-(const)reference，这是有意的，因为在x86-64上可以直接通过寄存器传参。
+
+3．在main()里用EventLoop让整个程序跑起来。
+
+![20200214100208.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200214100208.png)
+
+完整的代码见muduo/examples/simple/echo。这个几十行的小程序实现了一个单线程并发的echo服务程序，可以同时处理多个连接。
+
+这个程序用到了TcpServer、EventLoop、TcpConnection、Buffer这几个class，也大致反映了这几个class的典型用法，后文还会详细介绍这几个class。注意，以后的代码大多会省略namespace。
+
+####　七步实现finger服务
+
+Python Twisted是一款非常好的网络库，它也采用Reactor作为网络编程的基本模型，所以从使用上与muduo颇有相似之处
+
+finger是Twisted文档的一个经典例子，本文展示如何用muduo来实现最简单的finger服务端。限于篇幅，只实现finger01～finger07。代码位于examples/twisted/finger。
+
+1．拒绝连接。 　什么都不做，程序空等。
+
+![20200214100509.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200214100509.png)
+
+2．接受新连接。 　在1079端口侦听新连接，接受连接之后什么都不做，程序空等。muduo会自动丢弃收到的数据。
+
+![20200214100532.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200214100532.png)
+
+3．主动断开连接。 　接受新连接之后主动断开。以下省略头文件和namespace。
+
+![20200214100617.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200214100617.png)
+
+4．读取用户名，然后断开连接。 　如果读到一行以\r\n结尾的消息，就断开连接。注意这段代码有安全问题，如果恶意客户端不断发送数据而不换行，会撑爆服务端的内存。另外，Buffer::findCRLF()是线性查找，如果客户端每次发一个字节，服务端的时间复杂度为O(N2 )，会消耗CPU资源。
+
+![20200214100833.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200214100833.png)
+
+5．读取用户名、输出错误信息，然后断开连接。 　如果读到一行以\r\n结尾的消息，就发送一条出错信息，然后断开连接。安全问题同上。
+
+![20200214100913.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200214100913.png)
+
+6．从空的UserMap里查找用户。 　从一行消息中拿到用户名（L30），在UserMap里查找，然后返回结果。安全问题同上。
+
+![20200214101110.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200214101110.png)
+
+7．往UserMap里添加一个用户。 　与前面几乎完全一样，只多了L39。``users["schen"] = "Happy and well";`
+
+### 详解muduo多线程模型
+
+本节以一个Sudoku Solver为例，回顾了并发网络服务程序的多种设计方案，并介绍了使用muduo网络库编写多线程服务器的两种最常用手法。下一章的例子展现了muduo在编写单线程并发网络服务程序方面的能力与便捷性。今天我们先看一看它在多线程方面的表现。本节代码参见： 。
+
+#### 数独求解服务器
+
+假设有这么一个网络编程任务：写一个求解数独的程序（Sudoku Solver），并把它做成一个网络服务。
+
+一个简单的以\r\n分隔的文本行协议，使用TCP长连接，客户端在不需要服务时主动断开连接。
+请求：[id:]<81digits>\r\n
+响应：[id:]<81digits>\r\n
+或者：[id:]NoSolution\r\n
+
+其中[id:]表示可选的id，用于区分先后的请求，以支持Parallel Pipelining，响应中会回显请求中的id。
+
+<81digits> 是 Sudoku 的棋盘，9 × 9 个数字，从左上角到右下角按行扫描，未 知数字以 0 表示。如果 Sudoku 有解，那么响应是填满数字的棋盘;如果无解，则返 回 NoSolution。
+
+```shell
+例子1 请求: 000000010400000000020000000000050407008000300001090000300400200050100000000806000\r\n
+响应:
+693784512487512936125963874932651487568247391741398625319475268856129743274836159\r\n
+例子2 请求: a:000000010400000000020000000000050407008000300001090000300400200050100000000806000\r\n
+响应:
+a:693784512487512936125963874932651487568247391741398625319475268856129743274836159\r\n
+例子3 请求: b:000000010400000000020000000000050407008000300001090000300400200050100000000806005\r\n
+响应:b:NoSolution\r\n
+```
+
+Sudoku的求解算法见《谈谈数独（Sudoku）》 28 一文，这不是本文的重点。假设我们已经有一个函数能求解Sudoku，它的原型如下：
+`string solveSudoku(const string& puzzle);`
+函数的输入是上文的“<81digits>”，输出是“<81digits>”或“NoSolution”。这个函数是个pure function，同时也是线程安全的。
+有了这个函数，我们以§6.4.2“echo服务的实现”中出现的EchoServer为蓝本，稍加修改就能得到SudokuServer。这里只列出最关键的onMessage()函数，完整的代码见 。onMessage()的主要功能是处理协议格式，并调用solveSudoku()求解问题。这个函数应该能正确处理TCP分包。
+
+![20200214103453.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200214103453.png)
+
+#### 常见的并发网络服务程序设计方案（重点）
+
+![concurrentmodel.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/concurrentmodel.png)
+
+- 方案0 accept+read/write
+  
+  不是并发服务器，而是**迭代(iterative)服务器**，因为一次只服务一个客户。不适合长连接，倒是很适合daytime这种write-only的短连接服务
+  
+  ![20200214104206.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200214104206.png)
+
+- 方案1 accept+fork
+  
+  这是传统的Unix并发网络编程方案，[UNP]称之为child-per-client或fork()-per-client，另外也俗称**process-per-connection**。这种方案适合并发连接数不大的情况。至今仍有一些网络服务程序用这种方式实现，比如PostgreSQL和Perforce的服务端。这种方案适合“计算响应的工作量远大于fork()的开销”这种情况，比如数据库服务器。这种方案适合长连接，但不太适合短连接
+  
+  ![20200214104223.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200214104223.png)
+
+- 方案2 accept+thread
+  
+  这是传统的Java网络编程方案**thread-per-connection**，在Java 1.4引入NIO之前，Java网络服务多采用这种方案。它的初始化开销比方案1要小很多，但与求解Sudoku的用时差不多，仍然不适合短连接服务。这种方案的伸缩性受到线程数的限制，一两百个还行，几千个的话对操作系统的scheduler恐怕是个不小的负担。
+  
+  ![20200214104502.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200214104502.png)
+
+- 方案3 prefork
+
+  针对accept+fork的优化，不用现场创建进程，但容易引起accept的惊群效应
+
+- 方案4 pre threaded
+
+  针对accept+thread的优化，不用现场创建线程
+
+以上几种方案都是**阻塞式**网络编程，**程序流程（thread of control）**通常阻塞在read()上，等待数据到达。但是TCP是个全双工协议，同时支持read()和write()操作，当一个线程／进程阻塞在read()上，但程序又想给这个TCP连接发数据，那该怎么办？比如说echo client，既要从stdin读，又要从网络读，当程序正在阻塞地读网络的时候，如何处理键盘输入？（我记得这个例子来自unp，当时正好要引入IO复用的概念）
+
+一种方法是两个进程/线程，一个负责读，一个负责写。
+
+另一种方法是使用**IO multiplexing**，也就是select/poll/epoll/kqueue这一系列的“多路选择器”，让一个thread of control能处理多个连接。“IO复用”其实复用的不是IO连接，而是**复用线程**。使用select/poll**几乎肯定要配合non-blocking IO**，而使用non-blocking IO肯定要使用**应用层buffer**，原因见§7.4。这就不是一件轻松的事儿了，如果每个程序都去搞一套自己的IO multiplexing机制（本质是event-driven事件驱动），这是一种很大的浪费。感谢Doug Schmidt为我们总结出了Reactor模式，让event-driven网络编程有章可循。继而出现了一些通用的Reactor框架／库，比如libevent、muduo、Netty、twisted、POE等等。有了这些库，我想基本不用去编写阻塞式的网络程序了
+
+这里先用一小段Python代码简要地回顾“以IO multiplexing方式实现并发echo server”的基本做法。为了简单起见，以下代码并**没有开启non-blocking**，也没有考虑数据发送不完整（L28）等情况。首先定义一个从文件描述符到socket对象的映射（L14），程序的主体是一个事件循环（L15～L32），每当有IO事件发生时，就针对不同的文件描述符（fileno）执行不同的操作（L16, L17）。对于listening fd，接受（accept）新连接，并注册到IO事件关注列表（watch list），然后把连接添加到connections字典中（L18～L23）。对于客户连接，则读取并回显数据，并处理连接的关闭（L24～L32）。对于echo服务而言，真正的业务逻辑只有L28：将收到的数据原样发回客户端。
+
+![20200214110717.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200214110717.png)
+
+注意以上代码不是功能完善的IO multiplexing范本，它没有考虑错误处理，也没有实现定时功能，而且只适合侦听（listen）一个端口的网络服务程序。如果需要侦听多个端口，或者要同时扮演客户端，那么代码的结构需要推倒重来。
+
+这个代码骨架可用于实现多种TCP服务器。例如写一个聊天服务只需改动3行代码，如下所示。业务逻辑是L28～L30：将本连接收到的数据转发给其他客户连接。
+
+![20200214110748.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200214110748.png)
+
+但是这种把业务逻辑隐藏在一个大循环中的做法其实不利于将来功能的扩展，我们能不能设法把业务逻辑抽取出来，与网络基础代码分离呢？
+
+Doug Schmidt指出，其实网络编程中有很多是事务性（routine）的工作，可以**提取为公用的框架或库**，而用户只需要填**上关键的业务逻辑代码**，并**将回调注册到框架中**，就可以实现完整的网络服务，这正是Reactor模式的主要思想。
+
+而Reactor的意义在于将消息（IO事件）分发到用户提供的处理函数，并保持网络部分的通用代码不变，独立于用户的业务逻辑。
+
+单线程Reactor的程序执行顺序如图6-11（左图）所示。在没有事件的时候，线程等待在select/poll/epoll_wait等函数上。事件到达后由网络库处理IO，再把消息通知（回调）客户端代码。Reactor事件循环所在的线程通常叫IO线程。通常由网络库负责读写socket，用户代码负载解码、计算、编码。
+
+注意由于只有一个线程，因此事件是顺序处理的，一个线程同时只能做一件事情。在这种协作式多任务中，事件的优先级得不到保证，因为从“poll返回之后”到“下一次调用poll进入等待之前”这段时间内，线程不会被其他连接上的数据或事件抢占（见图6-11的右图）。如果我们想要延迟计算（把compute()推迟100ms），那么也不能用sleep()之类的阻塞调用，而应该注册超时回调，以避免阻塞当前IO线程。
+
+![20200214111042.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200214111042.png)
+
+- 方案5 poll(reactor)
+  
+  基本的单线程Reactor方案（如上图所示），适合IO密集的应用，不太适合CPU密集的应用，因为较难发挥多核的威力。这里用一小段Python代码展示Reactor模式的雏形。为了节省篇幅，这里直接使用了全局变量，也没有处理异常。程序的核心仍然是事件循环（L42～L46），与前面不同的是，事件的处理通过handlers转发到各个函数中，不再集中在一坨。例如**listening fd的处理函数是handle_accept，它会注册客户连接的handler。普通客户连接的处理函数是handle_request，其中又把连接断开和数据到达这两个事件分开，后者由handle_input处理**。业务逻辑位于单独的handle_input函数，实现了分离。
+
+  ![20200214113210.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200214113210.png)
+
+  必须说明的是，完善的非阻塞IO网络库远比这个玩具代码复杂，需要考虑各种错误场景。特别是要真正接管数据的收发，而不是像这个示例那样直接在事件处理回调函数中发送网络数据。
+
+- 方案6 reactor+thread-per-task
+
+  过渡方案，不在Reactor线程计算，而是创建一个新线程去计算，以充分利用多核CPU，因为，该方案为每个请求（不是连接）创建一个线程，这个开销可以用线程池来避免。该方案还有一个缺点是乱序，请求的次序与计算结果的次序不一定一致
+
+- 方案7 reactor+worker thread
+  
+  为了让返回结果的顺序确定，我们可以为每个连接创建一个计算线程，每个连接上的请求固定发给同一个线程去算，先到先得。这也是一个过渡方案，因为并发连接数受限于线程数目，这个方案或许还不如直接使用阻塞IO的thread-per-connection方案
+
+- 方案8 reactor+thread pool
+
+  全部的IO工作都在一个Reactor线程完成，而**计算任务交给thread pool**。如果计算任务彼此独立，而且IO的压力不大，那么这种方案是非常适用的。Sudoku Solver正好符合。代码参见examples/sudoku/server_threadpool.cc。该方案使用线程池的代码与单线程Reactor的方案5相比变化不大，只是把原来onMessage()中涉及计算和发回响应的部分抽出来做成一个函数，然后交给ThreadPool去计算。记住方案8有乱序返回的可能，客户端要根据id来匹配响应。线程池的另外一个作用是执行阻塞操作。比如有的数据库的客户端只提供同步访问，那么可以把数据库查询放到线程池中，可以避免阻塞IO线程，不会影响其他客户连接。
+
+  ![20200214114016.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200214114016.png)
+
+  ![20200214114338.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200214114338.png)
+
+- **方案9 reactors in threads**
+  
+  这是**muduo内置的多线程方案**，也是Netty内置的多线程方案。这种方案的特点是**one loop per thread**，有一个main Reactor负责accept(2)连接，然后把连接挂在某个sub Reactor中（muduo采用round-robin的方式来选择sub Reactor），**这样该连接的所有操作都在那个sub Reactor所处的线程中完成**。多个连接可能被分派到多个线程中，以充分利用CPU。
+
+  muduo采用的是**固定大小的Reactor pool**，池子的大小通常根据CPU数目确定，也就是说线程数是固定的，这样程序的总体处理能力不会随连接数增加而下降。另外，由于一个连接完全由一个线程管理，那么请求的顺序性有保证，突发请求也不会占满全部8个核（如果需要优化突发请求，可以考虑方案11）。这种方案把IO分派给多个线程，防止出现一个Reactor的处理能力饱和。
+
+  与方案8的线程池相比，方案9减少了进出thread pool的两次上下文切换，在把多个连接分散到多个Reactor线程之后，小规模计算可以在当前IO线程完成并发回结果，从而降低响应的延迟。我认为这是一个适应性很强的多线程IO模型，因此把它作为muduo的默认线程模型
+
+  **图很重要，IO Thread由线程池创建出来，compute操作就在IO Thread中进行**
+
+  ![20200214114719.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200214114719.png)
+
+- 方案10 reactors in processes
+
+  Nginx的内置方案，如果连接之间无交互，这也是很好的选择，工作进程之间相互独立，可以热升级
+
+- 方案11 reactors+thread pool
+
+  把方案8和方案9混合，既使用多个Reactor来处理IO，又使用线程池来处理计算。这种方案适合既有突发IO（利用多线程处理多个连接上的IO），又有突发计算的应用（利用线程池把一个连接上的计算任务分配给多个线程去做），见图6-14（下图）。要注意与方案（reactors in threads)的比较，这里的compute都在线程池中进行。资源利用率可能比方案9高，一个客户不会被同一线程的其他客户阻塞，但**延迟也比方案9略大**
+
+  ![20200214115347.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200214115347.png)
+
+#### 结语
+
+我再用银行柜台办理业务为比喻，简述各种模型的特点。银行有旋转门，办理业务的客户人员从旋转门进出（IO）；银行也有柜台，客户在柜台办理业务（计算）。要想办理业务，客户要先通过旋转门进入银行；办理完之后，客户要再次通过旋转门离开银行。一个客户可以办理多次业务，每次都必须从旋转门进出（TCP长连接）。另外，旋转门一次只允许一个客户通过（无论进出），因为read()/write()只能同时调用其中一个。
+
+方案5： 这间小银行有一个旋转门、一个柜台，每次只允许一名客户办理业务。而且当有人在办理业务时，旋转门是锁住的（计算和IO在同一线程）。为了维持工作效率，银行要求客户应该尽快办理业务，最好不要在取款的时候打电话去问家里人密码，也不要在通过旋转门的时候停下来系鞋带，这都会阻塞其他堵在门外的客户。如果客户很少，这是很经济且高效的方案；但是如果场地较大（多核），则这种布局就浪费了不少资源，只能并发（concurrent）不能并行（parallel）。如果确实一次办不完，应该离开柜台，到门外等着，等银行通知再来继续办理（分阶段回调）。
+
+方案8： 这间银行有一个旋转门，一个或多个柜台。银行进门之后有一个队列，客户在这里排队到柜台（线程池）办理业务。即在单线程Reactor后面接了一个线程池用于计算，可以利用多核。旋转门基本是不锁的，随时都可以进出。但是排队会消耗一点时间，相比之下，方案5中客户一进门就能立刻办理业务。另外一种做法是线程池里的每个线程有自己的任务队列，而不是整个线程池共用一个任务队列。这样的好处是避免全局队列的锁争用，坏处是计算资源有可能分配不平均，降低并行度。
+
+方案9： 这间大银行相当于包含方案5中的多家小银行，每个客户进大门的时候就被固定分配到某一间小银行中，他的业务只能由这间小银行办理，他每次都要进出小银行的旋转门。但总体来看，大银行可以同时服务多个客户。这时同样要求办理业务时不能空等（阻塞），否则会影响分到同一间小银行的其他客户。而且必要的时候可以为VIP客户单独开一间或几间小银行，优先办理VIP业务。这跟方案5不同，当普通客户在办理业务的时候，VIP客户也只能在门外等着（见图6-11的右图）。这是一种适应性很强的方案，也是muduo原生的多线程IO模型。
+
+方案11 ：这间大银行有多个旋转门，多个柜台。旋转门和柜台之间没有一一对应关系，客户进大门的时候就被固定分配到某一旋转门中（奇怪的安排，易于实现线程安全的IO，见§4.6），进入旋转门之后，有一个队列，客户在此排队到柜台办理业务。这种方案的资源利用率可能比方案9更高，一个客户不会被同一小银行的其他客户阻塞，但延迟也比方案9略大。
