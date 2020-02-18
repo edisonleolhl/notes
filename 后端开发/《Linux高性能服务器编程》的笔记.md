@@ -1582,3 +1582,262 @@ Linux提供了ipcs命令，以观察当前系统上拥有哪些共享资源实�
 由于fork调用之后，父进程中打开的文件描述符在子进程中仍然保持打开，所以文件描述符可以很方便地从父进程传递到子进程。需要注意的是，传递一个文件描述符并不是传递一个文件描述符的值，而是要在接收进程中创建一个新的文件描述符，并且该文件描述符和发送进程中被传递的文件描述符指向内核中相同的文件表项。
 
 那么如何把子进程中打开的文件描述符传递给父进程呢？或者更通俗地说，如何在两个不相干的进程之间传递文件描述符呢？在Linux下，我们可以利用UNIX域socket在进程间传递特殊的辅助数据，以实现文件描述符的传递
+
+## 第14章 多线程编程
+
+### 创建线程和结束线程
+
+#### pthread_create
+
+创建一个线程的函数是pthread_create。其定义如下：
+
+```c++
+int pthread_create(pthread_t*thread,const pthread_attr_t*attr,void*(*start_routine)(void*),void*arg);
+```
+
+- thread参数是新线程的标识符，后续pthread_*函数通过它来引用新线程。其类型pthread_t的定义如下：
+
+    ```c++
+    typedef unsigned long int pthread_t;
+    ```
+
+    可见，pthread_t是一个整型类型。实际上，Linux上几乎所有的资源标识符都是一个整型数
+
+- attr参数用于设置新线程的属性。给它传递NULL表示使用默认线程属性。线程拥有众多属性，我们将在后面详细讨论之。
+
+- start_routine和arg参数分别指定新线程将运行的函数及其参数。
+
+pthread_create成功时返回0，失败时返回错误码
+
+一个用户能打开的线程数受到限制，操作系统上总线程数也受到限制
+
+#### pthread_exit
+
+线程一旦被创建好，内核就可以调度内核线程来执行start_routine函数指针所指向的函数了。线程函数在结束时最好调用如下函数，以确保安全、干净地退出：
+
+```c++
+void pthread_exit(void*retval);
+```
+
+pthread_exit函数通过retval参数向线程的回收者传递其退出信息。它执行完之后不会返回到调用者，而且永远不会失败。
+
+#### pthread_join
+
+一个进程中的所有线程都可以调用pthread_join函数来回收其他线程（前提是目标线程是可回收的，见后文），即等待其他线程结束，这类似于回收进程的wait和waitpid系统调用。pthread_join的定义如下：
+
+```c++
+int pthread_join(pthread_t thread,void**retval);
+```
+
+thread参数是目标进程标识符，retval参数则目标线程返回的退出信息。该函数会一直阻塞，直到被回收的线程结束为止。执行成功返回0，失败返回错误码
+
+#### pthread_cancel
+
+有时候我们希望**异常终止**一个线程，即取消线程，它是通过如下函数实现的：
+
+```c++
+int pthread_cancel(pthread_t thread);
+```
+
+thread参数是目标线程的标识符。该函数成功时返回0，失败则返回错误码。
+
+### 线程属性
+
+### POSIX信号量
+
+用于线程同步
+
+POSIX信号量函数的名字都以sem_开头，并不像大多数线程函数那样以pthread_开头。常用的POSIX信号量函数是下面5个：
+
+```c++
+#include＜semaphore.h＞
+int sem_init(sem_t*sem,int pshared,unsigned int value);
+int sem_destroy(sem_t*sem);
+int sem_wait(sem_t*sem);
+int sem_trywait(sem_t*sem);
+int sem_post(sem_t*sem);
+```
+
+这些函数的第一个参数sem指向被操作的信号量。
+
+- sem_init函数用于初始化一个未命名的信号量。pshared参数指定信号量的类型。如果其值为0，就表示这个信号量是当前进程的局部信号量，否则该信号量就可以在多个进程之间共享。value参数指定信号量的初始值。此外，初始化一个已经被初始化的信号量将导致不可预期的结果。
+- sem_destroy函数用于销毁信号量，以释放其占用的内核资源。如果销毁一个正被其他线程等待的信号量，则将导致不可预期的结果。
+- sem_wait函数以**原子操作**的方式将信号量的值减1（相当于P操作）。如果信号量的值为0，则sem_wait将被阻塞，直到这个信号量具有非0值。
+- sem_trywait与sem_wait函数相似，不过它始终立即返回，而不论被操作的信号量是否具有非0值，相当于sem_wait的**非阻塞**版本。当信号量的值非0时，sem_trywait对信号量执行减1。当信号量的值为0时，它将返回-1并设置errno为EAGAIN。
+- sem_post函数以原子操作的方式将信号量的值加1（相当于V操作）。当信号量的值大于0时，其他正在调用sem_wait等待信号量的线程将被唤醒。
+
+上面这些函数成功时返回0，失败则返回-1并设置errno。
+
+### 互斥锁
+
+POSIX互斥锁的相关函数主要有如下5个：
+
+```c++
+#include＜pthread.h＞
+int pthread_mutex_init(pthread_mutex_t*mutex,const pthread_mutexattr_t*mutexattr);
+int pthread_mutex_destroy(pthread_mutex_t*mutex);
+int pthread_mutex_lock(pthread_mutex_t*mutex);
+int pthread_mutex_trylock(pthread_mutex_t*mutex);
+int pthread_mutex_unlock(pthread_mutex_t*mutex);
+```
+
+这些函数的第一个参数mutex指向要操作的目标互斥锁，互斥锁的类型是pthread_mutex_t结构体。
+
+- pthread_mutex_init函数用于初始化互斥锁。mutexattr参数指定互斥锁的属性。如果将它设置为NULL，则表示使用默认属性。除了这个函数外，我们还可以使用如下方式来初始化一个互斥锁：
+
+    ```c++
+    pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;
+    ```
+
+    宏PTHREAD_MUTEX_INITIALIZER实际上只是把互斥锁的各个字段都初始化为0。
+- pthread_mutex_destroy函数用于销毁互斥锁，以释放其占用的内核资源。销毁一个已经加锁的互斥锁将导致不可预期的后果。
+- pthread_mutex_lock函数以原子操作的方式给一个互斥锁加锁。如果目标互斥锁已经被锁上，则pthread_mutex_lock调用将**阻塞**，直到该互斥锁的占有者将其解锁。
+- pthread_mutex_trylock与pthread_mutex_lock函数类似，不过它始终立即返回，而不论被操作的互斥锁是否已经被加锁，相当于pthread_mutex_lock的**非阻塞**版本。当目标互斥锁未被加锁时，pthread_mutex_trylock对互斥锁执行加锁操作。当互斥锁已经被加锁时，pthread_mutex_trylock将返回错误码EBUSY。
+- pthread_mutex_unlock函数以原子操作的方式给一个互斥锁解锁。如果此时有其他线程正在等待这个互斥锁，则这些线程中的某一个将获得它。
+上面这些函数成功时返回0，失败则返回错误码。
+
+互斥锁还有很多属性，比如是否跨进程，普通锁or检错锁or嵌套锁or默认锁
+
+互斥锁容易产生死锁（一个或多个线程被挂起而无法继续执行），要缩小临界区，注意加锁解锁顺序
+
+### 条件变量
+
+如果说互斥锁是用于同步线程对共享数据的访问的话，那么条件变量则是用于在线程之间同步共享数据的值。条件变量提供了一种线程间的**通知机制**：当某个共享数据达到某个值的时候，唤醒等待这个共享数据的线程。
+
+条件变量的相关函数主要有如下5个：
+
+```c++
+#include＜pthread.h＞
+int pthread_cond_init(pthread_cond_t*cond,const pthread_condattr_t*cond_attr);
+int pthread_cond_destroy(pthread_cond_t*cond);
+int pthread_cond_broadcast(pthread_cond_t*cond);
+int pthread_cond_signal(pthread_cond_t*cond);
+int pthread_cond_wait(pthread_cond_t*cond,pthread_mutex_t*mutex);
+```
+
+这些函数的第一个参数cond指向要操作的目标条件变量，条件变量的类型是pthread_cond_t结构体。
+
+- pthread_cond_init函数用于初始化条件变量。cond_attr参数指定条件变量的属性。如果将它设置为NULL，则表示使用默认属性。条件变量的属性不多，而且和互斥锁的属性类型相似，所以我们不再赘述。除了pthread_cond_init函数外，我们还可以使用如下方式来初始化一个条件变量：
+
+    ```c++
+    pthread_cond_t cond=PTHREAD_COND_INITIALIZER;
+    ```
+
+    宏PTHREAD_COND_INITIALIZER实际上只是把条件变量的各个都初始化为0。
+- pthread_cond_destroy函数用于销毁条件变量，以释放其占用的内核资源。销毁一个正在被等待的条件变量将失败并返回EBUSY。
+- pthread_cond_broadcast函数以广播的方式唤醒所有等待目标条件变量的线程。
+- pthread_cond_signal函数用于唤醒一个等待目标条件变量的线程。至于哪个线程将被唤醒，则取决于线程的优先级和调度策略。有时候我们可能想唤醒一个指定的线程，但pthread没有对该需求提供解决方法。不过我们可以间接地实现该需求：定义一个能够唯一表示目标线程的全局变量，在唤醒等待条件变量的线程前先设置该变量为目标线程，然后采用广播方式唤醒所有等待条件变量的线程，这些线程被唤醒后都检查该变量以判断被唤醒的是否是自己，如果是就开始执行后续代码，如果不是则返回继续等待。
+- pthread_cond_wait函数用于等待目标条件变量。mutex参数是用于保护条件变量的互斥锁，以确保pthread_cond_wait操作的原子性。在调用pthread_cond_wait前，**必须确保互斥锁mutex已经加锁**，否则将导致不可预期的结果。pthread_cond_wait函数执行时，首先把调用线程放入条件变量的等待队列中，然后将互斥锁mutex解锁。可见，从pthread_cond_wait开始执行到其调用线程被放入条件变量的等待队列之间的这段时间内，pthread_cond_signal和pthread_cond_broadcast等函数不会修改条件变量。换言之，**pthread_cond_wait函数不会错过目标条件变量的任何变化**。当pthread_cond_wait函数成功返回时，互斥锁mutex将再次被锁上。
+
+上面这些函数成功时返回0，失败则返回错误码。
+
+### 线程同步机制包装类
+
+### 多线程环境
+
+#### 可重入函数
+
+如果一个函数能被多个线程同时调用且不发生竞态条件，则我们称它是**线程安全的（thread safe）**，或者说它是可重入函数。Linux库函数只有一小部分是不可重入的，也提供了对应的可重入版本（函数名加上_r后缀），在多线程环境下一定要用可重入版本
+
+#### 线程和进程
+
+父进程调用fork后，新创建的子进程只拥有一个执行线程（不管父进程有多少个线程），它是父进程中调用fork的那个线程的完整复制，并且自动继承父进程的互斥锁与条件锁。
+
+这就引起了一个问题：子进程可能不清楚从父进程继承而来的互斥锁的具体状态（是加锁状态还是解锁状态）。这个互斥锁可能被加锁了，但并不是由调用fork函数的那个线程锁住的，而是由其他线程锁住的。如果是这种情况，则子进程若再次对该互斥锁执行加锁操作就会导致死锁。
+
+专门的函数pthread_atfork确保fork调用后父进程和子进程都拥有一个清楚的锁状态
+
+建议：**不要多线程与多进程混用**
+
+#### 线程和信号
+
+进程信号掩码函数sigprocmask
+
+线程信号掩码函数pthread_sigprocmask
+
+参数两者一样，不再赘述
+
+因为进程中的所有线程共享该进程的信号，而且所有线程共享信号处理函数，所以应该**定义一个线程来专门处理信号**
+
+## 第15章 进程池和线程池
+
+进程池和线程池类似，都是为了减小现场创建进程/线程的开销，预先静态创建一定大小的池。下面用进程说明，若无特殊说明的话也适用于线程
+
+当有新的任务到来时，主进程将通过某种方式选择进程池中的某一个子进程来为之服务。相比于动态创建子进程，选择一个已经存在的子进程的代价显然要小得多。至于主进程选择哪个子进程来为新任务服务，则有两种方式：
+
+- 主进程使用某种算法来主动选择子进程。最简单、最常用的算法是随机算法和**Round Robin（轮流选取）**算法，但更优秀、更智能的算法将使任务在各个工作进程中更均匀地分配，从而减轻服务器的整体压力。
+- 主进程和所有子进程通过一个共享的工作队列来同步，子进程都睡眠在该工作队列上。当有新的任务到来时，主进程将任务添加到**工作队列**中。这将唤醒正在等待任务的子进程，不过只有一个子进程将获得新任务的“接管权”，它可以从工作队列中取出任务并执行之，而其他子进程将继续睡眠在工作队列上
+
+选择好子进程后，还需要一种通知机制来告诉目标子进程。最简单的是实现在父进程和子进程之间建立好一条管道。线程的话就更简单了，父线程和子线程本身就可以共享全局数据
+
+### 处理多客户
+
+## 第16章 服务器调制、调试和测试
+
+### 最大文件描述符数
+
+文件描述符是服务器程序的宝贵资源，几乎所有的系统调用都是和文件描述符打交道。系统分配给应用程序的文件描述符数量是有限制的，所以我们必须总是关闭那些已经不再使用的文件描述符，以释放它们占用的资源。比如作为守护进程运行的服务器程序就应该总是关闭标准输入、标准输出和标准错误这3个文件描述符。
+
+Linux对应用程序能打开的最大文件描述符数量有两个层次的限制：**用户级限制和系统级限制**。用户级限制是指目标用户运行的所有进程总共能打开的文件描述符数；系统级的限制是指所有用户总共能打开的文件描述符数。
+下面这个命令是最常用的查看用户级文件描述符数限制的方法：
+
+```c++
+$ulimit-n
+```
+
+mac上是256，CentOS上是1024
+
+### 调整内核参数
+
+几乎所有的内核模块，包括内核核心模块和驱动程序，都在/proc/sys文件系统下提供了某些配置文件以供用户调整模块的属性和行为。通常一个配置文件对应一个内核参数，文件名就是参数的名字，文件的内容是参数的值。我们可以通过命令sysctl-a查看所有这些内核参数。本节将讨论其中和网络编程关系较为紧密的部分内核参数。
+
+比如系统级描述符数限制、所有epoll注册的事件总量
+
+能够建立连接的socket最大数目、TCP写缓冲区的最小值最大值默认值
+
+### gdb调试
+
+### 压力测试
+
+有很多方式，如I/O复用、多线程、多进程，以及它们的结合。
+
+**单纯的I/O复用的施压程度是最高的**，因为进程线程的调度需要开销
+
+## 第17章 系统监测工具
+
+### tcpdump
+
+### lsof（list open file）
+
+列出当前系统打开的文件描述符
+
+-i：显示socket文件描述符
+
+### nc（netcat）
+
+快速构建网络连接，可以用作server，也可以用作client
+
+### strace
+
+测试服务器性能，跟踪程序运行过程中执行的系统调用和接收到的信号
+
+### netstat
+
+网络信息统计
+
+经常用来显示TCP连接及其状态
+
+路由表信息用route命令，网卡接口信息用ifconfig命令
+
+### vmstat（virtual memory statistics）
+
+实时输出系统的各种资源使用情况，如进程信息、内存使用、CPU使用率以及I/O使用情况
+
+### ifstat（interface statistics）
+
+网络流量监测
+
+### mpstat（multi-processor statistics）
+
+实时监测多处理器系统上每个CPU的使用情况
+
