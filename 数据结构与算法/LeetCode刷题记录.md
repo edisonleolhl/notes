@@ -2085,6 +2085,8 @@ public:
 
 ##### 字符串匹配算法 ——KMP算法
 
+TODO
+
 思路：KMP 算法是一种字符串匹配算法，由 D.E.Knuth，J.H.Morris 和 V.R.Pratt 提出的，因此人们称它为克努特 — 莫里斯 — 普拉特算法（简称 KMP 算法）。在暴力匹配中，我们在 txt 中从 i 开始与 pattern 串匹配至 i + pattern.length()，一旦匹配失败，则从 i + 1 子串重新匹配。此时我们抛弃了前面的匹配信息。
 
 而 KMP 算法目的就是：在出错时，**利用原有的匹配信息**，尽量减少重新匹配的次数。 可以发现 KMP 算法的主串下标**永不后退**
@@ -4182,7 +4184,7 @@ public:
             return s;
         int len = s.size();
         int begin = 0, maxLen = 1;
-        vector<vector<bool>> dp(len, vector<bool>(len, false)); 
+        vector<vector<bool>> dp(len, vector<bool>(len, false));
         for(int r = 1; r < len; ++r){
             for(int l = 0; l < r; ++l){
                 dp[l][r] = (s[l] == s[r] && (r - l <= 2 || dp[l + 1][r - 1]));
