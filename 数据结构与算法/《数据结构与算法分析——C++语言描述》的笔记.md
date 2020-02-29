@@ -2779,7 +2779,7 @@ Thus, we find that it is better to do the unnecessary swaps and create even suba
 
 #### 快速排序的分析
 
-最坏运行时间：O(N^2)
+最坏运行时间：O(N^2)，退化为冒泡排序
 最好运行时间：θ(NlogN)
 平均运行时间：O(NlogN)
 
