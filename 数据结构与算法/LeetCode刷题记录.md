@@ -1193,6 +1193,103 @@ public:
 };
 ```
 
+### 162. 寻找峰值
+
+TODO
+
+题目描述
+峰值定义为比左右相邻元素大的元素。
+
+给定一个数组 nums，保证 nums[i] ≠ nums[i+1]，请找出该数组的峰值，并返回峰值的下标。
+
+数组中可能包含多个峰值，只需返回任意一个即可。
+
+假定 nums[-1] = nums[n] = -∞。
+
+样例1
+输入：nums = [1,2,3,1]
+输出：2
+解释：3是一个峰值，3的下标是2。
+
+样例2
+输入：nums = [1,2,1,3,5,6,4]
+输出：1 或 5
+解释：数组中有两个峰值：1或者5，返回任意一个即可。
+
+算法
+(二分) O(logn)
+
+仔细分析我们会发现：
+
+如果 nums[i-1] < nums[i]，则如果 nums[i-1], nums[i], ... nums[n-1] 是单调的，则 nums[n-1]就是峰值；如果nums[i-1], nums[i], ... nums[n-1]不是单调的，则从 ii 开始，第一个满足 nums[i] > nums[i+1]的 ii 就是峰值；所以 [i,n−1][i,n−1] 中一定包含一个峰值；
+如果 nums[i-1] > nums[i]，同理可得 [0,i−1][0,i−1] 中一定包含一个峰值；
+所以我们可以每次二分中点，通过判断 nums[i-1] 和 nums[i] 的大小关系，可以判断左右两边哪边一定有峰值，从而可以将检索区间缩小一半。
+
+时间复杂度分析：二分检索，每次删掉一半元素，所以时间复杂度是 O(logn)O(logn)。
+
+```C++
+class Solution {
+public:
+    int findPeakElement(vector<int>& nums) {
+        int l = 0, r = nums.size() - 1;
+        while (l < r)
+        {
+            int mid = (l + r + 1) / 2;
+            if (nums[mid] > nums[mid - 1]) l = mid;
+            else r = mid - 1;
+        }
+        return l;
+    }
+};
+```
+
+AcWing 1452 的题目，寻找矩阵中的极小值
+
+给定一个 n×n 的矩阵，矩阵中包含 n×n 个 互不相同 的整数。定义极小值：如果一个数的值比与它相邻的所有数字的值都小，则这个数值就被称为极小值。一个数的相邻数字是指其上下左右四个方向相邻的四个数字，另外注意，处于边界或角落的数的相邻数字可能少于四个。要求在 O(nlogn) 的时间复杂度之内找出任意一个极小值的位置，并输出它在第几行第几列。
+
+思考：首先dfs肯定不行，还不如直接遍历，那有什么查找方法能比遍历更快，那就是**二分**！
+
+![minOfMatrix](../image/minOfMatrix.png)
+
+- 首先选取一列（二分就是中间列），遍历一遍，找到这列的最小值，设为V，然后考察左右，分为三种情况
+- 如果V < L， V < R，则V就是一个极小值，返回即可
+- 如果R < V（L < V同理），则右边肯定有解，所以范围缩小了一半，再继续二分，选取右边子矩阵的中间列，遍历一遍，找到这列的最小值，设为V'，回到第一步
+ 左右两边都有可能有解，只需要挑一个方向即可
+
+注意：不能行列二分！看y总举的例子
+
+![minOfMatrixEg](../image/minOfMatrixEg.png)
+
+```c++
+// Forward declaration of queryAPI.
+// int query(int x, int y);
+// return int means matrix[x][y].
+
+class Solution {
+public:
+    vector<int> getMinimumValue(int n) {
+        int cl = 0, cr = n - 1;
+        while (cl <= cr){
+            int cmid = cl + (cr - cl) / 2;
+            int val = INT_MAX, idx = -1;
+            for (int r = 0; r < n; ++r){
+                int candi_val = query(r, cmid);
+                if (candi_val < val){
+                    val = candi_val;
+                    idx = r;
+                }
+            }
+            int l_val = cmid > 0 ? query(idx, cmid - 1) : INT_MAX; // 防止越界
+            int r_val = cmid < n - 1 ? query(idx, cmid + 1) : INT_MAX; // 防止越界
+            if (val < l_val && val < r_val) return {idx, cmid}; // 得到local min
+            else if (l_val < r_val) cr = cmid - 1; // 左边小，往左走
+            else cl = cmid + 1; // 右边小，往右走
+        }
+        return {0, 0}; //只是为了过编译 循环中一定已经得出解了
+    }
+};
+```
+
 ### 189. 旋转数组（数组）
 
 给定一个数组，将数组中的元素向右移动 *k* 个位置，其中 *k* 是非负数。
@@ -2479,7 +2576,7 @@ public:
 };
 ```
 
- 迭代解法
+迭代解法
 
 思路：
 
@@ -2518,6 +2615,51 @@ public:
             l2->next = mergeTwoLists(l1, l2->next);
             return l2;
         }
+    }
+};
+```
+
+### 23. 合并k个有序链表
+
+合并 k 个排序链表，返回合并后的排序链表。请分析和描述算法的复杂度。
+
+示例:
+
+输入:
+[
+  1->4->5,
+  1->3->4,
+  2->6
+]
+输出: 1->1->2->3->4->4->5->6
+
+构建最小堆，每次pop出最小值需要O(logk)，最后的链表中总共有N个节点，故时间复杂度为O(Nlogk)
+
+```c++
+class Solution {
+public:
+    ListNode* mergeKLists(vector<ListNode*>& lists) {
+        auto cmp = [](ListNode* a, ListNode* b){
+            return a->val > b->val; // 最小堆是用greater比较
+        };
+        priority_queue<ListNode*, vector<ListNode*>, decltype(cmp)> q(cmp); // 构建最小堆
+        for(ListNode* head: lists) {
+            if(head != nullptr)
+                q.push(head);
+        }
+        ListNode* dummy = new ListNode(-1);
+        ListNode* curr = dummy;
+        while(!q.empty()) {
+            ListNode* n = q.top();
+            q.pop();
+            if(n->next != nullptr)
+                q.push(n->next);
+            curr->next = n;
+            curr = curr->next;
+        }
+        ListNode* head = dummy->next;
+        delete dummy;
+        return head;
     }
 };
 ```
@@ -2562,7 +2704,7 @@ public:
 
 你能用 *O(1)*（即，常量）内存解决此问题吗？
 
- 第一次尝试，哈希表
+第一次尝试，哈希表
 
 思路：建立一个哈希表，节点内存地址 映射到 是否已访问的标志，遍历所有节点，如果当前节点为空则没有环返回false，如果当前节点访问过则有环返回true
 
@@ -2597,7 +2739,7 @@ public:
 };
 ```
 
- 空间复杂度为O(1)的双指针解法
+空间复杂度为O(1)的双指针解法
 
 思路：快慢指针，快指针速度是慢指针速度的两倍，如果快指针指向了NULL，则没有环返回false，如果快指针慢指针相等，则说明有环返回true
 
@@ -2774,6 +2916,85 @@ p->val: 5
 ```
 
 可以看到，首先递归到最深层，也就是链表末尾5，依次往前翻转，注意到p的值不变，最后跳出递归时的返回值p即为新的头节点
+
+### 148. 排序链表
+
+在 O(n log n) 时间复杂度和常数级空间复杂度下，对链表进行排序。
+
+示例 1:
+
+输入: 4->2->1->3
+输出: 1->2->3->4
+示例 2:
+
+输入: -1->5->3->4->0
+输出: -1->0->3->4->5
+
+快排需要栈空间，空间复杂度需要O(nlogn)，所以不符合题目要求，但这里也一并记录一下，来自ycx
+
+其实链表快排比数组快排更容易想也更容易写
+
+首先选取枢纽，假设就取第一个为枢纽，值为value，然后开辟三个链表，它们记录着小于val、等于val、大于val，只需要遍历一遍链表就可以得到这样的三个子链表，这其实就是**划分(partition)**
+
+对于小于val与大于val的两个子链表，递归地去解决
+
+链表快排是稳定的，因为是尾插，而不像数组快排那样交换
+
+![sortList](../image/sortList.png)
+
+```c++
+/**
+ * Definition for singly-linked list.
+ * struct ListNode {
+ *     int val;
+ *     ListNode *next;
+ *     ListNode(int x) : val(x), next(NULL) {}
+ * };
+ */
+class Solution {
+public:
+    ListNode* get_tail(ListNode* head){
+        while(head->next) head = head->next;
+        return head;
+    }
+    ListNode* sortList(ListNode* head) {
+        if(!head || !head->next) return head;
+        auto left = new ListNode(-1); // 三个dummy节点，指向三个子链表头
+        auto mid = new ListNode(-1);
+        auto right = new ListNode(-1);
+        auto ltail = left; // 三个尾节点，以供插入
+        auto mtail = mid;
+        auto rtail = right;
+        int val = head->val;
+        for(auto p = head; p; p = p->next){
+            if(p->val < val) ltail = ltail->next = p;
+            else if(p->val == val) mtail = mtail->next = p;
+            else rtail = rtail->next = p;
+        }
+        ltail->next = mtail->next = rtail->next = nullptr; // 三个链表的尾后节点为nullptr
+
+        // 分治
+        left->next = sortList(left->next); // 返回排序后的子链表头部，放在left后面
+        right->next = sortList(right->next);
+
+        // 合并，拼接三个链表
+        get_tail(left)->next = mid->next; // 因为mtail在左边子链表排序完后可能会变，所以这里要用一个函数
+        get_tail(mid)->next = right->next;
+
+         // 释放空间
+        auto p = left->next;
+        delete left;
+        delete mid;
+        delete right;
+
+        return p;
+    }
+};
+```
+
+归并排序的时间复杂度也只需要O(nlogn)，用迭代方式可以实现额外空间复杂度为O(1)
+
+TODO
 
 ### 234.回文链表
 
@@ -3853,182 +4074,7 @@ public:
 Your runtime beats 6.83 % of cpp submissions
 Your memory usage beats 39.16 % of cpp submissions (18.8 MB)
 
-### 70.爬楼梯
-
-假设你正在爬楼梯。需要 n 阶你才能到达楼顶。
-
-每次你可以爬 1 或 2 个台阶。你有多少种不同的方法可以爬到楼顶呢？
-
-注意：给定 n 是一个正整数。
-
-示例 1：
-
-```c++
-输入： 2
-输出： 2
-解释： 有两种方法可以爬到楼顶。
-1.  1 阶 + 1 阶
-2.  2 阶
-```
-
-示例 2：
-
-```c++
-输入： 3
-输出： 3
-解释： 有三种方法可以爬到楼顶。
-1.  1 阶 + 1 阶 + 1 阶
-2.  1 阶 + 2 阶
-3.  2 阶 + 1 阶
-```
-
- 动态规划，不就是找状态转移吗
-
-思路：找动态转移，要想爬上第n阶，只有可能在第n-1阶与第n-2阶的基础上，前进一步或两步，这题求的就是有多少种可能，显然就是求个“最大值”，所以dp[i]=dp[i-1]+dp[i-2]，而dp[1]=1，dp[2]=2，所以输出是个斐波那契数列，这里可以用循环的方式写（注意swap的目的是让temp1为dp[i-2]，temp2为dp[i-1]，这样计算出来的dp[i]可以直接覆盖temp1）
-
-```c++
-class Solution {
-public:
-    int climbStairs(int n) {
-        if(n == 1) return 1;
-        if(n == 2) return 2;
-        if(n == 3) return 3;
-        int temp1 = 1, temp2 = 2;
-        for(int i = 1; i <= n-2; ++i){
-            temp1 += temp2;
-            swap(temp1, temp2);
-        }
-        return temp2;
-    }
-};
-```
-
-时间复杂度：O(n)，单循环到 n 。
-
-空间复杂度：O(1)
-
- 递归实现
-
-也可以用递归，但是要小心使用，像下面的代码在输入45时会超出时间限制！！！因为每个递归都分成了两个子递归，而他们其实是有重复的，白白浪费时间，时间复杂度：O(2^n)，树形递归的大小为 2^n2
-
-```c++
-class Solution {
-public:
-    int climbStairs(int n) {
-        if(n <= 0) return 0;
-        if(n == 1 || n == 2) return n;
-        return climbStairs(n-1) + climbStairs(n-2);
-    }
-};
-
-```
-
-稍微优化一下，改成线性的尾递归，可以通过
-
-```c++
-class Solution {
-public:
-    int climbStairs(int n) {
-        if (n <= 0)
-            return 0;
-        return recur(n);
-    }
-
-    int recur(int n, int temp1 = 1, int temp2 = 2, int curr = 3){
-        if(n == 1 || n == 2)
-            return n;
-        if (n == curr)
-            return temp1 + temp2;
-        else
-            return recur(n, temp2, temp1 + temp2, ++curr);
-    }
-};
-```
-
-时间复杂度：O(n)，树形递归的大小可以达到 n。
-空间复杂度：O(n)，递归树的深度可以达到 n。
-
-### 121.买卖股票的最佳时机
-
-给定一个数组，它的第 i 个元素是一支给定股票第 i 天的价格。
-
-如果你最多只允许完成一笔交易（即买入和卖出一支股票），设计一个算法来计算你所能获取的最大利润。
-
-注意你不能在买入股票前卖出股票。
-
-示例 1:
-
-输入: [7,1,5,3,6,4]
-输出: 5
-解释: 在第 2 天（股票价格 = 1）的时候买入，在第 5 天（股票价格 = 6）的时候卖出，最大利润 = 6-1 = 5 。
-     注意利润不能是 7-1 = 6, 因为卖出价格需要大于买入价格。
-示例 2:
-
-输入: [7,6,4,3,1]
-输出: 0
-解释: 在这种情况下, 没有交易完成, 所以最大利润为 0。
-
- 买卖股票的最佳时机的暴力解法
-
-明显时间复杂度为O(n^2)，运行时间只击败了9%
-
-```c++
-class Solution {
-public:
-    int maxProfit(vector<int>& prices) {
-        // brute force
-        if(prices.size() <= 1) return 0;
-        int maxProfit = 0;
-        int tempProfit = 0;
-        for(int i = 0; i < prices.size(); ++i){
-            for(int j = i+1; j < prices.size(); ++j){
-                tempProfit = prices[j] - prices[i];
-                if (tempProfit > maxProfit)
-                {
-                    maxProfit = tempProfit;
-                }
-            }
-        }
-        return maxProfit;
-    }
-};
-```
-
- 买卖股票的最佳时机的动态规划
-
-思路：想一想，状态转移在哪，当遍历数组时，当前值对最优解的影响在哪？如果前面最小值买进，当前值卖出，这是一个可能，当然也有可能是之前的决策更优，所以可以设dp[i]为前i天最大收益，状态转移方程为`dp[i]=max{dp[i-1], prices[i]-min(prices[0],...prices[i-1])`
-
-```c++
-class Solution {
-public:
-    int maxProfit(vector<int>& prices) {
-        // brute force
-        if(prices.size() <= 1) return 0;
-        int dp = 0;
-        int prevMin = prices[0];
-        for(int i = 1; i < prices.size(); ++i){
-            if(prices[i] > prevMin){
-                dp = maxTwo(dp, prices[i] - prevMin);
-            }
-            else{
-                prevMin = prices[i];
-            }
-        }
-        return dp;
-    }
-
-    int maxTwo(int a, int b){
-        return a > b ? a : b;
-    }
-};
-```
-
-Accepted
-200/200 cases passed (4 ms)
-Your runtime beats 98.38 % of cpp submissions
-Your memory usage beats 35.59 % of cpp submissions (9.5 MB)
-
-### 53.最大子序和
+### 53.最大子数组/最大连续子序列/最大子段和
 
 给定一个整数数组 nums ，找到一个具有最大和的连续子数组（子数组最少包含一个元素），返回其最大和。
 
@@ -4156,6 +4202,434 @@ public:
     }
 };
 ```
+
+### 152. 乘积最大子数组/最大子数组积/最大子段积
+
+给你一个整数数组 nums ，请你找出数组中乘积最大的连续子数组（该子数组中至少包含一个数字）。
+
+示例 1:
+
+输入: [2,3,-2,4]
+输出: 6
+解释: 子数组 [2,3] 有最大乘积 6。
+示例 2:
+
+输入: [-2,0,-1]
+输出: 0
+解释: 结果不能为 2, 因为 [-2,-1] 不是子数组。
+
+负数乘以负数，会变成正数，所以解这题的时候我们需要维护两个变量，当前的最大值，以及最小值，最小值可能为负数，但没准下一步乘以一个负数，当前的最大值就变成最小值，而最小值则变成最大值了。
+
+我们的动态方程可能这样：
+
+`maxDP[i + 1] = max(maxDP[i] * A[i + 1], A[i + 1], minDP[i] * A[i + 1])`
+
+`minDP[i + 1] = min(minDP[i] * A[i + 1], A[i + 1], maxDP[i] * A[i + 1])`
+
+`dp[i + 1] = max(dp[i], maxDP[i + 1])`
+
+这里，我们还需要注意元素为0的情况，如果A[i]为0，那么maxDP和minDP都为0，
+我们需要从A[i + 1]重新开始。
+
+```c++
+class Solution {
+public:
+    int maxProduct(vector<int>& nums) {
+        if(nums.empty()) return 0;
+        int n = nums.size();
+        int maxP = nums[0];
+        int minP = nums[0];
+        int ans = nums[0];
+        int temp;
+        for(int i = 1; i < n; ++i){
+            temp = maxP; // 暂存，防止修改，给minP的计算用
+            maxP = max(max(maxP*nums[i], minP*nums[i]), nums[i]);
+            minP = min(min(temp*nums[i], minP*nums[i]), nums[i]);
+            ans = max(ans, maxP);
+        }
+        return ans;
+    }
+};
+```
+
+### 63. 不同路径II
+
+一个机器人位于一个 m x n 网格的左上角 （起始点在下图中标记为“Start” ）。
+
+机器人每次只能向下或者向右移动一步。机器人试图达到网格的右下角（在下图中标记为“Finish”）。
+
+现在考虑网格中有障碍物。那么从左上角到右下角将会有多少条不同的路径？
+
+网格中的障碍物和空位置分别用 1 和 0 来表示。
+
+说明：m 和 n 的值均不超过 100。
+
+示例 1:
+
+输入:
+[
+  [0,0,0],
+  [0,1,0],
+  [0,0,0]
+]
+输出: 2
+解释:
+3x3 网格的正中间有一个障碍物。
+从左上角到右下角一共有 2 条不同的路径：
+
+1. 向右 -> 向右 -> 向下 -> 向下
+2. 向下 -> 向下 -> 向右 -> 向右
+
+```c++
+class Solution {
+public:
+    int uniquePathsWithObstacles(vector<vector<int>>& obstacleGrid) {
+        int rows = obstacleGrid.size();
+        int cols = obstacleGrid[0].size();
+        vector<vector<long long>> dp(rows, vector<long long>(cols, 0)); // 有些TC太大了
+        if (!obstacleGrid[0][0]) dp[0][0] = 1;
+        for(int i = 0; i < rows; ++i){
+            for(int j = 0; j < cols; ++j){
+                if(i == 0 && j == 0) continue; // 特判
+                dp[i][j] = 0;
+                if(!obstacleGrid[i][j]){ // 当前格子没有阻碍物
+                    if(i) dp[i][j] += dp[i-1][j]; // 不是在第一行的，才能从上往下转移
+                    if(j) dp[i][j] += dp[i][j-1]; // 不是在第一列的，才能从左往右转移
+                }
+            }
+        }
+        return dp[rows-1][cols-1];
+    }
+};
+```
+
+空间优化，只需要O(n)
+
+```c++
+class Solution {
+public:
+    int uniquePathsWithObstacles(vector<vector<int>>& obstacleGrid) {
+        int rows = obstacleGrid.size();
+        int cols = obstacleGrid[0].size();
+        if (!rows || !cols || obstacleGrid[0][0]) return 0; // 特判
+        vector<long long> dp(cols);
+        dp[0] = 1;
+        for(int i = 0; i < rows; ++i){
+            for(int j = 0; j < cols; ++j){
+                if(i == 0 && j == 0) continue;
+                if(obstacleGrid[i][j]){
+                    dp[j] = 0;
+                }
+                else{
+                    if(i) dp[j] = dp[j]; // 不是在第一行的，从上往下转移，其实这句可以省略
+                    if(j) dp[j] += dp[j-1]; // 不是在第一列的，才能从左往右转移
+                }
+            }
+        }
+        return dp[cols-1];
+    }
+};
+```
+
+### 64. 最小路径和
+
+给定一个包含非负整数的 m x n 网格，请找出一条从左上角到右下角的路径，使得路径上的数字总和为最小。
+
+说明：每次只能向下或者向右移动一步。
+
+示例:
+
+输入:
+[
+  [1,3,1],
+  [1,5,1],
+  [4,2,1]
+]
+输出: 7
+解释: 因为路径 1→3→1→1→1 的总和最小。
+
+很简单的题，记dp[i][j]为行走到grid[i][j]的最小路径和，而dp[i][j]只有可能从dp[i-1][j]或dp[i][j-1]转移而来，所以可以用一位数组来优化，这样空间复杂度只需要O(n)，若可以修改参数，则可以在原数组上修改，那么空间复杂度为O(1)
+
+```c++
+class Solution {
+public:
+    int minPathSum(vector<vector<int>>& grid) {
+        // if(grid.empty() || grid[0].empty()) return -1;
+        int n = grid.size();
+        int m = grid[0].size();
+        vector<int> dp(m, 0);
+        dp[0] = grid[0][0];
+        for(int j = 1; j < m; ++j){
+            dp[j] = dp[j-1] + grid[0][j]; // 第0行只有可能从左往右
+        }
+        for(int i = 1; i < n; ++i){
+            for(int j = 0; j < m; ++j){
+                if(j == 0) dp[j] += grid[i][j]; // 在最左边，只可能从上面转移过来
+                else dp[j] = min(dp[j], dp[j-1]) + grid[i][j]; // 从上面或左边转移过来
+            }
+        }
+        return dp[m-1];
+    }
+};
+```
+
+### 70.爬楼梯
+
+假设你正在爬楼梯。需要 n 阶你才能到达楼顶。
+
+每次你可以爬 1 或 2 个台阶。你有多少种不同的方法可以爬到楼顶呢？
+
+注意：给定 n 是一个正整数。
+
+示例 1：
+
+```c++
+输入： 2
+输出： 2
+解释： 有两种方法可以爬到楼顶。
+1.  1 阶 + 1 阶
+2.  2 阶
+```
+
+示例 2：
+
+```c++
+输入： 3
+输出： 3
+解释： 有三种方法可以爬到楼顶。
+1.  1 阶 + 1 阶 + 1 阶
+2.  1 阶 + 2 阶
+3.  2 阶 + 1 阶
+```
+
+ 动态规划，不就是找状态转移吗
+
+思路：找动态转移，要想爬上第n阶，只有可能在第n-1阶与第n-2阶的基础上，前进一步或两步，这题求的就是有多少种可能，显然就是求个“最大值”，所以dp[i]=dp[i-1]+dp[i-2]，而dp[1]=1，dp[2]=2，所以输出是个斐波那契数列，这里可以用循环的方式写（注意swap的目的是让temp1为dp[i-2]，temp2为dp[i-1]，这样计算出来的dp[i]可以直接覆盖temp1）
+
+```c++
+class Solution {
+public:
+    int climbStairs(int n) {
+        if(n == 1) return 1;
+        if(n == 2) return 2;
+        if(n == 3) return 3;
+        int temp1 = 1, temp2 = 2;
+        for(int i = 1; i <= n-2; ++i){
+            temp1 += temp2;
+            swap(temp1, temp2);
+        }
+        return temp2;
+    }
+};
+```
+
+时间复杂度：O(n)，单循环到 n 。
+
+空间复杂度：O(1)
+
+ 递归实现
+
+也可以用递归，但是要小心使用，像下面的代码在输入45时会超出时间限制！！！因为每个递归都分成了两个子递归，而他们其实是有重复的，白白浪费时间，时间复杂度：O(2^n)，树形递归的大小为 2^n2
+
+```c++
+class Solution {
+public:
+    int climbStairs(int n) {
+        if(n <= 0) return 0;
+        if(n == 1 || n == 2) return n;
+        return climbStairs(n-1) + climbStairs(n-2);
+    }
+};
+
+```
+
+稍微优化一下，改成线性的尾递归，可以通过
+
+```c++
+class Solution {
+public:
+    int climbStairs(int n) {
+        if (n <= 0)
+            return 0;
+        return recur(n);
+    }
+
+    int recur(int n, int temp1 = 1, int temp2 = 2, int curr = 3){
+        if(n == 1 || n == 2)
+            return n;
+        if (n == curr)
+            return temp1 + temp2;
+        else
+            return recur(n, temp2, temp1 + temp2, ++curr);
+    }
+};
+```
+
+时间复杂度：O(n)，树形递归的大小可以达到 n。
+空间复杂度：O(n)，递归树的深度可以达到 n。
+
+### 120. 三角形最小路径和
+
+给定一个三角形，找出自顶向下的最小路径和。每一步只能移动到下一行中相邻的结点上。
+
+例如，给定三角形：
+
+[
+     [2],
+    [3,4],
+   [6,5,7],
+  [4,1,8,3]
+]
+自顶向下的最小路径和为 11（即，2 + 3 + 5 + 1 = 11）。
+
+说明：
+
+如果你可以只使用 O(n) 的额外空间（n 为三角形的总行数）来解决这个问题，那么你的算法会很加分。
+
+题解：没有空间优化的dp
+
+状态定义：dp[i][j]表示包含第i行第j列元素的最小路径和
+
+初始化：dp[0][0]=triangle[0][0]
+
+常规：triangle[i][j]一定会经过triangle[i-1][j]或者triangle[i-1][j-1]，所以状态dp[i][j]一定等于dp[i-1][j]或者dp[i-1][j-1]的最小值+triangle[i][j]
+
+特殊：triangle[i][0]没有左上角 只能从triangle[i-1][j]经过，triangle[i][row[0].length]没有上面 只能从triangle[i-1][j-1]经过
+
+转换方程：dp[i][j]=min(dp[i-1][j], dp[i-1][j-1]) + triangle[i][j]
+
+题解：经过空间优化的dp
+
+观察自顶向下的代码会发现，对第i行的最小路径和的推导，只需要第i-1行的dp[i - 1][j]和dp[i - 1][j - 1]元素即可。可以使用两个变量暂存。一维的dp数组只存储第i行的最小路径和。
+
+为了最后得到结果方便，从下往上计算，最后得到dp[0]即为最小结果
+
+```c++
+class Solution {
+public:
+    int minimumTotal(vector<vector<int>>& triangle) {
+        int n = triangle.size();
+        vector<int> dp(triangle[n-1].begin(), triangle[n-1].end()); // 滚动数组，初始滚动数组为最后一行
+        // 从下往上，每次滚动数组有效长度都会减1，直到三角形顶点，这时滚动数组有效位只有dp[0]
+        for(int i = n - 2; i >= 0; --i){
+            for(int j = 0; j <= i; ++j){     // i == triangle[i].size()-1
+                dp[j] = min(dp[j], dp[j+1]) + triangle[i][j];
+            }
+        }
+        return dp[0];
+    }
+};
+```
+
+如果还允许修改triangle的话，那么可以做到O(1)的额外空间
+
+AcWing 898
+
+```c++
+#include <iostream>
+#include <vector>
+using namespace std;
+int main(){
+    int n;
+    cin >> n;
+    vector<vector<int>> maps(n, vector<int>(n, 0));
+    for(int i = 0; i < n; ++i){
+        for(int j = 0; j <= i; ++j){
+            int temp;
+            cin >> temp;
+            maps[i][j] = temp;
+        }
+    }
+    vector<int> dp(maps[n-1]);
+    for(int i = n - 2; i >= 0; --i){
+        for(int j = 0; j <= i; ++j){
+            dp[j] = max(dp[j], dp[j+1]) + maps[i][j];
+        }
+    }
+    cout << dp[0];
+    return 0;
+}
+```
+
+### 121.买卖股票的最佳时机
+
+给定一个数组，它的第 i 个元素是一支给定股票第 i 天的价格。
+
+如果你最多只允许完成一笔交易（即买入和卖出一支股票），设计一个算法来计算你所能获取的最大利润。
+
+注意你不能在买入股票前卖出股票。
+
+示例 1:
+
+输入: [7,1,5,3,6,4]
+输出: 5
+解释: 在第 2 天（股票价格 = 1）的时候买入，在第 5 天（股票价格 = 6）的时候卖出，最大利润 = 6-1 = 5 。
+     注意利润不能是 7-1 = 6, 因为卖出价格需要大于买入价格。
+示例 2:
+
+输入: [7,6,4,3,1]
+输出: 0
+解释: 在这种情况下, 没有交易完成, 所以最大利润为 0。
+
+ 买卖股票的最佳时机的暴力解法
+
+明显时间复杂度为O(n^2)，运行时间只击败了9%
+
+```c++
+class Solution {
+public:
+    int maxProfit(vector<int>& prices) {
+        // brute force
+        if(prices.size() <= 1) return 0;
+        int maxProfit = 0;
+        int tempProfit = 0;
+        for(int i = 0; i < prices.size(); ++i){
+            for(int j = i+1; j < prices.size(); ++j){
+                tempProfit = prices[j] - prices[i];
+                if (tempProfit > maxProfit)
+                {
+                    maxProfit = tempProfit;
+                }
+            }
+        }
+        return maxProfit;
+    }
+};
+```
+
+ 买卖股票的最佳时机的动态规划
+
+思路：想一想，状态转移在哪，当遍历数组时，当前值对最优解的影响在哪？如果前面最小值买进，当前值卖出，这是一个可能，当然也有可能是之前的决策更优，所以可以设dp[i]为前i天最大收益，状态转移方程为`dp[i]=max{dp[i-1], prices[i]-min(prices[0],...prices[i-1])`
+
+```c++
+class Solution {
+public:
+    int maxProfit(vector<int>& prices) {
+        // brute force
+        if(prices.size() <= 1) return 0;
+        int dp = 0;
+        int prevMin = prices[0];
+        for(int i = 1; i < prices.size(); ++i){
+            if(prices[i] > prevMin){
+                dp = maxTwo(dp, prices[i] - prevMin);
+            }
+            else{
+                prevMin = prices[i];
+            }
+        }
+        return dp;
+    }
+
+    int maxTwo(int a, int b){
+        return a > b ? a : b;
+    }
+};
+```
+
+Accepted
+200/200 cases passed (4 ms)
+Your runtime beats 98.38 % of cpp submissions
+Your memory usage beats 35.59 % of cpp submissions (9.5 MB)
 
 ### 198.打家劫舍
 
@@ -4421,8 +4895,452 @@ public:
 };
 ```
 
-回溯
-//TODO
+### 887. 鸡蛋掉落/鹰蛋问题
+
+你将获得 K 个鸡蛋，并可以使用一栋从 1 到 N  共有 N 层楼的建筑。每个蛋的功能都是一样的，如果一个蛋碎了，你就不能再把它掉下去。你知道存在楼层 F ，满足 0 <= F <= N 任何从高于 F 的楼层落下的鸡蛋都会碎，从 F 楼层或比它低的楼层落下的鸡蛋都不会破。每次移动，你可以取一个鸡蛋（如果你有完整的鸡蛋）并把它从任一楼层 X 扔下（满足 1 <= X <= N）。
+
+你的目标是确切地知道 F 的值是多少。无论 F 的初始值如何，你确定 F 的值的最小移动次数是多少？
+
+下面的O(n^2*m)的解法，在LeetCode上超时了
+
+---
+
+[AcWing 1048. 鸡蛋的硬度](https://www.acwing.com/problem/content/description/1050/)
+
+输入格式
+
+输入包括多组数据，每组数据一行，包含两个正整数 n 和 m，其中 n 表示楼的高度，m 表示你现在拥有的鸡蛋个数，这些鸡蛋硬度相同（即它们从同样高的地方掉下来要么都摔碎要么都不碎），并且小于等于 n。
+
+你可以假定硬度为 x 的鸡蛋从高度小于等于 x 的地方摔无论如何都不会碎（没摔碎的鸡蛋可以继续使用），而只要从比 x 高的地方扔必然会碎。
+
+对每组输入数据，你可以假定鸡蛋的硬度在 0 至 n 之间，即在 n+1 层扔鸡蛋一定会碎。
+
+输出格式
+对于每一组输入，输出一个整数，表示使用最优策略在最坏情况下所需要的扔鸡蛋次数。
+
+数据范围
+
+1≤n≤100,
+1≤m≤10
+
+输入样例：
+100 1
+100 2
+
+输出样例：
+100
+14
+
+样例解释
+最优策略指在最坏情况下所需要的扔鸡蛋次数最少的策略。
+
+如果只有一个鸡蛋，你只能从第一层开始扔，在最坏的情况下，鸡蛋的硬度是100，所以需要扔100次。如果采用其他策略，你可能无法测出鸡蛋的硬度(比如你第一次在第二层的地方扔,结果碎了,这时你不能确定硬度是0还是1)，即在最坏情况下你需要扔无限次，所以第一组数据的答案是100。
+
+动态规划
+
+(第一种状态定义) O(n^2*m)
+
+- f[i, j]表示i层楼，j个鸡蛋的测量方案中最坏情况的最小值
+- j个鸡蛋在足够多的情况下可以不用全部用完
+- 状态转移：
+  - 不使用第j个鸡蛋，方案数为f[i, j - 1]
+  - 使用第j个鸡蛋，则有1~i层楼共i种情况可以扔，假设在第k层扔：
+    - 蛋碎，搜索区间变成1~k-1（总共k-1个），鸡蛋个数减一，方案数为f[k - 1, j - 1]
+    - 蛋没碎，搜索区间变成k+1~i（总共i-k层），第j个蛋可重复利用，方案数为f[i - k, j]
+    - 枚举扔的楼层k，在所有可行方案中选择最大值即为最坏情况，答案就是这些情况的最小值
+    - 如何理解max与min：我们能控制的，就选择最好情况的（这题要求最少次数，所以min）；我们不能控制的，就选择最坏情况，比如我们无法知道在第k层扔第j个鸡蛋的情况，所以就取蛋碎与蛋没碎的max
+
+```c++
+#include <iostream>
+using namespace std;
+int f[110][15], n, m;
+int main() {
+    while (cin >> n >> m) {
+        for (int i = 1; i <= n; i ++ ) f[i][1] = i; // 只有1个鸡蛋，有多少层，就得扔多少次
+        for (int i = 1; i <= m; i ++ ) f[1][i] = 1; // 只有1层，无论多少个鸡蛋，只需扔一次
+        for (int i = 2; i <= n; i ++ ){
+            for (int j = 2; j <= m; j ++ ) {
+                f[i][j] = f[i][j - 1];              // 不扔第j个鸡蛋，那么就与只拥有j-1个鸡蛋的情况相同
+                for (int k = 1; k <= i; k ++ ){     // 扔第j个鸡蛋，在i层汇总枚举所有层数k
+                    int temp = max(f[k - 1][j - 1], f[i - k][j]);   // 我们不能控制该鸡蛋是否碎，所以取max
+                    ++temp;                                         // 扔第j个鸡蛋，算作一次出手，所以+1
+                    f[i][j] = min(f[i][j], temp);                   // 我们能控制是否扔该鸡蛋，所以取min
+                }
+            }
+        }
+        cout << f[n][m] << endl;
+    }
+    return 0;
+}
+```
+
+(第二种状态定义) O(nm)
+
+f[i, j]表示用j个鸡蛋测量i次能测量的区间长度的最大值
+
+f[n][m]一定大于等于n，所以一定是有解的
+
+枚举扔鸡蛋的楼层k，类似dp1，没碎测k楼以上，碎了测k楼以下，那么能测的最大高度就是上下两部分加上第k层楼这一层
+
+因为只有可能碎或者不随，所以k楼以下、k楼以上独立，各自取最大值再相加再加第k层
+
+![eggDP2](../image/eggdp2.png)
+
+```c++
+#include <iostream>
+using namespace std;
+
+int f[110][15], n, m;
+
+int main() {
+    while (cin >> n >> m) {
+        for (int i = 1; i <= n; i ++ ) {
+            for (int j = 1; j <= m; j ++ )
+                f[i][j] = f[i - 1][j] + f[i - 1][j - 1] + 1;    // 没碎 + 碎了 + 1（第k层）
+            if (f[i][m] >= n) {                                 // 已经能测量出n层了，可以提前终止
+                cout << i << endl;
+                break;
+            }
+        }
+    }
+    return 0;
+}
+```
+
+### 阿里巴巴2020.3.20实习生笔试
+
+弹钢琴，一段旋律中的每个音符可以用一个小写英文字母表示，当一段旋律的ASCII是非递减的，则旋律是高昂的，例如aaa，bcd。
+
+现在小强已经学会了n段高昂旋律，想拼接成一个尽可能长的高昂旋律，问最长长度是多少
+
+输入一行正整数n，接下来n行每行一个字符串，保证每个字符串的字符的ASCII都是非递减的，1<=n<=10^6，保证所有字符串长度之和不超过10^6，且仅有小写字母构成
+
+输出一行一个整数代表答案
+
+样例
+
+输入
+4
+aaa
+bcd
+zzz
+bcdef
+
+输出
+11
+
+解释
+将1，4，3段字符串拼接在一起，长度为11
+
+```c++
+#include <iostream>
+#include <vector>
+#include <string>
+#include <algorithm>
+using namespace std;
+int main()
+{
+    int n;
+    cin >> n;
+    string temp;
+    vector<string> strs(n+1);
+    int dp[n+1]; // 以第i个字符串结尾最大长度
+    for (int i = 1; i <= n; ++i)
+    {
+        cin >> temp;
+        strs[i] = temp;
+        dp[i] = temp.size(); // 每个字符串都可以以它们自己结尾
+    }
+    sort(strs.begin(), strs.end());
+    for (int i = 1; i <= n; ++i){
+        for (int j = 1; j < i; ++j){
+            if(strs[j].back() <= strs[i].front()) // 第i个字符串可以接在第j个后面，j<i
+                dp[i] = max(dp[i], dp[j] + (int)strs[i].size());
+        }
+    }
+    // 遍历dp数组找答案
+    int max_ = 0;
+    for (int i = 1; i <= n; ++i){
+        max_ = max(max_, dp[i]);
+    }
+    cout << max_ << endl;
+    return 0;
+}
+```
+
+### 300. 最长上升子序列
+
+给定一个无序的整数数组，找到其中最长上升子序列的长度。
+
+示例:
+
+输入: [10,9,2,5,3,7,101,18]
+输出: 4
+解释: 最长的上升子序列是 [2,3,7,101]，它的长度是 4。
+说明:
+
+可能会有多种最长上升子序列的组合，你只需要输出对应的长度即可。
+你算法的时间复杂度应该为 O(n2) 。
+进阶: 你能将算法的时间复杂度降低到 O(n log n) 吗?
+
+第一次尝试：原数组排序后，再与原数组求最长公共子序列（LCS），得到的长度即为最长上升子序列（LIS），但是这种做法只适用于数组没有重复数字的情况或者不严格递增（LIS中的Increasing包括等于号），假设输入[2,2]，则应该输出1，但是经过排序后的LCS比较，输出的是2，于是错误
+
+O(n^2)时间的动态规划
+
+定义状态：
+
+- 由于一个子序列一定会以一个数结尾，于是将状态定义成：dp[i] 表示以 nums[i] 结尾的「上升子序列」的长度。
+- 注意：这个定义中 nums[i] 必须被选取，且必须是这个子序列的最后一个元素。
+- 这种状态定义比较套路，“以a[i]结尾的xxx"
+
+状态转移：
+
+- 遍历到 nums[i] 时，需要把下标 i 之前的所有的数都看一遍；
+- 只要 nums[i] 严格大于在它位置之前的某个数，那么 nums[i] 就可以接在这个数后面形成一个更长的上升子序列；
+- 因此，dp[i] 就等于下标 i 之前严格小于 nums[i] 的状态值的最大者+1。
+- 语言描述：在下标 i 之前严格小于 nums[i] 的所有状态值中的最大者+1。
+
+初始化：dp[i] = 1，1个字符显然是长度为1的上升子序列。
+
+输出：根据定义，dp最后一个值不一定是最大值，所以要遍历dp找到最大值
+
+```c++
+class Solution {
+public:
+    int lengthOfLIS(vector<int>& nums) {
+        if(nums.empty()) return 0;
+        int n = nums.size();
+        vector<int> dp(n, 1);
+        for(int i = 1; i < n; ++i){
+            for(int j = 0; j < i; ++j){
+                // 如果nums[j] < nums[i]，则dp[i] = dp[j] + 1，遍历所有j<i的情况，取max
+                if(nums[j] < nums[i]) dp[i] = max(dp[i], dp[j] + 1);
+            }
+        }
+        int len = 1;
+        for(int i = 0; i < n; ++i){
+            len = max(len, dp[i]);
+        }
+        return len;
+    }
+};
+```
+
+O(nlogn)时间的动态规划
+
+仔细分析：
+
+- 上面的做法在遍历0...j时需要花费O(n)时间，外层遍历1...n也需要O(n)，所以总时间是O(n^2)，考虑一下能否加快一下内层遍历时间
+- 我们考虑：是否可以通过重新设计状态定义，使整个dp为一个排序列表；这样在计算每个dp[k]时，就可以通过二分法遍历[0,k)区间元素，将此部分复杂度由O(N)降至O(logN)。
+- 考虑一个简单的贪心，如果我们要使上升子序列尽可能的长，则我们需要让序列**上升得尽可能慢**，因此我们希望每次在上升子序列最后加上的那个数尽可能的小。
+- 基于上面的贪心思路，我们维护一个数组d[i] ，表示**长度为i的最长上升子序列的末尾元素的最小值**，用len记录目前最长上升子序列的长度，起始时len为1，d[1] = nums[0]，显然d[i]是单调的，根据单调性即可用二分查找
+- 我们依次遍历数组nums中的每个元素，并更新d和len
+  - 如果nums[i] > d[len]，则更新len=len+1，并插入到d后面
+  - 否则，在d[1...len]中找满足d[i-1] < nums[j] < d[i]的下标i，并更新d[i] = nums[j]，这可以用lower_bound来做
+
+```c++
+class Solution {
+public:
+    int lengthOfLIS(vector<int>& nums) {
+        vector<int> minnums;
+        for(int v : nums)
+        {
+            if(!minnums.size() || v > minnums.back()) // 如果d为空或者v大于d的末尾元素（即d的最大值
+                minnums.push_back(v);
+            else
+                // lower_bound返回第一个不小于查找键k的元素的位置，再将v赋值到这个位置上
+                *lower_bound(minnums.begin(), minnums.end(), v) = v;
+        }
+        return minnums.size();
+    }
+};
+```
+
+### 1143. 最长公共子序列
+
+给定两个字符串 text1 和 text2，返回这两个字符串的最长公共子序列。
+
+一个字符串的 子序列 是指这样一个新的字符串：它是由原字符串在不改变字符的相对顺序的情况下删除某些字符（也可以不删除任何字符）后组成的新字符串。
+例如，"ace" 是 "abcde" 的子序列，但 "aec" 不是 "abcde" 的子序列。两个字符串的「公共子序列」是这两个字符串所共同拥有的子序列。
+
+若这两个字符串没有公共子序列，则返回 0。
+
+示例 1:
+
+输入：text1 = "abcde", text2 = "ace"
+输出：3  
+解释：最长公共子序列是 "ace"，它的长度为 3。
+
+示例 2:
+
+输入：text1 = "abc", text2 = "abc"
+输出：3
+解释：最长公共子序列是 "abc"，它的长度为 3。
+示例 3:
+
+输入：text1 = "abc", text2 = "def"
+输出：0
+解释：两个字符串没有公共子序列，返回 0。
+
+状态转移方程：
+
+dp[i][j]=dp[i-1][j-1]+1; //text1[i-1]==text2[j-1]
+dp[i][j]=max(dp[i][j],dp[i][j-1]); //text1[i-1]!=text2[j-1]
+
+在利用二维dp数组存储结果时，需要用到dp[i-1][j-1] (左上方),dp[i-1][j] (上边),dp[i][j-1] (左边)。
+
+这里开辟的数组是大了一圈的，正好在第0行和第0列都是0，这样在for循环里就不用特判了，非常方便！
+
+```c++
+class Solution {
+public:
+    int longestCommonSubsequence(string text1, string text2) {
+        int n=text1.size(),m=text2.size();
+        int dp[n+1][m+1];
+        memset(dp, 0, sizeof(dp));
+        for(int i = 1; i <= n; ++i){
+            for(int j = 1; j <= m; ++j){
+                if(text1[i-1] == text2[j-1]){
+                    dp[i][j] = dp[i-1][j-1] + 1;
+                }
+                else{
+                     dp[i][j] = max(dp[i-1][j], dp[i][j-1]);
+                }
+            }
+        }
+    return dp[n][m];
+    }
+};
+```
+
+优化为滚动数组存储结果时，由于在从左到右计算dp[j] (dp[i][j]) 的时候dp[j-1] (dp[i-1][j-1]) 已被更新为dp[j-1]（dp[i][j-1]），所以只需要提前定义一个变量last去存储二维dp数组左上方的值dp[i-1][j-1],即未被更新前的dp[j-1];
+
+注意：计算每一行的第一个元素时候，last需要初始化为0。
+
+```c++
+class Solution {
+public:
+    int longestCommonSubsequence(string text1, string text2) {
+        int n=text1.size(),m=text2.size();
+        int dp[m+1];
+        int last, temp;
+        memset(dp, 0, sizeof(dp));
+        for(int i = 1; i <= n; ++i, last = 0){
+            for(int j = 1; j <= m; ++j){
+                temp = dp[j];
+                if(text1[i-1] == text2[j-1]){
+                    dp[j] = last + 1;
+                }
+                else{
+                     dp[j] = max(dp[j], dp[j-1]);
+                }
+                last = temp;
+            }
+        }
+    return dp[m];
+    }
+};
+```
+
+AcWing 897
+
+闫式dp分析法（对于这题也许没必要用）
+
+状态表示
+
+集合：a[1...i]与b[1...j]的公共子序列的集合
+
+属性：max
+
+集合划分：f[i][j]可以划分四种情况
+
+- 00：即a[i]与b[j]都不在公共子序列里，f[i-1][j-1]
+- 01：即a[i]不在，b[j]在，f[i-1][j]
+- 10：即a[i]在，b[j]不在，f[i][j-1]
+- 11：即a[i]在，b[j]在，f[i][j]，只有在a[i]==b[j]时才存在这种状态
+
+因为这里是求max，所以上述分法是有重复的，这也是允许的，不难发现f[i-1][j-1]包含于f[i-1][j]，也包含于f[i][j-1]，所以只需求f[i-1][j]、f[i][j-1]、f[i][j]
+
+![lcsyandp](../image/lcsyandp.png)
+
+```c++
+#include <iostream>
+using namespace std;
+const int N = 1010;
+char a[N], b[N];
+int f[N][N];
+int n, m;
+int main(){
+    cin >> n >> m >> a + 1 >> b + 1; // 从1开始
+    for(int i = 1; i <= n; ++i){
+        for(int j = 1; j <= m; ++j){
+            f[i][j] = max(f[i-1][j], f[i][j-1]);
+            if(a[i] == b[j]) f[i][j] = max(f[i][j], f[i-1][j-1]+1);
+        }
+    }
+    cout << f[n][m] << endl;
+    return 0;
+}
+```
+
+### 72. 编辑距离
+
+给定两个单词 word1 和 word2，计算出将 word1 转换成 word2 所使用的最少操作数 。
+
+你可以对一个单词进行如下三种操作：
+
+插入一个字符
+删除一个字符
+替换一个字符
+示例 1:
+
+输入: word1 = "horse", word2 = "ros"
+输出: 3
+解释:
+horse -> rorse (将 'h' 替换为 'r')
+rorse -> rose (删除 'r')
+rose -> ros (删除 'e')
+示例 2:
+
+输入: word1 = "intention", word2 = "execution"
+输出: 5
+解释:
+intention -> inention (删除 't')
+inention -> enention (将 'i' 替换为 'e')
+enention -> exention (将 'n' 替换为 'x')
+exention -> exection (将 'n' 替换为 'c')
+exection -> execution (插入 'u')
+
+```c++
+class Solution {
+public:
+    int minDistance(string word1, string word2) {
+        //集合表示 dp[i][j] 对前i个字符进行操作,转换为目标的前j个字符的操作次数 属性->操作次数最小值
+        //集合划分 dp[i][j]的来源  考虑对第i个字符进行的操作是什么
+        //1 插入操作 从而相等 所以先让前i个字符变为j-1字符，然后在第i处插入j代表的字符 即dp[i][j-1]+1
+        //2 删除操作 从而相等 所以先让前i-1个字符变为j字符，然后在第i处删除 即dp[i-1][j]+1
+        //3 替换操作 从而相等 if(i处等于j处 不需要替换) 即dp[i-1][j-1]
+        //                   else 需要替换 dp[i-1][j-1]+1
+        //上述取个最小值即可
+        int n = word1.size(), m = word2.size();
+        int dp[n+1][m+1];
+        memset(dp, 0, sizeof(dp));
+        // word1:1..m  ; word2:1..n
+        for(int i = 0; i <= n; ++i) dp[i][0] = i; // word2长度为0，所以word1的i个都要删除
+        for(int j = 0; j <= m; ++j) dp[0][j] = j; // word1长度为0，所以word1要增加i个
+        for(int i = 1; i <= n; ++i){
+            for(int j = 1; j <= m; ++j){
+                dp[i][j] = min(dp[i][j-1], dp[i-1][j]) + 1; //插入和删除时
+                dp[i][j] = min(dp[i][j], dp[i-1][j-1] + (word1[i-1]==word2[j-1] ? 0:1)); //替换时
+                // 也可以用下面这两行
+                // if(word1[i-1] == word2[j-1]) dp[i][j] = dp[i-1][j-1];
+                // else dp[i][j] = min(min(dp[i-1][j]+1, dp[i][j-1]+1), dp[i-1][j-1]+1);
+            }
+        }
+        return dp[n][m];
+    }
+};
+```
 
 ## 设计
 
@@ -4845,6 +5763,68 @@ B   C   D
 bottom 的长度范围在 [2, 8]。
 allowed 的长度范围在[0, 200]。
 方块的标记字母范围为{'A', 'B', 'C', 'D', 'E', 'F', 'G'}。
+
+### 1391. 检查网格中是否存在有效路径
+
+给你一个 m x n 的网格 grid。网格里的每个单元都代表一条街道。grid[i][j] 的街道可以是：
+
+1 表示连接左单元格和右单元格的街道。
+2 表示连接上单元格和下单元格的街道。
+3 表示连接左单元格和下单元格的街道。
+4 表示连接右单元格和下单元格的街道。
+5 表示连接左单元格和上单元格的街道。
+6 表示连接右单元格和上单元格的街道。
+
+![lc1391](../image/lc1391.png)
+
+深搜，判断(x,y)从i方向到(a,b)，i为上下左右四个方向，每次要加上两个判断
+
+- (x,y)的的i方向是否是1
+- (a,b)的-i方向是否是1，直接与2异或即可
+
+首先是先打个表，6种街道模型是6个长度为4的数组，不接通的方向为0，接通的方向为1
+
+为了减少重复搜索，记录已访问过的块，这里直接修改原数组
+
+```c++
+class Solution {
+public:
+    bool hasValidPath(vector<vector<int>>& grid) {
+        return dfs(0, 0, grid);
+    }
+    // 定义四个方向，x正半轴往下，y正半轴往右
+    // 四个方向的遍历顺序为：上、右、下、左
+    int dx[4] = {-1, 0, 1, 0}, dy[4] = {0, 1, 0, -1};
+    // 打表：六个单元对应方向连通则为1，比如state[0]={0,1,0,1}，说明右与左连通
+    int state[6][4] = {
+        {0, 1, 0, 1},
+        {1, 0, 1, 0},
+        {0, 0, 1, 1},
+        {0, 1, 1, 0},
+        {1, 0, 0, 1},
+        {1, 1, 0, 0},
+    };
+
+    bool dfs(int x, int y, vector<vector<int>>& grid) {
+        int n = grid.size(), m = grid[0].size();
+        if (x == n - 1 && y == m - 1) return true;
+
+        int k = grid[x][y];
+        grid[x][y] = 0; // 直接修改原数组，为0则说明已访问
+
+        for (int i = 0; i < 4; i ++ ) { // 四个方向试一试
+            int a = x + dx[i], b = y + dy[i];
+            if (a < 0 || a >= n || b < 0 || b >= m || !grid[a][b]) continue;
+            // 当前单元在i方向连通，下个单元在-i方向连通，i是0 1 2 3，i异或2可以得到反方向
+            if (!state[k - 1][i] || !state[grid[a][b] - 1][i ^ 2]) continue;
+
+            if (dfs(a, b, grid)) return true;
+        }
+
+        return false;
+    }
+};
+```
 
 ## 模拟
 
@@ -5641,6 +6621,32 @@ public:
         return res;
     }
 };
+```
+
+也可以不用哈希表，只需要记录一下即可
+
+- 记录两者不一样的数量，包括不一样时第一个字符串中为A的数量，和不一样时第一个字符串为T的数量
+- 分开记录
+- 然后取这两个数量里min的那个，是这两位互相交换的情况
+- 再取两者的差的abs，是直接替换的情况
+- 两者和即为结果
+
+```c++
+string DNA1, DNA2;
+cin >> DNA1 >> DNA2;
+int countA = 0;
+int countT = 0;
+for(int i = 0; i < DNA1.size(); ++i){
+    if(DNA1[i] != DNA2[i] && DNA1[i] == 'A'){
+        ++countA;
+    }
+    if(DNA1[i] != DNA2[i] && DNA1[i] == 'T'){
+        ++countT;
+    }
+}
+int n1 = min(countA, countT);
+int n2 = abs(countT, countA);
+cout << n1 + n2;
 ```
 
 ### 347. 前 K 个高频元素
@@ -7187,142 +8193,6 @@ public:
 ```
 
 ## 动态规划with闫学灿
-
-### 120. 三角形最小路径和
-
-给定一个三角形，找出自顶向下的最小路径和。每一步只能移动到下一行中相邻的结点上。
-
-例如，给定三角形：
-
-[
-     [2],
-    [3,4],
-   [6,5,7],
-  [4,1,8,3]
-]
-自顶向下的最小路径和为 11（即，2 + 3 + 5 + 1 = 11）。
-
-说明：
-
-如果你可以只使用 O(n) 的额外空间（n 为三角形的总行数）来解决这个问题，那么你的算法会很加分。
-
-题解：没有空间优化的dp
-
-状态定义：dp[i][j]表示包含第i行第j列元素的最小路径和
-
-初始化：dp[0][0]=triangle[0][0]
-
-常规：triangle[i][j]一定会经过triangle[i-1][j]或者triangle[i-1][j-1]，所以状态dp[i][j]一定等于dp[i-1][j]或者dp[i-1][j-1]的最小值+triangle[i][j]
-
-特殊：triangle[i][0]没有左上角 只能从triangle[i-1][j]经过，triangle[i][row[0].length]没有上面 只能从triangle[i-1][j-1]经过
-
-转换方程：dp[i][j]=min(dp[i-1][j], dp[i-1][j-1]) + triangle[i][j]
-
-题解：经过空间优化的dp
-
-观察自顶向下的代码会发现，对第i行的最小路径和的推导，只需要第i-1行的dp[i - 1][j]和dp[i - 1][j - 1]元素即可。可以使用两个变量暂存。一维的dp数组只存储第i行的最小路径和。
-
-为了最后得到结果方便，从下往上计算，最后得到dp[0]即为最小结果
-
-```c++
-class Solution {
-public:
-    int minimumTotal(vector<vector<int>>& triangle) {
-        int n = triangle.size();
-        vector<int> dp(triangle[n-1].begin(), triangle[n-1].end()); // 滚动数组，初始滚动数组为最后一行
-        // 从下往上，每次滚动数组有效长度都会减1，直到三角形定点，滚动数组有效位只有dp[0]
-        for(int i = n - 2; i >= 0; --i){
-            for(int j = 0; j <= i; ++j){     // i == triangle[i].size()-1
-                dp[j] = min(dp[j], dp[j+1]) + triangle[i][j];
-            }
-        }
-        return dp[0];
-    }
-};
-```
-
-如果还允许修改triangle的话，那么可以做到O(1)的额外空间
-
-### 63. 不同路径 II
-
-一个机器人位于一个 m x n 网格的左上角 （起始点在下图中标记为“Start” ）。
-
-机器人每次只能向下或者向右移动一步。机器人试图达到网格的右下角（在下图中标记为“Finish”）。
-
-现在考虑网格中有障碍物。那么从左上角到右下角将会有多少条不同的路径？
-
-网格中的障碍物和空位置分别用 1 和 0 来表示。
-
-说明：m 和 n 的值均不超过 100。
-
-示例 1:
-
-输入:
-[
-  [0,0,0],
-  [0,1,0],
-  [0,0,0]
-]
-
-输出: 2
-
-解释:
-3x3 网格的正中间有一个障碍物。
-从左上角到右下角一共有 2 条不同的路径：
-
-1. 向右 -> 向右 -> 向下 -> 向下
-2. 向下 -> 向下 -> 向右 -> 向右
-
-```c++
-class Solution {
-public:
-    int uniquePathsWithObstacles(vector<vector<int>>& obstacleGrid) {
-        int rows = obstacleGrid.size();
-        int cols = obstacleGrid[0].size();
-        vector<vector<long long>> dp(rows, vector<long long>(cols, 0)); // 有些TC太大了
-        if (!obstacleGrid[0][0]) dp[0][0] = 1;
-        for(int i = 0; i < rows; ++i){
-            for(int j = 0; j < cols; ++j){
-                if(i == 0 && j == 0) continue; // 特判
-                dp[i][j] = 0;
-                if(!obstacleGrid[i][j]){ // 当前格子没有阻碍物
-                    if(i) dp[i][j] += dp[i-1][j]; // 不是在第一行的，才能从上往下转移
-                    if(j) dp[i][j] += dp[i][j-1]; // 不是在第一列的，才能从左往右转移
-                }
-            }
-        }
-        return dp[rows-1][cols-1];
-    }
-};
-```
-
-空间优化，只需要O(n)
-
-```c++
-class Solution {
-public:
-    int uniquePathsWithObstacles(vector<vector<int>>& obstacleGrid) {
-        int rows = obstacleGrid.size();
-        int cols = obstacleGrid[0].size();
-        if (!rows || !cols || obstacleGrid[0][0]) return 0; // 特判
-        vector<long long> dp(cols);
-        dp[0] = 1;
-        for(int i = 0; i < rows; ++i){
-            for(int j = 0; j < cols; ++j){
-                if(i == 0 && j == 0) continue;
-                if(obstacleGrid[i][j]){
-                    dp[j] = 0;
-                }
-                else{
-                    if(i) dp[j] = dp[j]; // 不是在第一行的，从上往下转移，其实这句可以省略
-                    if(j) dp[j] += dp[j-1]; // 不是在第一列的，才能从左往右转移
-                }
-            }
-        }
-        return dp[cols-1];
-    }
-};
-```
 
 ### 354. 俄罗斯套娃信封问题
 
