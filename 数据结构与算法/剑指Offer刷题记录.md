@@ -112,7 +112,7 @@ public:
 
 用哈希表当然可以实现O(n)时间复杂度的算法，辅助空间为O(n)，但是没有充分考虑到数组的特点，实际上我们可以用O(n)的辅助空间数组来实现O(n)时间复杂度的算法，注意到值为1~n的数字存在于长度为n+1的数组中，对数组遍历，每次把当前元素m值复制到辅助空间下标为m的位置，这样很容易发现哪个数字是重复的。
 
-但是如果题目要求辅助空间为O(1)怎么办呢？这里有个好方法，把1~n的数字从中间的数字m分为两部分，前面一半为1~m，后面一般为m+1~n，如果1~m的数字的数目超过m，那么这个区间里面一定包含重复元素，否则另一半m+1~n区间里面一定包含重复元素，继续把包含元素的区间一分为二，这个过程和二分查找很相似，只是多了一层统计区间里的数字数目。二分查找耗时O(logn)，每次统计需要O(n)，所以总的时间复杂度为O(nlogn)，但空间复杂度为O(1)，这种算法相当于以空间换时间。
+但是如果题目要求辅助空间为O(1)怎么办呢？这里有个好方法，把1~n的数字从中间的数字m分为两部分，前面一半为1~m，后面一般为m+1~n，如果1~m的数字的数目超过m，那么这个区间里面一定包含重复元素，否则另一半m+1~n区间里面一定包含重复元素，继续把包含元素的区间一分为二，这个过程和二分查找很相似，只是多了一层统计区间里的数字数目。二分查找耗时O(logn)，每次统计需要O(n)，所以总的时间复杂度为O(nlogn)，但空间复杂度为O(1)，这种算法相当于以时间换空间。
 
 ```c++
 int getDuplication(const int* numbers, int length)
@@ -159,7 +159,9 @@ int countRange(const int* numbers, int length, int start, int end)
 
 在一个二维数组中（每个一维数组的长度相同），每一行都按照从左到右递增的顺序排序，每一列都按照从上到下递增的顺序排序。请完成一个函数，输入这样的一个二维数组和一个整数，判断数组中是否含有该整数。
 
-首先选取右上角的数字，如果比target大，则最右列可以排除，列数减一，形成新二维数组，如果比target小，则最上行可以排除，行数加一，形成新二维数组，重复这个过程，直到找到与target同样的数字，或者行数or列数超过界限。这种方法也可以从左下角开始，但是不能从左上角or右下角开始，因为行列的排序关系。
+首先选取右上角的数字，如果比target大，则最右列可以排除，列数减一，形成新二维数组，如果比target小，则最上行可以排除，行数加一，形成新二维数组，重复这个过程，直到找到与target同样的数字，或者行数or列数超过界限。
+
+这种方法也可以从左下角开始，但是不能从左上角or右下角开始，因为行列的排序关系。可以想象，左上角是最小值，右下角是最大值，如果从左上角开始，有解的target肯定大于min，这样就不知道往左移动还是往下移动，所以一定要从右上角或者左下角开始，这样有两条路可以选。
 
 时间复杂度：O(行+列)，空间复杂度O(1)
 
@@ -374,12 +376,20 @@ public:
 3. 如果当前节点是右儿子，则判断父亲是否为左儿子，若为左儿子，则返回父亲，若是右儿子，则把当前节点设为父亲节点，继续往上判断，若直到根节点还没找到，则当前节点没有下一个节点
 
 ```c++
+struct TreeLinkNode {
+    int val;
+    struct TreeLinkNode *left;
+    struct TreeLinkNode *right;
+    struct TreeLinkNode *next;
+    TreeLinkNode(int x) :val(x), left(NULL), right(NULL), next(NULL) {
+    }
+};
 class Solution {
 public:
     TreeLinkNode* GetNext(TreeLinkNode* pNode)
     {
         TreeLinkNode* nextNode;
-        // pNode has right subtree
+        // if pNode has right subtree
         if(pNode->right){
             nextNode = pNode->right;
             while(nextNode->left){
@@ -387,21 +397,24 @@ public:
             }
             return nextNode;
         }
-        // pNode has no right subtree
+        // pNode doesn't have right subtree
+        // if pNode doesn't have parent
         if(!pNode->next) return nullptr;
+        // pNode has parent
         nextNode = pNode->next;
         // if pNode is left child
         if(pNode == nextNode->left){
             return nextNode;
         }
-        // if pNode is right child
+        // pNode is right child
+        // recursively find parent when parent is right child
         while(nextNode->next && nextNode == nextNode->next->right){
             nextNode = nextNode->next;
         }
         if(!nextNode->next){
             return nullptr; // now nextNode is root, so no next node
         }
-        return nextNode->next;
+        return nextNode->next; // now parent is left child of grandpa, return grandpa
     }
 };
 ```
@@ -564,6 +577,17 @@ public:
 };
 ```
 
+由于f(n) = f(n - 1) + .. + f(2) + f(1), 那么我们容易得出f(n - 1) = f(n - 2) + .. + f(2) + f(1) 。将后者代入前者，我们得到：f(n) = f(n - 1) + f(n - 1),即f(n) = 2 * f(n - 1)，这是一个等比数列，因此直接使用等比数列的通项公式aq^(n - 1)即可,在本题中a（首项）为1，q为2（公比）。
+
+```c++
+class Solution {
+public:
+    int jumpFloorII(int number) {
+        return pow(2, number-1);
+    }
+};
+```
+
 ## 查找和排序
 
 查找和排序都是在程序设计中经常用到的算法。查找相对而言较为简单，不外乎顺序查找、二分查找、哈希表查找和二叉排序树查找。在面试的时候，不管是用循环还是用递归，面试官都期待应聘者能够信手拈来写出完整正确的二分查找代码，否则可能连继续面试的兴趣都没有。题8“旋转数组的最小数字”和题38“数字在排序数组中出现的次数”都可以用二分查找算法解决。
@@ -624,7 +648,7 @@ public:
     bool hasPath(char* matrix, int rows, int cols, char* str)
     {
         if(matrix == nullptr || rows < 1 || cols < 1 || str == nullptr) return false;
-        bool* visited = new bool[rows*cols];
+        bool* visited = new bool[rows*cols]; // C语言做法，visited是个指针，指向一块bool数据空间（二维的），这样在函数中可以修改值，如果用C++用传引用的传参方法
         for(int i = 0; i < rows*cols; ++i){
             visited[i] = 0;
         }
@@ -744,24 +768,26 @@ f(n)=max{f(1)f(n-1), f(2)f(n-2), f(3)f(n-3), ..., f(i)(fn-i), ...}
 
 因为需要保证f(i)f(n-i)不重复，就需要保证i<=n/2，这是一个限制条件，求1～n/2范围内的乘积，得到最大值
 
+注意循环顺序：number从4开始，从下往上一步步计算，可以保证在求dp[i]之前，dp[j]都已算出来了，`0<j<i`
+
 ```c++
-class Solution {
+class Solution
+{
 public:
-    int cutRope(int number) {
-        if(number == 2) return 1;
-        if(number == 3) return 2;
-        vector<int> dp = {0, 1, 2, 3};
+    int cutRope(int number){
+        if (number < 2) return 0;
+        if (number == 2) return 1; // 这里的2必须要分，所以最大乘积是1
+        if (number == 3) return 2; // 这里的3必须要分，所以最大乘积是2
+        vector<int> dp = {0, 1, 2, 3}; // 这里的1、2、3可以不分，所以最大乘积就是本身
         int cur_max = 0;
         int temp_product = 0;
-        for(int i = 4; i <= number; ++i){
-            int cur_max = 0;
-            for(int j = 1; j < (i-j)/2 ; ++j){
-                temp_product = dp[j] * dp[i-j];
-                if(temp_product > cur_max){
-                    cur_max = temp_product;
-                }
+        for (int i = 4; i <= number; ++i){
+            cur_max = 0;
+            for (int j = 1; j <= i / 2; ++j){
+                temp_product = dp[j] * dp[i - j];
+                cur_max = max(cur_max, temp_product);
+                dp[i] = cur_max; // 必须放在内层for循环里面！
             }
-            dp[i] = cur_max; // 书本参考答案把这行放在了内层for循环里面，我觉得有点浪费，只需要在外层循环最后赋值即可
         }
         return dp[number];
     }
@@ -908,7 +934,7 @@ public:
         if(exponent == 1){
             return base;
         }
-        double result = Power(base, exponent >> 1);
+        double result = PowerWithUnsignedExponent(base, exponent >> 1);
         result *= result;
         if(exponent & 0x1){
             result *= base;
@@ -918,22 +944,64 @@ public:
 };
 ```
 
-快速幂的不用递归，用循环的方式也可以，毕竟递归用时更久
+快速幂的不用递归，用循环的方式也可以，毕竟递归用时更久，推荐这种做法
 
 ```c++
-    double PowerWithUnsignedExponent(double base, int exponent) {
-        int n = 1;
-        double result = base;
-        while(n < exponent-1){
-            result *= result;
-            n = n << 1;
+class Solution {
+public:
+    double Power(double base, int exponent) {
+        if(base == 0.0) return 0.0;
+        if(exponent == 0) return 1.0;
+        if(exponent == 1) return base;
+        bool isPositiveExp = true;
+        if(exponent < 0){
+            isPositiveExp = false;
+            exponent = -exponent;
         }
-        for(int i = 0; i < exponent - n; ++i){
-            result *= base;
-        }
-        return result;
+        double res = quickPower(base, exponent);
+        if(!isPositiveExp) res = 1.0 / res;
+        return res;
     }
+    double quickPower(double base, int exponent){
+        double res = 1.0;
+        while(exponent > 0){
+            if(exponent & 1) res *= base;
+            base *= base;
+            exponent >>= 1;
+        }
+        return res;
+    }
+};
 ```
+
+理解快速幂：
+
+假设我们要求a^b，那么其实b是可以拆成二进制的，该二进制数第i位的权为2^(i-1)，
+
+例如当b==11时，a^11=a(2^0+2^1+2^3)，11的二进制是1011，
+
+`11 = 2^3×1 + 2^2×0 + 2^1×1 + 2^0×1`，
+
+因此，我们将a^11转化为算`a^(2^0)*a^(2^1)*a^(2^3)`，也就是`a^1*a^2*a^8`
+
+```c++
+int poww(int a, int b) {
+    int ans = 1, base = a;
+    while (b != 0) {
+        if (b & 1 != 0)
+            ans *= base;
+            base *= base;
+            b >>= 1;
+    }
+    return ans;
+}
+```
+
+以b==11为例，b=>1011，二进制从右向左算，但乘出来的顺序是 `a^(2^0)*a^(2^1)*a^(2^3)`，是从左向右的。我们不断的让base*=base目的即是累乘，以便随时对ans做出贡献。
+
+其中要理解base*=base这一步：因为 `base*base==base^2`，下一步再乘，就是`base^2*base^2==base^4`，然后同理  `base^4*base^4=base^8`，由此可以做到base-->base^2-->base^4-->base^8-->base^16-->base^32.......指数正是 2^i。最后别忘了让b右移一位
+
+顺便啰嗦一句，由于指数函数是爆炸增长的函数，所以很有可能会爆掉int的范围，根据题意选择 long long还是mod某个数自己看着办。
 
 ### 17：打印从1到最大的n位数
 
@@ -1215,11 +1283,11 @@ public:
 
 而当模式中的第二个字符是“*”时：如果字符串第一个字符跟模式第一个字符不匹配，则模式后移2个字符，继续匹配。如果字符串第一个字符跟模式第一个字符匹配，可以有3种匹配方式：
 
-1、模式后移2字符，相当于x*被忽略；match(str, pattern+2)
+1、模式后移2字符，相当于x*被忽略；match(str, pattern+2)，相当于自爆
 
-2、字符串后移1字符，模式后移2字符；match(str+1, pattern+2)
+2、字符串后移1字符，模式后移2字符；match(str+1, pattern+2)，相当于抵消掉
 
-3、字符串后移1字符，模式不变，即继续匹配字符下一位，因为*可以匹配多位；match(str+1, pattern)
+3、字符串后移1字符，模式不变，即继续匹配字符下一位，因为*可以匹配多位；match(str+1, pattern)，相当于直接把字符串当前位吃掉
 
 注意到，第一个字符为空，第二个字符不空，还是可能匹配成功的，比如第二个字符串是`a*a*a*a*`”`,由于‘*’之前的元素可以出现0次，所以有可能匹配成功
 
@@ -1696,6 +1764,8 @@ public:
 };
 ```
 
+合并k个有序链表，力扣第23题，用最小堆来做
+
 ### 26：树的子结构
 
 输入两棵二叉树A，B，判断B是不是A的子结构。（ps：我们约定空树不是任意一个树的子结构）
@@ -1862,7 +1932,7 @@ public:
 };
 ```
 
-### 29：顺时针打印矩阵
+### 29：顺时针打印矩阵/蛇形矩阵
 
 输入一个矩阵，按照从外向里以顺时针的顺序依次打印出每一个数字，例如，如果输入如下4 X 4矩阵： 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 则依次打印出数字1,2,3,4,8,12,16,15,14,13,9,5,6,7,11,10.
 
@@ -1903,6 +1973,54 @@ public:
         return res;
     }
 };
+```
+
+看了yxc的视频，可以用偏移量
+
+![clockWisePrintMatrx](../image/clockwisePrintMatrix.png)
+
+输入两个整数n和m，输出一个n行m列的矩阵，将数字 1 到 n*m 按照回字蛇形填充至矩阵中。
+
+具体矩阵形式可参考样例。
+
+输入格式
+输入共一行，包含两个整数n和m。
+
+输出格式
+输出满足要求的矩阵。
+
+矩阵占n行，每行包含m个空格隔开的整数。
+
+数据范围
+1≤n,m≤100
+
+```c++
+#include <iostream>
+using namespace std;
+const int N = 110;
+int res[N][N], n, m;
+// 这里的方向一定要按照 右->下->左->上 的顺序写，x轴正半轴代表行增长的方向，y轴正半轴代表列增长的方向
+int dx[4] = {0, 1, 0, -1}, dy[4] = {1, 0, -1, 0};
+int main() {
+    cin >> n >> m;
+    int x = 0, y = 0, d = 0;    // 初始在(0,0)点，往右走
+    int a, b;                   // 两个临时量，记录下一个位置，判断是否越界
+    for (int k = 1; k <= n * m; ++k){
+        res[x][y] = k;
+        a = x + dx[d], b = y + dy[d];
+        if (a < 0 || b < 0 || a >= n || b >= m || res[a][b]) { // 出界或者该位置已经有值了
+            d = (d + 1) % 4;
+            a = x + dx[d], b = y + dy[d];
+        }
+        x = a, y = b;
+    }
+    for (int i = 0; i < n; i ++ ) {
+        for (int j = 0; j < m; j ++ )
+            cout << res[i][j] << ' ';
+        cout << endl;
+    }
+    return 0;
+}
 ```
 
 ### 30：包含min函数的栈
