@@ -65,76 +65,6 @@ public:
 };
 ```
 
-### 2.寻找两个有序数组的中位数
-
-给定两个大小为 m 和 n 的有序数组 nums1 和 nums2。
-
-请你找出这两个有序数组的中位数，并且要求算法的时间复杂度为 O(log(m + n))。
-
-你可以假设 nums1 和 nums2 不会同时为空。
-
-示例 1:
-
-nums1 = [1, 3]
-nums2 = [2]
-
-则中位数是 2.0
-示例 2:
-
-nums1 = [1, 2]
-nums2 = [3, 4]
-
-则中位数是 (2 + 3)/2 = 2.5
-
- 第一种解法
-
-思路：仔细看题，已经说了两个数组是已排序的，那么可以用两个指针指示两个数组，两个指针比较，小的移动，当总共移动了一半的总长度时，就到了中位数，要注意总长度是奇数还是偶数，这种做法相比于遍历两个数组，可以节省一半的时间，但是时间复杂度依然是O(m+n)，空间复杂度为O(1)
-
-```c++
-class Solution {
-public:
-    double findMedianSortedArrays(vector<int>& nums1, vector<int>& nums2) {
-        int totalLen = nums1.size() + nums2.size();
-        int i = 0, j = 0;
-        int pre = 0, curr = 0;
-        while(i + j <= totalLen / 2){
-            if (j == nums2.size() || i < nums1.size() && nums1[i] < nums2[j])
-            {
-                pre = curr;
-                curr = nums1[i];
-                ++i;
-            }
-            else
-            {
-                pre = curr;
-                curr = nums2[j];
-                ++j;
-            }
-        }
-        if(totalLen % 2 == 0){
-            return (double)(pre + curr) / 2;
-        }
-        else{
-            return (double)curr;
-        }
-    }
-};
-```
-
-2085/2085 cases passed (16 ms)
-Your runtime beats 93.95 % of cpp submissions
-Your memory usage beats 96.58 % of cpp submissions (9.5 MB)
-
- 找第k小数
-
-思路：A[1] ，A[2] ，A[3]，A[k/2] ... ，B[1]，B[2]，B[3]，B[k/2] ... ，如果 A[k/2]<B[k/2] ，那么 A[1]，A[2]，A[3]，A[k/2] 都不可能是第 k 小的数字。
-
-A 数组中比 A[k/2] 小的数有 k/2-1 个，B 数组中，B[k/2] 比 A[k/2] 小，假设 B[k/2] 前边的数字都比 A[k/2] 小，也只有 k/2-1 个，所以比 A[k/2] 小的数字最多有 k/1-1+k/2-1=k-2 个，所以 A[k/2] 最多是第 k-1 小的数。而比 A[k/2] 小的数更不可能是第 k 小的数了，所以可以把它们排除。
-
-时间复杂度：每进行一次循环，我们就减少 k/2 个元素，所以时间复杂度是 O(log(k)，而 k=(m+n)/2，所以最终的复杂也就是 O(log(m+n)。
-
-空间复杂度：虽然我们用到了递归，但是可以看到这个递归属于尾递归，所以编译器不需要不停地堆栈，所以空间复杂度为 O(1)。
-
 ### 11.盛最多水的容器
 
 给定 n 个非负整数 a1，a2，...，an，每个数代表坐标中的一个点 (i, ai) 。在坐标内画 n 条垂直线，垂直线 i 的两个端点分别为 (i, ai) 和 (i, 0)。找出其中的两条线，使得它们与 x 轴共同构成的容器可以容纳最多的水。
@@ -750,108 +680,6 @@ public:
 Your runtime beats 62.94 % of cpp submissions
 Your memory usage beats 93 % of cpp submissions (8.5 MB)
 
-### 33.搜索旋转排序数组
-
-假设按照升序排序的数组在预先未知的某个点上进行了旋转。
-
-( 例如，数组 [0,1,2,4,5,6,7] 可能变为 [4,5,6,7,0,1,2] )。
-
-搜索一个给定的目标值，如果数组中存在这个目标值，则返回它的索引，否则返回 -1 。
-
-你可以假设数组中不存在重复的元素。
-
-你的算法时间复杂度必须是 O(log n) 级别。
-
-示例 1:
-
-输入: nums = [4,5,6,7,0,1,2], target = 0
-输出: 4
-示例 2:
-
-输入: nums = [4,5,6,7,0,1,2], target = 3
-输出: -1
-
- 二分查找
-
-一看到时间复杂度必须是O(logn)，立即联想到二分查找，普通的二分查找只能查找有序序列，这题的序列不是完全有序的，
-
-先找到在哪里旋转的，这个用二分查找是O(logn)，然后再把原数组看成有序的（经过移位），再二分查找，这也是O(logn)，故总时间为O(logn)
-
-花了两个小时独立完成，感觉对二分查找的理解又加深了，这里有些边界条件和测试用例挺烦人的，需要思考周全
-
-```c++
-class Solution {
-public:
-    int search(vector<int>& nums, int target) {
-        int len = nums.size();
-        if(len < 1) return -1;
-        int low = 0, high = len - 1, i = len / 2;
-        int rotateIndex = searchRotateIndex(nums, low, high); // [4,5,6,7,0,1,2], rotateIndex=4
-        int rotateAmount = high - rotateIndex + 1;
-        return binarySearch(nums, low - rotateAmount, high - rotateAmount, target);
-    }
-
-    // binary search, cost O(logn)
-    int binarySearch(vector<int>& nums, int low, int high, int target){
-        int i = low + (high - low) / 2;
-        int len = nums.size();
-        if(low == high && nums[i >= 0 ? i : i + len] != target) return -1;
-        if(nums[i >= 0 ? i : i + len] == target) return i >= 0 ? i : i + len;
-        if(nums[i >= 0 ? i : i + len] < target){
-            return binarySearch(nums, i + 1, high, target);
-        }
-        else{
-            return binarySearch(nums, low, i, target);
-        }
-        return -1;
-    }
-    // binary search, cost O(logn)
-    int searchRotateIndex(vector<int>& nums, int low, int high){
-        int i = low + (high - low) / 2;
-        if(low == high) return low;
-        if(i == low && nums[low] > nums[high]) return high;
-        if(i > low && nums[i - 1] > nums[i]) return i;
-        // rotatePoint < i, eg: [6,7,0,1,2], rotatePoint=2
-        if(nums[i] < nums[low]){
-            return searchRotateIndex(nums, low, i - 1);
-        }
-        // rotatePoint > i, eg: [4,5,6,7,0,1,2], rotatePoint=4
-        else if(nums[i] > nums[high]){
-            return searchRotateIndex(nums, i, high);
-        }
-        // cannot find rotatePoint
-        return 0;
-    }
-};
-```
-
-196/196 cases passed (4 ms)
-Your runtime beats 90.46 % of cpp submissions
-Your memory usage beats 71.54 % of cpp submissions (9 MB)
-
-在极客时间上的数据结构与算法课程做的一些笔记
-
-一、
-
-1. 从前往后遍历找到分界下标，分成两个有序数组
-2. 判断目标值在哪个有序数据范围内，做二分查找
-
-二、
-
-1. 找到最大值的下标 x;
-2. 所有元素下标 +x 偏移，超过数组范围值的取模;
-3. 利用偏移后的下标做二分查找;
-4. 如果找到目标下标，再作 -x 偏移，就是目标值实际下标。
-
-两种情况最高时耗都在查找分界点上，所以时间复杂度是 O(N)。复杂度有点高，能否优化呢?
-
-三、我们发现循环数组存在一个性质：以数组中间点为分区，会将数组分成一个有序数组和一个循环有序数组。这种方法只需要O(2logn)=O(logn)
-
-1. 如果首元素小于 mid，说明前半部分是有序的，后半部分是循环有序数组;
-2. 如果首元素大于 mid，说明后半部分是有序的，前半部分是循环有序的数组;
-3. 如果目标元素在有序数组范围中，使用二分查找;
-4. 如果目标元素在循环有序数组中，设定数组边界后，使用以上方法继续查找。
-
 ### 36.有效的数独
 
  判断一个 9x9 的数独是否有效。只需要**根据以下规则**，验证已经填入的数字是否有效即可。
@@ -1189,103 +1017,6 @@ public:
             result ^= num;
         }
         return result;
-    }
-};
-```
-
-### 162. 寻找峰值
-
-TODO
-
-题目描述
-峰值定义为比左右相邻元素大的元素。
-
-给定一个数组 nums，保证 nums[i] ≠ nums[i+1]，请找出该数组的峰值，并返回峰值的下标。
-
-数组中可能包含多个峰值，只需返回任意一个即可。
-
-假定 nums[-1] = nums[n] = -∞。
-
-样例1
-输入：nums = [1,2,3,1]
-输出：2
-解释：3是一个峰值，3的下标是2。
-
-样例2
-输入：nums = [1,2,1,3,5,6,4]
-输出：1 或 5
-解释：数组中有两个峰值：1或者5，返回任意一个即可。
-
-算法
-(二分) O(logn)
-
-仔细分析我们会发现：
-
-如果 nums[i-1] < nums[i]，则如果 nums[i-1], nums[i], ... nums[n-1] 是单调的，则 nums[n-1]就是峰值；如果nums[i-1], nums[i], ... nums[n-1]不是单调的，则从 ii 开始，第一个满足 nums[i] > nums[i+1]的 ii 就是峰值；所以 [i,n−1][i,n−1] 中一定包含一个峰值；
-如果 nums[i-1] > nums[i]，同理可得 [0,i−1][0,i−1] 中一定包含一个峰值；
-所以我们可以每次二分中点，通过判断 nums[i-1] 和 nums[i] 的大小关系，可以判断左右两边哪边一定有峰值，从而可以将检索区间缩小一半。
-
-时间复杂度分析：二分检索，每次删掉一半元素，所以时间复杂度是 O(logn)O(logn)。
-
-```C++
-class Solution {
-public:
-    int findPeakElement(vector<int>& nums) {
-        int l = 0, r = nums.size() - 1;
-        while (l < r)
-        {
-            int mid = (l + r + 1) / 2;
-            if (nums[mid] > nums[mid - 1]) l = mid;
-            else r = mid - 1;
-        }
-        return l;
-    }
-};
-```
-
-AcWing 1452 的题目，寻找矩阵中的极小值
-
-给定一个 n×n 的矩阵，矩阵中包含 n×n 个 互不相同 的整数。定义极小值：如果一个数的值比与它相邻的所有数字的值都小，则这个数值就被称为极小值。一个数的相邻数字是指其上下左右四个方向相邻的四个数字，另外注意，处于边界或角落的数的相邻数字可能少于四个。要求在 O(nlogn) 的时间复杂度之内找出任意一个极小值的位置，并输出它在第几行第几列。
-
-思考：首先dfs肯定不行，还不如直接遍历，那有什么查找方法能比遍历更快，那就是**二分**！
-
-![minOfMatrix](../image/minOfMatrix.png)
-
-- 首先选取一列（二分就是中间列），遍历一遍，找到这列的最小值，设为V，然后考察左右，分为三种情况
-- 如果V < L， V < R，则V就是一个极小值，返回即可
-- 如果R < V（L < V同理），则右边肯定有解，所以范围缩小了一半，再继续二分，选取右边子矩阵的中间列，遍历一遍，找到这列的最小值，设为V'，回到第一步
- 左右两边都有可能有解，只需要挑一个方向即可
-
-注意：不能行列二分！看y总举的例子
-
-![minOfMatrixEg](../image/minOfMatrixEg.png)
-
-```c++
-// Forward declaration of queryAPI.
-// int query(int x, int y);
-// return int means matrix[x][y].
-
-class Solution {
-public:
-    vector<int> getMinimumValue(int n) {
-        int cl = 0, cr = n - 1;
-        while (cl <= cr){
-            int cmid = cl + (cr - cl) / 2;
-            int val = INT_MAX, idx = -1;
-            for (int r = 0; r < n; ++r){
-                int candi_val = query(r, cmid);
-                if (candi_val < val){
-                    val = candi_val;
-                    idx = r;
-                }
-            }
-            int l_val = cmid > 0 ? query(idx, cmid - 1) : INT_MAX; // 防止越界
-            int r_val = cmid < n - 1 ? query(idx, cmid + 1) : INT_MAX; // 防止越界
-            if (val < l_val && val < r_val) return {idx, cmid}; // 得到local min
-            else if (l_val < r_val) cr = cmid - 1; // 左边小，往左走
-            else cl = cmid + 1; // 右边小，往右走
-        }
-        return {0, 0}; //只是为了过编译 循环中一定已经得出解了
     }
 };
 ```
@@ -3799,74 +3530,6 @@ public:
 
 最后发现，AC的代码几乎跟我这个差不多，这题是独立完成的，耗时1h左右吧，我自己竟然也可以写出这么简洁高效的代码了！
 
-### 278.第一个错误的版本
-
-你是产品经理，目前正在带领一个团队开发新的产品。不幸的是，你的产品的最新版本没有通过质量检测。由于每个版本都是基于之前的版本开发的，所以错误的版本之后的所有版本都是错的。
-
-假设你有 `n` 个版本 `[1, 2, ..., n]`，你想找出导致之后所有版本出错的第一个错误的版本。
-
-你可以通过调用 `bool isBadVersion(version)` 接口来判断版本号 `version` 是否在单元测试中出错。实现一个函数来查找第一个错误的版本。你应该尽量减少对调用 API 的次数。
-
-**示例:**
-
-```c++
-给定 n = 5，并且 version = 4 是第一个错误的版本。
-
-调用 isBadVersion(3) -> false
-调用 isBadVersion(5) -> true
-调用 isBadVersion(4) -> true
-
-所以，4 是第一个错误的版本。
-```
-
- 最朴素的解法，遍历
-
-结果，超时！
-
-```c++
-class Solution {
-public:
-    int firstBadVersion(int n) {
-        if(n == 1) return 1;
-        for(int i = 1; i <= n; ++i){
-            if(isBadVersion(i)) return i;
-        }
-        return 0;
-    }
-};
-```
-
- 二分搜索
-
-思路：定义区间下界lower、区间上界upper，计算其中点，若中点不是坏版本，则继续在[mid+1, upper]探索，若中点是坏版本，则继续在[lower, mid]，探索，这里的闭区间以及+1是考虑到，第一个坏版本的特点，中点不是坏版本，则第一个坏版本有可能是mid+1，中点是坏版本，则第一个坏版本有可能就是mid。
-
-测试用例有可能的值有可能很大，计算mid时有可能超过INT_MAX，所以用long型
-
-```c++
-// Forward declaration of isBadVersion API.
-bool isBadVersion(int version);
-
-class Solution {
-public:
-    int firstBadVersion(int n) {
-        long lower = 1, upper = n, mid;  // closed interval， [lower, upper]
-        while(lower != upper){
-            mid = (lower + upper) / 2;
-            if(!isBadVersion(mid)){
-                lower = mid + 1;
-                cout << "true" << endl;
-            }
-            else{
-                upper = mid;
-                cout << "false" << endl;
-            }
-            cout << "mid: " << mid << endl;
-        }
-        return lower;
-    }
-};
-```
-
 ## 动态规划
 
 ### 5.最长回文子串
@@ -4837,6 +4500,23 @@ public:
 };
 
 ```
+
+### 354. 俄罗斯套娃信封问题
+
+给定一些标记了宽度和高度的信封，宽度和高度以整数对形式 (w, h) 出现。当另一个信封的宽度和高度都比这个信封大的时候，这个信封就可以放进另一个信封里，如同俄罗斯套娃一样。
+
+请计算最多能有多少个信封能组成一组“俄罗斯套娃”信封（即可以把一个信封放到另一个信封里面）。
+
+说明:
+不允许旋转信封。
+
+示例:
+
+输入: envelopes = [[5,4],[6,4],[6,7],[2,3]]
+输出: 3
+解释: 最多信封的个数为 3, 组合为: [2,3] => [5,4] => [6,7]
+
+TODO
 
 ### 416. 分割等和子集
 
@@ -8192,19 +7872,997 @@ public:
 };
 ```
 
-## 动态规划with闫学灿
+## 二分
 
-### 354. 俄罗斯套娃信封问题
+转载自[力扣题解](https://leetcode-cn.com/problems/search-insert-position/solution/te-bie-hao-yong-de-er-fen-cha-fa-fa-mo-ban-python-/)
 
-给定一些标记了宽度和高度的信封，宽度和高度以整数对形式 (w, h) 出现。当另一个信封的宽度和高度都比这个信封大的时候，这个信封就可以放进另一个信封里，如同俄罗斯套娃一样。
+把待搜索的目标值留在最后判断，在循环体内不断地把不符合题目要求的子区间排除掉，在退出循环以后，因为只剩下 1 个数没有看到，它要么是目标元素，要么不是目标元素，单独判断即可。
 
-请计算最多能有多少个信封能组成一组“俄罗斯套娃”信封（即可以把一个信封放到另一个信封里面）。
+这种思路也非常符合「二分」的名字，就是把「待搜索区间」分为「有目标元素的区间」和「不包含目标元素的区间」，排除掉「不包含目标元素的区间」的区间，剩下就是「有目标元素的区间」。
 
-说明:
-不允许旋转信封。
+建议：
+
+1、确定搜索区间初始化时候的左右边界，有时需要关注一下边界值。在初始化时，有时把搜索区间设置大一点没有关系，但是如果恰好把边界值排除在外，再怎么搜索都得不到结果。
+2、无条件写上 `while (left < right)` ，表示退出循环的条件是 left == right，对于返回左右边界就不用思考了，因此此时它们的值相等；有的是`while(left <= right)`，其实是把待搜索区间“三分”，略微码放
+3、先写**向下取整的中间数取法**，然后从如何把 mid 排除掉的角度思考 if 和 else 语句应该怎样写。记住：**在 if else 语句里面只要出现 left = mid 的时候，把去中间数行为改成上取整即可**。
+4、根据 if else 里面写的情况，看看是否需要修改中间数下取整的行为。向下：`int mid = l + (r - l) / 2;`，向上：`int mid = l + (r - l + 1) / 2;`
+5、退出循环的时候，一定有 left == right 成立。有些时候可以直接返回 left （或者 right，由于它们相等，后面都省略括弧）或者与 left 相关的数值，有些时候还须要再做一次判断，判断 left 与 right 是否是我们需要查找的元素，这一步叫“后处理”。
+
+### 4. 寻找两个有序数组的中位数(hard)
+
+给定两个大小为 m 和 n 的有序数组 nums1 和 nums2。
+
+请你找出这两个有序数组的中位数，并且要求算法的时间复杂度为 O(log(m + n))。
+
+你可以假设 nums1 和 nums2 不会同时为空。
+
+示例 1:
+
+nums1 = [1, 3]
+nums2 = [2]
+
+则中位数是 2.0
+示例 2:
+
+nums1 = [1, 2]
+nums2 = [3, 4]
+
+则中位数是 (2 + 3)/2 = 2.5
+
+TODO
+
+### 33.搜索旋转排序数组(medium, based on 153)
+
+假设按照升序排序的数组在预先未知的某个点上进行了旋转。
+
+( 例如，数组 [0,1,2,4,5,6,7] 可能变为 [4,5,6,7,0,1,2] )。
+
+搜索一个给定的目标值，如果数组中存在这个目标值，则返回它的索引，否则返回 -1 。
+
+你可以假设数组中不存在重复的元素。
+
+你的算法时间复杂度必须是 O(log n) 级别。
+
+示例 1:
+
+输入: nums = [4,5,6,7,0,1,2], target = 0
+输出: 4
+示例 2:
+
+输入: nums = [4,5,6,7,0,1,2], target = 3
+输出: -1
+
+ 二分查找
+
+一看到时间复杂度必须是O(logn)，立即联想到二分查找，普通的二分查找只能查找有序序列，这题的序列不是完全有序的，
+
+先找到在哪里旋转的，这个用二分查找是O(logn)，然后再把原数组看成有序的（经过移位），再二分查找，这也是O(logn)，故总时间为O(logn)
+
+花了两个小时独立完成，感觉对二分查找的理解又加深了，这里有些边界条件和测试用例挺烦人的，需要思考周全
+
+```c++
+class Solution {
+public:
+    int search(vector<int>& nums, int target) {
+        int len = nums.size();
+        if(len < 1) return -1;
+        int low = 0, high = len - 1, i = len / 2;
+        int rotateIndex = searchRotateIndex(nums, low, high); // [4,5,6,7,0,1,2], rotateIndex=4
+        int rotateAmount = high - rotateIndex + 1;
+        return binarySearch(nums, low - rotateAmount, high - rotateAmount, target);
+    }
+
+    // binary search, cost O(logn)
+    int binarySearch(vector<int>& nums, int low, int high, int target){
+        int i = low + (high - low) / 2;
+        int len = nums.size();
+        if(low == high && nums[i >= 0 ? i : i + len] != target) return -1;
+        if(nums[i >= 0 ? i : i + len] == target) return i >= 0 ? i : i + len;
+        if(nums[i >= 0 ? i : i + len] < target){
+            return binarySearch(nums, i + 1, high, target);
+        }
+        else{
+            return binarySearch(nums, low, i, target);
+        }
+        return -1;
+    }
+    // binary search, cost O(logn)
+    int searchRotateIndex(vector<int>& nums, int low, int high){
+        int i = low + (high - low) / 2;
+        if(low == high) return low;
+        if(i == low && nums[low] > nums[high]) return high;
+        if(i > low && nums[i - 1] > nums[i]) return i;
+        // rotatePoint < i, eg: [6,7,0,1,2], rotatePoint=2
+        if(nums[i] < nums[low]){
+            return searchRotateIndex(nums, low, i - 1);
+        }
+        // rotatePoint > i, eg: [4,5,6,7,0,1,2], rotatePoint=4
+        else if(nums[i] > nums[high]){
+            return searchRotateIndex(nums, i, high);
+        }
+        // cannot find rotatePoint
+        return 0;
+    }
+};
+```
+
+196/196 cases passed (4 ms)
+Your runtime beats 90.46 % of cpp submissions
+Your memory usage beats 71.54 % of cpp submissions (9 MB)
+
+二刷此题，感觉更加优雅了，findMinPos需要注意一下
+
+```c++
+class Solution {
+public:
+    int search(vector<int>& nums, int target) {
+        if(nums.empty()) return -1;
+        int len = nums.size();
+        int pos = findMinPos(nums); // pos是最小元素
+        cout << pos << endl;
+        if(nums[len - 1] >= target){
+            return binarySearch(nums, pos, len - 1, target);
+        }
+        return binarySearch(nums, 0, (pos + len - 1)%len, target); // 当pos=0时，要二分搜索整个数组，当pos>0时，要二分搜索[0,pos-1]，用这种写法可以兼顾两种情况
+
+    }
+    int findMinPos(vector<int> &nums){
+        int l = 0, r = nums.size() - 1;
+        while (l < r){
+            // 当前区间是旋转的，缩小搜索区间
+            int mid = l + (r - l) / 2; // 中间数向上取整
+            if (nums[mid] <= nums[r]){ // 缩小搜索区间为[l,mid]，因为此题无重复元素，加不加等于均可
+                r = mid;
+            }
+            else{
+                l = mid + 1;
+            }
+        }
+        return l;
+    }
+    int binarySearch(vector<int>& nums, int l, int r, int target){ // 直接套模板
+        // [l,r]为有序区间
+        while(l < r){
+            int mid = l + (r - l) / 2;
+            if(nums[mid] < target){ // 缩小搜索区间为[mid+1, r]
+                l = mid + 1;
+            }
+            else{
+                r = mid;
+            }
+        }
+        if(nums[l] == target) return l;
+        return -1;
+    }
+};
+```
+
+在极客时间上的数据结构与算法课程做的一些笔记
+
+一、
+
+1. 从前往后遍历找到分界下标，分成两个有序数组
+2. 判断目标值在哪个有序数据范围内，做二分查找
+
+二、
+
+1. 找到最大值的下标 x;
+2. 所有元素下标 +x 偏移，超过数组范围值的取模;
+3. 利用偏移后的下标做二分查找;
+4. 如果找到目标下标，再作 -x 偏移，就是目标值实际下标。
+
+两种情况最高时耗都在查找分界点上，所以时间复杂度是 O(N)。复杂度有点高，能否优化呢?
+
+三、我们发现循环数组存在一个性质：以数组中间点为分区，会将数组分成一个有序数组和一个循环有序数组。这种方法只需要O(2logn)=O(logn)
+
+1. 如果首元素小于 mid，说明前半部分是有序的，后半部分是循环有序数组;
+2. 如果首元素大于 mid，说明后半部分是有序的，前半部分是循环有序的数组;
+3. 如果目标元素在有序数组范围中，使用二分查找;
+4. 如果目标元素在循环有序数组中，设定数组边界后，使用以上方法继续查找。
+
+### 34. 在排序数组中查找元素的第一个和最后一个位置(medium)
+
+给定一个按照升序排列的整数数组 nums，和一个目标值 target。找出给定目标值在数组中的开始位置和结束位置。
+
+你的算法时间复杂度必须是 O(log n) 级别。
+
+如果数组中不存在目标值，返回 [-1, -1]。
+
+示例 1:
+
+输入: nums = [5,7,7,8,8,10], target = 8
+输出: [3,4]
+示例 2:
+
+输入: nums = [5,7,7,8,8,10], target = 6
+输出: [-1,-1]
+
+第一次尝试，分为两次二分搜索，第一次找是否有对应值，找到开始对应值，如果存在，则进行第二次二分搜索，找到结束对应值
+
+```c++
+class Solution {
+public:
+    vector<int> searchRange(vector<int>& nums, int target) {
+        if(nums.empty()) return {-1, -1};
+        int len = nums.size();
+        int l = 0, r = len - 1;
+        int start = 0, finish = len -1;
+        while(l < r){
+            int mid = l + (r - l) / 2;
+            if(nums[mid] < target){ // 缩小待搜索区间为[mid+1,r]
+                l = mid + 1;
+            }
+            else if(nums[mid] == target && (mid == 0 || nums[mid] != nums[mid-1])){ // 找到开始位置了！
+                start = mid;
+                break;
+            }
+            else{
+                r = mid; // 往左搜索
+            }
+            start = l;
+        }
+        if(nums[start] != target) return {-1, -1};
+        l = start, r = len - 1;
+        while(l < r){
+            int mid = l + (r - l) / 2;
+            if(nums[mid] > target){ // 缩小待搜索区间为[l,mid]
+                r = mid;
+            }
+            else if(nums[mid] == target && (mid == len - 1 || nums[mid] != nums[mid+1])){ // 找到结束位置了！
+                finish = mid;
+                break;
+            }
+            else{
+                l = mid + 1; // 往右搜索
+            }
+            finish = l;
+        }
+        return {start, finish};
+    }
+};
+```
+
+看了AcWing上的解答，其实在if-else中不需要第三个分支，只需要注意往左还是往右搜索即可
+
+```c++
+class Solution {
+public:
+    vector<int> searchRange(vector<int>& nums, int target) {
+        if(nums.empty()) return {-1, -1};
+        int len = nums.size();
+        int l = 0, r = len - 1;
+        int start = 0, finish = len -1;
+        while(l < r){
+            int mid = l + (r - l) / 2;
+            if(nums[mid] < target){ // 缩小待搜索区间为[mid+1,r]
+                l = mid + 1;
+            }
+            else{ // 这里也包含相等的情况，因为现在是找start，所以要收缩右边界
+                r = mid;
+            }
+        }
+        start = l;
+        if(nums[start] != target) return {-1, -1};
+        l = start, r = len - 1;
+        while(l < r){
+            int mid = l + (r - l + 1) / 2; // 因为出现l=mid，所以要中间数要向上取整
+            if(nums[mid] > target){ // 缩小待搜索区间为[l,mid -1]
+                r = mid - 1;
+            }
+            else{ // 这里也包含相等的情况，因为现在是找finish，所以要收缩左边界
+                l = mid;
+            }
+        }
+        finish = l;
+        return {start, finish};
+    }
+};
+```
+
+### 35. 搜索插入位置(easy)
+
+给定一个排序数组和一个目标值，在数组中找到目标值，并返回其索引。如果目标值不存在于数组中，返回它将会被按顺序插入的位置。
+
+你可以假设数组中无重复元素。
+
+示例 1:
+
+输入: [1,3,5,6], 5
+输出: 2
+示例 2:
+
+输入: [1,3,5,6], 2
+输出: 1
+示例 3:
+
+输入: [1,3,5,6], 7
+输出: 4
+示例 4:
+
+输入: [1,3,5,6], 0
+输出: 0
+
+```c++
+class Solution {
+public:
+    int searchInsert(vector<int>& nums, int target) {
+        if(nums.empty()) return 0;
+        int n = nums.size();
+        if(nums[0] >= target) return 0;
+        if(nums[n - 1] < target) return n;
+        int l = 0, r = n - 1;
+        while(l < r){
+            int mid = l + (r - l) / 2;
+            if(nums[mid] < target){ // 中间数小于target，搜索区间是[mid+1, r]
+                l = mid + 1;
+            }
+            else{
+                r = mid;
+            }
+        }
+        return l;
+    }
+};
+```
+
+### 69. x 的平方根(easy)
+
+实现 int sqrt(int x) 函数。
+
+计算并返回 x 的平方根，其中 x 是非负整数。
+
+由于返回类型是整数，结果只保留整数的部分，小数部分将被舍去。
+
+示例 1:
+
+输入: 4
+输出: 2
+示例 2:
+
+分析：这里的边界情况有点恶心，而且x有可能是INT_MAX，要注意一下溢出
+
+y总的代码非常简洁，用到了二分的模板，1ll是long long型的1，是为了防止int溢出，因为出现了`left=mid`，所以中间值向上取整
+
+```c++
+class Solution {
+public:
+    int mySqrt(int x) {
+        int l = 0, r = x;
+        while(l < r){
+            int mid = (l + 1ll + r) >> 1; // 中间值向上取整
+            if(mid <= x / mid) l = mid; // 中间值平方小于等于x，待搜索区间为[mid, r]
+            else r = mid - 1; // 中间值平方大于x，待搜索区间为[l, mid - 1]
+        }
+        return l;
+    }
+};
+```
+
+### 74. 搜索二维矩阵(easy)
+
+编写一个高效的算法来判断 m x n 矩阵中，是否存在一个目标值。该矩阵具有如下特性：
+
+每行中的整数从左到右按升序排列。
+每行的第一个整数大于前一行的最后一个整数。
+示例 1:
+
+输入:
+matrix = [
+  [1,   3,  5,  7],
+  [10, 11, 16, 20],
+  [23, 30, 34, 50]
+]
+target = 3
+输出: true
+示例 2:
+
+输入:
+matrix = [
+  [1,   3,  5,  7],
+  [10, 11, 16, 20],
+  [23, 30, 34, 50]
+]
+target = 13
+输出: false
+
+没啥好说的，把mid转化为矩阵坐标即可
+
+```c++
+class Solution {
+public:
+    bool searchMatrix(vector<vector<int>>& matrix, int target) {
+        if(matrix.empty() || matrix[0].empty()) return false;
+        int rows = matrix.size();
+        int cols = matrix[0].size();
+        int row, col, mid;
+        int l = 0, r = rows * cols - 1;
+        while(l < r){
+            mid = l + (r - l) / 2;
+            row = mid / cols;
+            col = mid % cols;
+            if(matrix[row][col] < target){ // 搜小搜索区间为[mid+1,r]
+                l = mid + 1;
+            }
+            else{
+                r = mid;
+            }
+        }
+        row = l / cols;
+        col = l % cols;
+        if(matrix[row][col] != target) return false;
+        return true;
+    }
+};
+```
+
+### 81. 搜索旋转排序数组 II(hard, based on 154)
+
+假设按照升序排序的数组在预先未知的某个点上进行了旋转。
+
+( 例如，数组 [0,0,1,2,2,5,6] 可能变为 [2,5,6,0,0,1,2] )。
+
+编写一个函数来判断给定的目标值是否存在于数组中。若存在返回 true，否则返回 false。
+
+示例 1:
+
+输入: nums = [2,5,6,0,0,1,2], target = 0
+输出: true
+示例 2:
+
+输入: nums = [2,5,6,0,0,1,2], target = 3
+输出: false
+进阶:
+
+这是 搜索旋转排序数组 的延伸题目，本题中的 nums  可能包含重复元素。
+这会影响到程序的时间复杂度吗？会有怎样的影响，为什么？
+
+根据154题，先找到允许重复的旋转数组的最小值，然后再二分搜索
+
+因为有可能出现nums[l]==nums[mid]==nums[r]，比如2,2,2,0,2,2，所以不能用以前的方法，必须先进行**预处理**将数组末尾与数组首项相同的元素去掉，这样数组左半部的元素就会严格大于nums.back()，二分时我们的初始边界保证nums[l]严格大于nums[r]或者数组是未被旋转过的。
+
+极端情况，数组所有元素相等，时间复杂度退化为O(n)
+
+```c++
+class Solution {
+public:
+    // 最难判断的边界情况就是旋转点可能出现了若干次，它们在旋转数组头和尾
+    bool search(vector<int>& nums, int target) {
+        if(nums.empty()) return false;
+        int len = nums.size();
+        int t = len - 1;
+        while(t > 0 && nums[0] == nums[t]) --t; // 消除与首元素相同的末尾的重复元素
+        int pos = findMinPos(nums, 0, t); // 最小元素的最左位置（看成循环数组）
+        if(nums[t] >= target){
+            return binarySearch(nums, pos, t, target);
+        }
+        return binarySearch(nums, 0, (pos + len - 1)%len, target); // 当pos=0时，要二分搜索整个数组，当pos>0时，要二分搜索[0,pos-1]，用这种写法可以兼顾两种情况
+
+    }
+    int findMinPos(vector<int> &nums, int l, int r){
+        while (l < r){
+            // 当前区间是旋转的，缩小搜索区间
+            int mid = l + (r - l) / 2; // 中间数向上取整
+            if (nums[mid] <= nums[r]){ // 缩小搜索区间为[l,mid]
+                r = mid;
+            }
+            else{
+                l = mid + 1;
+            }
+        }
+        return l;
+    }
+    bool binarySearch(vector<int>& nums, int l, int r, int target){ // 直接套模板
+        // [l,r]为有序区间
+        while(l < r){
+            int mid = l + (r - l) / 2;
+            if(nums[mid] < target){ // 缩小搜索区间为[mid+1, r]
+                l = mid + 1;
+            }
+            else{
+                r = mid;
+            }
+        }
+        if(nums[l] == target) return true;
+        return false;
+    }
+};
+```
+
+### 153. 寻找旋转排序数组中的最小值(medium)
+
+假设按照升序排序的数组在预先未知的某个点上进行了旋转。
+
+( 例如，数组 [0,1,2,4,5,6,7] 可能变为 [4,5,6,7,0,1,2] )。
+
+请找出其中最小的元素。
+
+你可以假设数组中不存在重复元素。
+
+示例 1:
+
+输入: [3,4,5,1,2]
+输出: 1
+示例 2:
+
+输入: [4,5,6,7,0,1,2]
+输出: 0
+
+```c++
+class Solution {
+public:
+    int findMin(vector<int>& nums) {
+        if(nums.empty()) return 0;
+        int l = 0, r = nums.size() - 1;
+        while(l < r){
+            int mid = l + (r - l) / 2;
+            if(nums[mid] < nums[r]){ // 因为无重复元素，加不加等号均可
+                r = mid;
+            }
+            else{
+                l = mid + 1;
+            }
+        }
+        return nums[l];
+    }
+};
+```
+
+### 154. 寻找旋转排序数组中的最小值 II(hard)
+
+假设按照升序排序的数组在预先未知的某个点上进行了旋转。
+
+( 例如，数组 [0,1,2,4,5,6,7] 可能变为 [4,5,6,7,0,1,2] )。
+
+请找出其中最小的元素。
+
+注意数组中可能存在重复的元素。
+
+示例 1：
+
+输入: [1,3,5]
+输出: 1
+示例 2：
+
+输入: [2,2,2,0,1]
+输出: 0
+说明：
+
+这道题是 寻找旋转排序数组中的最小值 的延伸题目。
+允许重复会影响算法的时间复杂度吗？会如何影响，为什么？
+
+转自y总
+
+![lc154](../image/lc154.png)
+
+图中水平的实线段表示相同元素。
+
+我们发现除了最后水平的一段（黑色水平那段）之外，其余部分满足二分性质：竖直虚线左边的数满足 nums[i]≥nums[0] 并且 nums[i]>nums[n−1]，其中 nums[n−1] 是数组最后一个元素；而竖直虚线右边的数不满足这个条件。分界点就是整个数组的最小值。
+
+所以我们先将最后水平的一段删除即可。
+
+另外，不要忘记处理数组完全单调的特殊情况。
+
+时间复杂度分析：二分的时间复杂度是 O(logn)，删除最后水平一段的时间复杂度最坏是 O(n)，所以总时间复杂度是 O(n)。
+
+```c++
+class Solution {
+public:
+    int findMin(vector<int>& nums) {
+        int t = nums.size() - 1;
+        while(t > 0 && nums[t] == nums[0]) --t;
+        int l = 0, r = t;
+        while(l < r){
+            int mid = l + (r - l) / 2;
+            if(nums[mid] <= nums[r]){
+                r = mid;
+            }
+            else{
+                l = mid + 1;
+            }
+        }
+        return nums[l];
+    }
+};
+```
+
+### 162. 寻找峰值(easy)
+
+题目描述
+峰值定义为比左右相邻元素大的元素。
+
+给定一个数组 nums，保证 nums[i] ≠ nums[i+1]，请找出该数组的峰值，并返回峰值的下标。
+
+数组中可能包含多个峰值，只需返回任意一个即可。
+
+假定 nums[-1] = nums[n] = -∞。
+
+样例1
+输入：nums = [1,2,3,1]
+输出：2
+解释：3是一个峰值，3的下标是2。
+
+样例2
+输入：nums = [1,2,1,3,5,6,4]
+输出：1 或 5
+解释：数组中有两个峰值：1或者5，返回任意一个即可。
+
+算法
+(二分) O(logn)
+
+仔细分析我们会发现：
+
+由于只需要返回任意一个峰值下标，所以题解可以非常简单。
+
+发现规律：如果 nums[i-1] > nums[i]，可以知道 [0,i−1] 中一定包含一个峰值；
+
+所以我们可以每次二分中点，通过判断 nums[i-1] 和 nums[i] 的大小关系，可以判断左右两边哪边一定有峰值，从而可以将检索区间缩小一半。
+
+时间复杂度分析：二分检索，每次删掉一半元素，所以时间复杂度是 O(logn)。
+
+```C++
+class Solution {
+public:
+    int findPeakElement(vector<int>& nums) {
+        int l = 0, r = nums.size() - 1;
+        while (l < r){
+            int mid = (l + r + 1) / 2;
+            if (nums[mid] > nums[mid - 1]) l = mid;
+            else r = mid - 1;
+        }
+        return l;
+    }
+};
+```
+
+对于mid的取舍，换一种思路也是可以的
+
+```c++
+class Solution {
+public:
+    int findPeakElement(vector<int>& nums) {
+        int l = 0, r = nums.size() - 1;
+        while(l < r){
+            int mid = l + (r - l) / 2;
+            if(nums[mid] < nums[mid + 1]){
+                l = mid + 1;
+            }
+            else {
+                r = mid;
+            }
+        }
+        return l;
+    }
+};
+```
+
+AcWing 1452 的题目，寻找矩阵中的极小值
+
+给定一个 n×n 的矩阵，矩阵中包含 n×n 个 互不相同 的整数。定义极小值：如果一个数的值比与它相邻的所有数字的值都小，则这个数值就被称为极小值。一个数的相邻数字是指其上下左右四个方向相邻的四个数字，另外注意，处于边界或角落的数的相邻数字可能少于四个。要求在 O(nlogn) 的时间复杂度之内找出任意一个极小值的位置，并输出它在第几行第几列。
+
+思考：首先dfs肯定不行，还不如直接遍历，那有什么查找方法能比遍历更快，那就是**二分**！
+
+![minOfMatrix](../image/minOfMatrix.png)
+
+- 首先选取一列（二分就是中间列），遍历一遍，找到这列的最小值，设为V，然后考察左右，分为三种情况
+- 如果V < L， V < R，则V就是一个极小值，返回即可
+- 如果R < V（L < V同理），则右边肯定有解，所以范围缩小了一半，再继续二分，选取右边子矩阵的中间列，遍历一遍，找到这列的最小值，设为V'，回到第一步
+ 左右两边都有可能有解，只需要挑一个方向即可
+
+注意：不能行列二分！看y总举的例子
+
+![minOfMatrixEg](../image/minOfMatrixEg.png)
+
+```c++
+// Forward declaration of queryAPI.
+// int query(int x, int y);
+// return int means matrix[x][y].
+
+class Solution {
+public:
+    vector<int> getMinimumValue(int n) {
+        int cl = 0, cr = n - 1;
+        while (cl <= cr){
+            int cmid = cl + (cr - cl) / 2;
+            int val = INT_MAX, idx = -1;
+            for (int r = 0; r < n; ++r){
+                int candi_val = query(r, cmid);
+                if (candi_val < val){
+                    val = candi_val;
+                    idx = r;
+                }
+            }
+            int l_val = cmid > 0 ? query(idx, cmid - 1) : INT_MAX; // 防止越界
+            int r_val = cmid < n - 1 ? query(idx, cmid + 1) : INT_MAX; // 防止越界
+            if (val < l_val && val < r_val) return {idx, cmid}; // 得到local min
+            else if (l_val < r_val) cr = cmid - 1; // 左边小，往左走
+            else cl = cmid + 1; // 右边小，往右走
+        }
+        return {0, 0}; //只是为了过编译 循环中一定已经得出解了
+    }
+};
+```
+
+### 275. H指数 II(easy)
+
+给定一位研究者论文被引用次数的数组（被引用次数是非负整数），数组已经按照升序排列。编写一个方法，计算出研究者的 h 指数。
+
+h 指数的定义: “h 代表“高引用次数”（high citations），一名科研人员的 h 指数是指他（她）的 （N 篇论文中）至多有 h 篇论文分别被引用了至少 h 次。（其余的 N - h 篇论文每篇被引用次数不多于 h 次。）"
 
 示例:
 
-输入: envelopes = [[5,4],[6,4],[6,7],[2,3]]
+输入: citations = [0,1,3,5,6]
 输出: 3
-解释: 最多信封的个数为 3, 组合为: [2,3] => [5,4] => [6,7]
+解释: 给定数组表示研究者总共有 5 篇论文，每篇论文相应的被引用了 0, 1, 3, 5, 6 次。
+     由于研究者有 3 篇论文每篇至少被引用了 3 次，其余两篇论文每篇被引用不多于 3 次，所以她的 h 指数是 3。
+
+说明:
+
+如果 h 有多有种可能的值 ，h 指数是其中最大的那个。
+
+进阶：
+
+这是 H指数 的延伸题目，本题中的 citations 数组是保证有序的。
+你可以优化你的算法到对数时间复杂度吗？
+
+算法
+(二分) O(logn)
+由于数组是从小到大排好序的，所以我们的任务是：
+在数组中找一个最大的 h，使得后 h个数大于等于 h。
+
+我们发现：如果 h 满足，则小于 h 的数都满足；如果 h 不满足，则大于 h 的数都不满足。所以具有二分性质。
+直接二分即可。
+
+时间复杂度分析：二分检索，只遍历 logn 个元素，所以时间复杂度是 O(logn)O。
+
+```c++
+class Solution {
+public:
+    int hIndex(vector<int>& citations) {
+        if(citations.empty()) return 0;
+        int n = citations.size();
+        if(citations[n - 1] == 0) return 0; // 特判，有可能出现[0,0,...,0]的情况
+        int l = 0, r = n - 1;
+        while(l < r){
+            int mid = l + (r - l) / 2;
+            if(citations[mid] >= n - mid){
+                r = mid;
+            }
+            else{
+                l = mid + 1;
+            }
+        }
+        return n - l;
+    }
+};
+```
+
+### 278.第一个错误的版本(easy)
+
+你是产品经理，目前正在带领一个团队开发新的产品。不幸的是，你的产品的最新版本没有通过质量检测。由于每个版本都是基于之前的版本开发的，所以错误的版本之后的所有版本都是错的。
+
+假设你有 `n` 个版本 `[1, 2, ..., n]`，你想找出导致之后所有版本出错的第一个错误的版本。
+
+你可以通过调用 `bool isBadVersion(version)` 接口来判断版本号 `version` 是否在单元测试中出错。实现一个函数来查找第一个错误的版本。你应该尽量减少对调用 API 的次数。
+
+**示例:**
+
+```c++
+给定 n = 5，并且 version = 4 是第一个错误的版本。
+
+调用 isBadVersion(3) -> false
+调用 isBadVersion(5) -> true
+调用 isBadVersion(4) -> true
+
+所以，4 是第一个错误的版本。
+```
+
+```c++
+// The API isBadVersion is defined for you.
+// bool isBadVersion(int version);
+
+class Solution {
+public:
+    int firstBadVersion(int n) {
+        int l = 1, r = n;
+        while(l < r){
+            int mid = l + (r - l) / 2;
+            if(!isBadVersion(mid)){ // mid是好版本，可以排除，所以缩小搜索区间为[mid+1, r]
+                l = mid + 1;
+            }
+            else{
+                r = mid;
+            }
+        }
+        return l;
+    }
+};
+```
+
+### 287. 寻找重复数(medium)
+
+给定一个包含 n + 1 个整数的数组 nums，其数字都在 1 到 n 之间（包括 1 和 n），可知至少存在一个重复的整数。假设只有一个重复的整数，找出这个重复的数。
+
+示例 1:
+
+输入: [1,3,4,2,2]
+输出: 2
+示例 2:
+
+输入: [3,1,3,4,2]
+输出: 3
+说明：
+
+不能更改原数组（假设数组是只读的）。
+只能使用额外的 O(1) 的空间。
+时间复杂度小于 O(n2) 。
+数组中只有一个重复的数字，但它可能不止重复出现一次。
+
+算法1：二分查找，时间复杂度O(nlogn)
+
+因为数组上下界都确定了，所以可以用二分搜索来确定该重复数字在哪
+
+以 [1, 2, 2, 3, 4, 5, 6, 7] 为例，一共 8 个数，n + 1 = 8，n = 7，根据题目意思，每个数都在 1 和 7 之间。
+
+例如：区间 [1, 7] 的中位数是 4，遍历整个数组，统计小于等于 4 的整数的个数，至多应该为 4 个。换句话说，整个数组里小于等于 4 的整数的个数如果严格大于 4 个，就说明重复的数存在于区间 [1, 4]，它的反面是：重复的数存在于区间 [5, 7]。
+
+于是，二分法的思路是**先猜一个数**（有效范围 [left, right]里的中间数 mid），然后统计原始数组中小于等于这个中间数的元素的个数 cnt，如果 cnt 严格大于 mid，（注意我加了着重号的部分“小于等于”、“严格大于”）依然根据抽屉原理，重复元素就应该在区间 [left, mid] 里。
+
+```c++
+class Solution {
+public:
+    int findDuplicate(vector<int>& nums) {
+        int n = nums.size() - 1;
+        int l = 1, r = n;
+        while(l < r){
+            int mid = l + (r - l) / 2;
+            if(countRange(nums, mid) > mid){
+                r = mid;
+            }
+            else{
+                l = mid + 1;
+            }
+        }
+        return l;
+    }
+    int countRange(vector<int>& nums, int mid){ // 在nums中寻找满足x<=mid的x的个数
+        int count = 0;
+        for(int i = 0; i < nums.size(); ++i){
+            if(nums[i] <= mid) ++count;
+        }
+        return count;
+    }
+};
+```
+
+算法2：循环检测，时间复杂度O(n)
+
+[快慢指针的解释](https://leetcode-cn.com/problems/find-the-duplicate-number/solution/kuai-man-zhi-zhen-de-jie-shi-cong-damien_undoxie-d/)
+
+有点类似于判断环的入口节点，这篇题解解释得很清楚了
+
+```c++
+class Solution {
+public:
+    int findDuplicate(vector<int>& nums) {
+        int slow = 0;
+        int fast = 0;
+        while(true){
+            slow = nums[slow];
+            fast = nums[fast];
+            fast = nums[fast];
+            if(slow == fast) break;
+        }
+        int finder = slow;
+        slow = 0;
+        while(true){
+            slow = nums[slow];
+            finder = nums[finder];
+            if(slow == finder) break;
+        }
+        return slow;
+    }
+};
+```
+
+### 374. 猜数字大小
+
+我们正在玩一个猜数字游戏。 游戏规则如下：
+我从 1 到 n 选择一个数字。 你需要猜我选择了哪个数字。
+每次你猜错了，我会告诉你这个数字是大了还是小了。
+你调用一个预先定义好的接口 guess(int num)，它会返回 3 个可能的结果（-1，1 或 0）：
+
+-1 : 我的数字比较小
+ 1 : 我的数字比较大
+ 0 : 恭喜！你猜对了！
+示例 :
+
+输入: n = 10, pick = 6
+输出: 6
+
+语文题目，一次性AC无压力
+
+```c++
+/**
+ * Forward declaration of guess API.
+ * @param  num   your guess
+ * @return       -1 if num is lower than the guess number
+ *               1 if num is higher than the guess number
+ *               otherwise return 0
+ * int guess(int num);
+ */
+
+class Solution {
+public:
+    int guessNumber(int n) {
+        int l = 1, r = n;
+        while(l < r){
+            int mid = l + (r - l) / 2;
+            if(guess(mid) == -1){
+                r = mid - 1;
+            }
+            else if(guess(mid) == 1){
+                l = mid + 1;
+            }
+            else{
+                return mid;
+            }
+        }
+        return l;
+    }
+};
+```
+
+### 378. 有序矩阵中第K小的元素(medium)
+
+给定一个 n x n 矩阵，其中每行和每列元素均按升序排序，找到矩阵中第k小的元素。
+请注意，它是排序后的第 k 小元素，而不是第 k 个不同的元素。
+
+示例:
+
+matrix = [
+   [ 1,  5,  9],
+   [10, 11, 13],
+   [12, 13, 15]
+],
+k = 8,
+
+返回 13。
+
+提示：
+你可以假设 k 的值永远是有效的, 1 ≤ k ≤ n2 。
+
+算法：二分法，算法时间复杂度为O(n * log(m)), 其中n = max(row, col)，代表矩阵行数和列数的最大值,
+ m代表二分区间的长度，即矩阵最大值和最小值的差。
+
+首先第k大数一定落在[l, r]中，其中l = matrix[0][0], r = matrix[row - 1][col - 1].
+我们二分值域[l, r]区间，mid = (l + r) >> 1, 对于mid，我们检查矩阵中有多少元素**小于等于**mid，
+记个数为cnt，那么有：
+
+1、如果cnt < k, 那么[l, mid]中包含矩阵元素个数一定小于k，那么第k小元素一定不在[l, mid]
+中，必定在[mid + 1, r]中，所以更新l = mid + 1.
+
+2、否则cnt >= k，那么[l, mid]中包含矩阵元素个数就大于等于k，即第k小元素一定在[l,mid]区间中，
+更新r = mid;
+
+```c++
+class Solution {
+public:
+    int kthSmallest(vector<vector<int>>& matrix, int k) {
+        if(matrix.empty()|| matrix[0].empty()) return -1;
+        int row = matrix.size(), col = matrix[0].size();
+        int l = matrix[0][0], r = matrix[row-1][col-1];
+        while(l < r){
+            int mid = l + (r - l)/2;
+            int cnt = 0;
+            for(int i = 0; i < row; ++i){
+                for(int j = 0; j < col && matrix[i][j] <= mid; ++j) cnt++;
+                //既然每行数组是单增的，一个大于mid的数后面的数显然也大于mid，可忽略
+                //另外一定要判断<=mid，而不是<mid  
+            }
+            if(cnt < k) l = mid + 1;
+            else r = mid;
+        }
+        return l;
+    }
+};
+```
