@@ -2153,27 +2153,27 @@ public:
 
 ## 链表
 
-### 19.删除链表的倒数第 N 个节点
+一定要画图！
+
+### 19.删除链表的倒数第N个节点(easy)
 
 给定一个链表，删除链表的倒数第 *n* 个节点，并且返回链表的头结点。
 
-**示例：**
+示例：
 
-```c++
 给定一个链表: 1->2->3->4->5, 和 n = 2.
 
 当删除了倒数第二个节点后，链表变为 1->2->3->5.
-```
 
-**说明：**
+说明：
 
 给定的 *n* 保证是有效的。
 
-**进阶：**
+进阶：
 
 你能尝试使用一趟扫描实现吗？
 
- 第一次尝试，用相同长度的向量记录，一遍扫描
+第一次尝试，用相同长度的向量记录，一遍扫描
 
 思路：从头到尾扫描链表，每次扫描把节点添加到向量里面，最后就是找到待删除节点的前驱节点，使其后继节点为待删除节点的后继节点，注意几个特殊情况：待删除节点为头/尾节点，链表长度为1等等
 
@@ -2213,9 +2213,11 @@ public:
 };
 ```
 
- 空间复杂度为O(1)的一遍扫描
+空间复杂度为O(1)的一遍扫描
 
 思路：两个指针，第一个指针首先从头开始移动n+1步，然后两个指针一起出发，这两个指针中间恰好隔了n个节点，当第一个指针到达空节点时，第二个指针到达从最后一个节点起数的第n个节点，这时候重新链接即可
+
+保证输入数据n合法，所以不用判断n
 
 空间复杂度为O(n)，时间复杂度为O(n)，非常妙！
 
@@ -2233,24 +2235,21 @@ public:
 class Solution {
 public:
     ListNode* removeNthFromEnd(ListNode* head, int n) {
-        if(head->next == NULL){
-            return NULL;
-        }
-        ListNode *dummy = new ListNode(0);
+        // 有可能删除头结点，所以要用哑结点
+        ListNode* dummy = new ListNode(-1);
         dummy->next = head;
-        ListNode *first = dummy;
-        ListNode *second = dummy;
-        int step = 0;
-        while(step < n+1){
-            first = first->next;
-            ++step;
+        ListNode* slow = dummy;
+        ListNode* fast = dummy;
+        while(n >= 0){
+            fast = fast->next;
+            --n;
         }
-        while(first != NULL){
-            first = first->next;
-            second = second->next;
+        while(fast){
+            fast = fast->next;
+            slow = slow->next;
         }
-        second->next = second->next->next;
-        return dummy->next;  // error occurs if return head when delete head
+        slow->next = slow->next->next;
+        return dummy->next;
     }
 };
 ```
@@ -2395,43 +2394,286 @@ public:
 };
 ```
 
-### 141.环形链表
+### 24. 两两交换链表中的节点(medium)
+
+给定一个链表，两两交换其中相邻的节点，并返回交换后的链表。
+
+你不能只是单纯的改变节点内部的值，而是需要实际的进行节点交换。
+
+示例:
+
+给定 1->2->3->4, 你应该返回 2->1->4->3.
+
+建议：改变结构的题，最好在纸上画一下，因为很可能链表会断，所以要有三个指针，
+
+```c++
+/**
+ * Definition for singly-linked list.
+ * struct ListNode {
+ *     int val;
+ *     ListNode *next;
+ *     ListNode(int x) : val(x), next(NULL) {}
+ * };
+ */
+class Solution {
+public:
+    ListNode* swapPairs(ListNode* head) {
+        if(!head) return nullptr;
+        if(!head->next) return head;
+        ListNode* dummy = new ListNode(0);
+        dummy->next = head;
+        ListNode* cur = dummy;
+        ListNode* a;
+        ListNode* b;
+        while(cur && cur->next && cur->next->next){
+            // cur->a->b->x...
+            a = cur->next;
+            b = a->next;
+            cur->next = b;
+            a->next = b->next;
+            b->next = a;
+            // cur->b->a->x...
+            cur = a;
+            // ->b->a->x(cur)...
+        }
+        return dummy->next;
+    }
+};
+```
+
+### 61. 旋转链表(medium)
+
+给定一个链表，旋转链表，将链表每个节点向右移动 k 个位置，其中 k 是非负数。
+
+示例 1:
+
+输入: 1->2->3->4->5->NULL, k = 2
+输出: 4->5->1->2->3->NULL
+解释:
+向右旋转 1 步: 5->1->2->3->4->NULL
+向右旋转 2 步: 4->5->1->2->3->NULL
+示例 2:
+
+输入: 0->1->2->NULL, k = 4
+输出: 2->0->1->NULL
+解释:
+向右旋转 1 步: 2->0->1->NULL
+向右旋转 2 步: 1->2->0->NULL
+向右旋转 3 步: 0->1->2->NULL
+向右旋转 4 步: 2->0->1->NULL
+
+题目本身不难，但是对于边界情况要很小心，还要注意一些特殊的用例，如[1]与0，[1]与1，[1,2]与2等等
+
+```c++
+/**
+ * Definition for singly-linked list.
+ * struct ListNode {
+ *     int val;
+ *     ListNode *next;
+ *     ListNode(int x) : val(x), next(NULL) {}
+ * };
+ */
+class Solution {
+public:
+    ListNode* rotateRight(ListNode* head, int k) {
+        if(!head) return nullptr;
+        if(k == 0 || !head->next) return head;
+        ListNode* dummy = new ListNode(-1);
+        dummy->next = head;
+        ListNode* cur = head;
+        ListNode* old_tail;
+        ListNode* new_tail;
+        int len = 1; // 已判空，肯定有头结点
+        while(cur->next){
+            cur = cur->next;
+            ++len;
+        }
+        if(k % len == 0) return head;
+        old_tail = cur; // 得到原链表的尾节点
+        int step = (len - k % len); // 计算新链表的的头结点
+        cur = head;
+        while(--step){
+            cur = cur->next;
+        }
+        new_tail = cur;
+        dummy->next = new_tail->next; // 原链表的尾节点之后就是新头结点
+        new_tail->next = nullptr; // 新链表的尾节点后置为空
+        old_tail->next = head; // 原链表的尾节点后置为原链表头
+        return dummy->next;
+    }
+};
+```
+
+### 82. 删除排序链表中的重复元素 II(medium)
+
+给定一个排序链表，删除所有含有重复数字的节点，只保留原始链表中 没有重复出现 的数字。
+
+示例 1:
+
+输入: 1->2->3->3->4->4->5
+输出: 1->2->5
+示例 2:
+
+输入: 1->1->1->2->3
+输出: 2->3
+
+思路：
+
+一次遍历，用pre记录前驱节点，用cnt记录当前节点是否重复，如果重复则删除这一串重复节点，否则把cur赋值给pre，这种做法是不考虑释放空间的
+
+```c++
+/**
+ * Definition for singly-linked list.
+ * struct ListNode {
+ *     int val;
+ *     ListNode *next;
+ *     ListNode(int x) : val(x), next(NULL) {}
+ * };
+ */
+class Solution {
+public:
+    ListNode* deleteDuplicates(ListNode* head) {
+        if(!head) return nullptr;
+        ListNode* dummy = new ListNode(-1);
+        dummy->next = head;
+        ListNode* pre = dummy;
+        ListNode* cur = head;
+        int cnt = 1;
+        while(cur){
+            while(cur->next && cur->val == cur->next->val){
+                cur = cur->next;
+                ++cnt;
+            }
+            if(cnt > 1){ // 有重复元素，删除他们
+                pre->next = cur->next;
+                cnt = 1;
+            }
+            else{
+                pre = cur;
+            }
+            cur = cur->next; // 到下一个不重复的元素
+        }
+        return dummy->next;
+    }
+};
+```
+
+### 83. 删除排序链表中的重复元素(easy)
+
+给定一个排序链表，删除所有重复的元素，使得每个元素只出现一次。
+
+示例 1:
+
+输入: 1->1->2
+输出: 1->2
+示例 2:
+
+输入: 1->1->2->3->3
+输出: 1->2->3
+
+保留第一个重复的元素，其余重复元素删除，不停地循环即可
+
+情况1：如果下一个点和当前点相同，则删掉下一个节点
+
+情况2：如果下一个点和当前点不同，则后移
+
+```c++
+/**
+ * Definition for singly-linked list.
+ * struct ListNode {
+ *     int val;
+ *     ListNode *next;
+ *     ListNode(int x) : val(x), next(NULL) {}
+ * };
+ */
+class Solution {
+public:
+    ListNode* deleteDuplicates(ListNode* head) {
+        if(!head) return nullptr;
+        ListNode* dummy = new ListNode(-1);
+        dummy->next = head;
+        ListNode* cur = head;
+        ListNode* temp;
+        while(cur->next){
+            if(cur->val == cur->next->val){
+                temp = cur->next;
+                cur->next = cur->next->next;
+                delete temp; // 释放空间
+            }
+            else{
+                cur = cur->next;
+            }
+        }
+        head = dummy->next;
+        delete dummy; // 释放空间
+        return head;
+    }
+};
+```
+
+### 92. 反转链表 II(medium)
+
+反转从位置 m 到 n 的链表。请使用一趟扫描完成反转。
+
+说明:
+1 ≤ m ≤ n ≤ 链表长度。
+
+示例:
+
+输入: 1->2->3->4->5->NULL, m = 2, n = 4
+输出: 1->4->3->2->5->NULL
+
+一次遍历搞定，但要很小心很小心，最好画图，我自己完成时用了debug
+
+![lc92](../image/lc92.png)
+
+```c++
+/**
+ * Definition for singly-linked list.
+ * struct ListNode {
+ *     int val;
+ *     ListNode *next;
+ *     ListNode(int x) : val(x), next(NULL) {}
+ * };
+ */
+class Solution {
+public:
+    ListNode* reverseBetween(ListNode* head, int m, int n) { // 假设传入[1,2,3,4,5],2,4
+        if(!head) return nullptr;
+        if(!head->next || m == n) return head;
+        ListNode* dummy = new ListNode(-1);
+        dummy->next = head;
+        int step = n - m;
+        ListNode* pre_tail = dummy; // 记录反转子链表的前驱，即1
+        while(--m){
+            pre_tail = pre_tail->next;
+        }
+        ListNode* pre = pre_tail->next;
+        if(!pre) return head; // 不需要反转
+        ListNode* mid_tail = pre; // 记录子链表的头结点，反转后变成子链表的尾节点，即2
+        ListNode* cur = pre->next;
+        if(!cur) return head; // 不需要反转
+        ListNode* post;
+        while(step--){ // 反转m到n之间
+            post = cur->next;
+            cur->next = pre;
+            pre = cur;
+            cur = post;
+        }
+        pre_tail->next = pre; // 1指向4
+        mid_tail->next = cur; // 2指向5
+        return dummy->next;
+    }
+};
+```
+
+### 141.环形链表(easy)
 
 给定一个链表，判断链表中是否有环。
 
 为了表示给定链表中的环，我们使用整数 `pos` 来表示链表尾连接到链表中的位置（索引从 0 开始）。 如果 `pos` 是 `-1`，则在该链表中没有环。
 
-**示例 1：**
-
-```c++
-输入：head = [3,2,0,-4], pos = 1
-输出：true
-解释：链表中有一个环，其尾部连接到第二个节点。
-```
-
-![img](https://assets.leetcode-cn.com/aliyun-lc-upload/uploads/2018/12/07/circularlinkedlist.png)
-
-**示例 2：**
-
-```c++
-输入：head = [1,2], pos = 0
-输出：true
-解释：链表中有一个环，其尾部连接到第一个节点。
-```
-
-![img](https://assets.leetcode-cn.com/aliyun-lc-upload/uploads/2018/12/07/circularlinkedlist_test2.png)
-
-**示例 3：**
-
-```c++
-输入：head = [1], pos = -1
-输出：false
-解释：链表中没有环。
-```
-
-![img](https://assets.leetcode-cn.com/aliyun-lc-upload/uploads/2018/12/07/circularlinkedlist_test3.png)
-
-**进阶：**
+进阶：
 
 你能用 *O(1)*（即，常量）内存解决此问题吗？
 
@@ -2502,26 +2744,13 @@ public:
 };
 ```
 
-### 206.反转链表
+### 142. 环形链表 II(mdium)
 
-反转一个单链表。
+给定一个链表，返回链表开始入环的第一个节点。 如果链表无环，则返回 null。
 
-**示例:**
+为了表示给定链表中的环，我们使用整数 pos 来表示链表尾连接到链表中的位置（索引从 0 开始）。 如果 pos 是 -1，则在该链表中没有环。
 
-```c++
-输入: 1->2->3->4->5->NULL
-输出: 5->4->3->2->1->NULL
-```
-
-**进阶:**
-你可以迭代或递归地反转链表。你能否用两种方法解决这道题？
-
- 迭代，第一次尝试，8ms（战胜97.44%的cpp）
-
-思路：迭代，当前迭代的后面个节点都需要记录下来，注意一下首尾特殊情况
-
-- 时间复杂度：O(n)，假设 n是列表的长度，时间复杂度是 O(n)。
-- 空间复杂度：O(1)。
+说明：不允许修改给定的链表。
 
 ```c++
 /**
@@ -2534,121 +2763,70 @@ public:
  */
 class Solution {
 public:
-    ListNode* reverseList(ListNode* head) {
-        if(head == NULL || head->next == NULL){
-            return head;
+    ListNode *detectCycle(ListNode *head) {
+        if(!head || !head->next) return nullptr;
+        ListNode* slow = head;
+        ListNode* fast = head;
+        while(true){
+            slow = slow->next;
+            if(!fast || !fast->next) return nullptr;
+            fast = fast->next->next;
+            if(slow == fast) break;
         }
-        ListNode *temp, *afterTemp = head->next, *node = head;
-        while(afterTemp->next != NULL){
-            temp = afterTemp;
-            afterTemp = temp->next;
-            temp->next = node;
-            if(node == head){
-                node->next = NULL;
+        if(!fast->next) return nullptr;
+        int cnt = 1; // 环中cnt个节点
+        fast = fast->next;
+        while(fast != slow){
+            fast = fast->next;
+            ++cnt;
+        }
+        slow = head, fast = head;
+        while(cnt--) fast = fast->next; // fast先走cnt步
+        while(slow != fast){
+            slow = slow->next;
+            fast = fast->next;
+        }
+        return slow;
+    }
+};
+```
+
+y总的双指针优化，不用计算环的大小，更加巧妙
+
+![lc142](../image/lc142.png)
+
+```c++
+class Solution {
+public:
+    ListNode *detectCycle(ListNode *head) {
+        if (!head || !head->next) return 0;
+        ListNode *first = head, *second = head;
+
+        while (first && second)
+        {
+            first = first->next;
+            second = second->next;
+            if (second) second = second->next;
+            else return 0;
+
+            if (first == second)
+            {
+                first = head;
+                while (first != second)
+                {
+                    first = first->next;
+                    second = second->next;
+                }
+                return first;
             }
-            node = temp;
         }
-        if(node == head){
-            node->next = NULL;
-        }
-        afterTemp->next = node;
-        return afterTemp;
+
+        return 0;
     }
 };
 ```
 
- 迭代，代码优化，效率差不多
-
-思路：在遍历列表时，将当前节点的 next 指针改为指向前一个元素。由于节点没有引用其上一个节点，因此必须事先存储其前一个元素。在更改引用之前，还需要另一个指针来存储下一个节点。不要忘记在最后返回新的头引用。
-
-```c++
-/**
- * Definition for singly-linked list.
- * struct ListNode {
- *     int val;
- *     ListNode *next;
- *     ListNode(int x) : val(x), next(NULL) {}
- * };
- */
-class Solution {
-public:
-    ListNode* reverseList(ListNode* head) {
-        if(head == NULL || head->next == NULL){
-            return head;
-        }
-        ListNode *temp, *prev = NULL, *curr = head;
-        while(curr != NULL){
-            temp = curr->next;
-            curr->next = prev;
-            prev = curr;
-            curr = temp;
-        }
-        return prev;
-    }
-};
-```
-
- 递归
-
-思路：关键在于反向工作。
-
-假设链表为：n1->n2->...nk-1->nk->nk+1->...->nm->NULL
-
-假设已经翻转到nk+1了：n1->n2->...nk-1->nk->nk+1<-...<-nm
-
-下一步是要让nk+1指向nk，即
-
-```c++
-nk->next->next = nk;
-```
-
-从head开始，首先递归至末尾，然后跳出一层递归，往头部移动，再跳出一层，再往头部移动
-
-时间复杂度：O(n)，假设 n 是列表的长度，那么时间复杂度为 O(n)。
-空间复杂度：O(n)，由于使用递归，将会使用隐式栈空间。递归深度可能会达到 n 层。
-
-```c++
-/**
- * Definition for singly-linked list.
- * struct ListNode {
- *     int val;
- *     ListNode *next;
- *     ListNode(int x) : val(x), next(NULL) {}
- * };
- */
-class Solution {
-public:
-    ListNode* reverseList(ListNode* head) {
-        // cout << "head->val: " << head->val << endl;
-        if(head == NULL || head->next == NULL){
-            return head;
-        }
-        ListNode *p = reverseList(head->next);
-        // cout << "p->val: " << p->val << endl;
-        head->next->next = head;
-        head->next = NULL;  // ensure original head->next is NULL
-        return p;
-    }
-};
-```
-
-为了方便理解，控制台输出head->val、p->val，结果如下，输入链表为[1,2,3,4,5]：
-
-```c++
-head->val: 1
-head->val: 2
-head->val: 3
-head->val: 4
-head->val: 5
-p->val: 5
-p->val: 5
-p->val: 5
-p->val: 5
-```
-
-可以看到，首先递归到最深层，也就是链表末尾5，依次往前翻转，注意到p的值不变，最后跳出递归时的返回值p即为新的头节点
-
-### 148. 排序链表
+### 148. 排序链表(medium)
 
 在 O(n log n) 时间复杂度和常数级空间复杂度下，对链表进行排序。
 
@@ -2727,7 +2905,244 @@ public:
 
 TODO
 
-### 234.回文链表
+### 160. 相交链表(easy)
+
+编写一个程序，找到两个单链表相交的起始节点。
+
+假设c为公共部分长度，a、b为各自独有的子长度
+
+一般解法：先计算两个链表的长度，然后让长度长的指针先走完长度差的距离，第一次相遇就是答案了。总共经历了2(a+b+c)步。
+
+```c++
+/**
+ * Definition for singly-linked list.
+ * struct ListNode {
+ *     int val;
+ *     ListNode *next;
+ *     ListNode(int x) : val(x), next(NULL) {}
+ * };
+ */
+class Solution {
+public:
+    ListNode *getIntersectionNode(ListNode *headA, ListNode *headB) {
+        if(!headA || !headB) return nullptr;
+        ListNode* curA = headA;
+        ListNode* curB = headB;
+        int lenA = 1;
+        int lenB = 1;
+        while(curA){
+            curA = curA->next;
+            ++lenA;
+        }
+        while(curB){
+            curB = curB->next;
+            ++lenB;
+        }
+        int diff = abs(lenA - lenB);
+        curA = headA, curB = headB;
+        if(lenA > lenB){
+            while(diff--) curA = curA->next;
+        }
+        else{
+            while(diff--) curB = curB->next;
+        }
+        while(curA && curB){
+            if(curA == curB) return curA;
+            curA = curA->next;
+            curB = curB->next;
+        }
+        return nullptr;
+    }
+};
+```
+
+y总的巧妙双指针
+
+![lc160](../image/lc160.png)
+
+```c++
+class Solution {
+public:
+    ListNode *getIntersectionNode(ListNode *headA, ListNode *headB) {
+        ListNode *p = headA, *q = headB;
+        while (p != q)
+        {
+            if (p) p = p->next;
+            else p = headB;
+            if (q) q = q->next;
+            else q = headA;
+        }
+        return p;
+    }
+};
+```
+
+### 206.反转链表(easy)
+
+反转一个单链表。
+
+**示例:**
+
+```c++
+输入: 1->2->3->4->5->NULL
+输出: 5->4->3->2->1->NULL
+```
+
+**进阶:**
+你可以迭代或递归地反转链表。你能否用两种方法解决这道题？
+
+ 迭代，第一次尝试，8ms（战胜97.44%的cpp）
+
+思路：迭代，当前迭代的后面个节点都需要记录下来，注意一下首尾特殊情况
+
+- 时间复杂度：O(n)，假设 n是列表的长度，时间复杂度是 O(n)。
+- 空间复杂度：O(1)。
+
+```c++
+/**
+ * Definition for singly-linked list.
+ * struct ListNode {
+ *     int val;
+ *     ListNode *next;
+ *     ListNode(int x) : val(x), next(NULL) {}
+ * };
+ */
+class Solution {
+public:
+    ListNode* reverseList(ListNode* head) {
+        if(head == NULL || head->next == NULL){
+            return head;
+        }
+        ListNode *temp, *afterTemp = head->next, *node = head;
+        while(afterTemp->next != NULL){
+            temp = afterTemp;
+            afterTemp = temp->next;
+            temp->next = node;
+            if(node == head){
+                node->next = NULL;
+            }
+            node = temp;
+        }
+        if(node == head){
+            node->next = NULL;
+        }
+        afterTemp->next = node;
+        return afterTemp;
+    }
+};
+```
+
+ 迭代，代码优化，效率差不多
+
+思路：在遍历列表时，将当前节点的 next 指针改为指向前一个元素。由于节点没有引用其上一个节点，因此必须事先存储其前一个元素。在更改引用之前，还需要另一个指针来存储下一个节点。不要忘记在最后返回新的头引用。
+
+```c++
+/**
+ * Definition for singly-linked list.
+ * struct ListNode {
+ *     int val;
+ *     ListNode *next;
+ *     ListNode(int x) : val(x), next(NULL) {}
+ * };
+ */
+class Solution {
+public:
+    ListNode* reverseList(ListNode* head) {
+        if(head == NULL || head->next == NULL){
+            return head;
+        }
+        ListNode *temp, *prev = NULL, *curr = head;
+        while(curr != NULL){
+            temp = curr->next; // 防止断链
+            curr->next = prev;
+            prev = curr;
+            curr = temp;
+        }
+        return prev;
+    }
+};
+```
+
+ 递归
+
+思路：关键在于反向工作。
+
+假设链表为：n1->n2->...nk-1->nk->nk+1->...->nm->NULL
+
+假设已经翻转到nk+1了：n1->n2->...nk-1->nk->nk+1<-...<-nm
+
+下一步是要让nk+1指向nk，即
+
+```c++
+nk->next->next = nk;
+```
+
+从head开始，首先递归至末尾，然后跳出一层递归，往头部移动，再跳出一层，再往头部移动
+
+时间复杂度：O(n)，假设 n 是列表的长度，那么时间复杂度为 O(n)。
+空间复杂度：O(n)，由于使用递归，将会使用隐式栈空间。递归深度可能会达到 n 层。
+
+```c++
+/**
+ * Definition for singly-linked list.
+ * struct ListNode {
+ *     int val;
+ *     ListNode *next;
+ *     ListNode(int x) : val(x), next(NULL) {}
+ * };
+ */
+class Solution {
+public:
+    ListNode* reverseList(ListNode* head) {
+        // cout << "head->val: " << head->val << endl;
+        if(head == NULL || head->next == NULL){
+            return head;
+        }
+        ListNode *p = reverseList(head->next);
+        // cout << "p->val: " << p->val << endl;
+        head->next->next = head;
+        head->next = NULL;  // ensure original head->next is NULL
+        return p;
+    }
+};
+```
+
+为了方便理解，控制台输出head->val、p->val，结果如下，输入链表为[1,2,3,4,5]：
+
+```c++
+head->val: 1
+head->val: 2
+head->val: 3
+head->val: 4
+head->val: 5
+p->val: 5
+p->val: 5
+p->val: 5
+p->val: 5
+```
+
+可以看到，首先递归到最深层，也就是链表末尾5，依次往前翻转，注意到p的值不变，最后跳出递归时的返回值p即为新的头节点
+
+二刷，递归用的做法有点不太一样，从头往后递归，用到一个递归辅助函数，其实与迭代的思路是一样，是为了递归而递归写的代码
+
+```c++
+class Solution {
+public:
+    ListNode* reverseList(ListNode* head) {
+        if(!head) return nullptr;
+        if(!head->next) return head;
+        return core(head, nullptr);
+    }
+    ListNode* core(ListNode* cur, ListNode* pre){
+        if(!cur) return pre;
+        ListNode* post = cur->next;
+        cur->next = pre;
+        return core(post, cur);
+    }
+};
+```
+
+### 234.回文链表(easy)
 
 请判断一个链表是否为回文链表。
 
@@ -2827,7 +3242,7 @@ public:
 };
 ```
 
-### 237.删除链表中的节点
+### 237.删除链表中的节点(easy)
 
 请编写一个函数，使其可以删除某个链表中给定的（非末尾）节点，你将只被给定要求被删除的节点。
 
@@ -2835,34 +3250,30 @@ public:
 
 ![img](https://assets.leetcode-cn.com/aliyun-lc-upload/uploads/2019/01/19/237_example.png)
 
-**示例 1:**
+示例 1:
 
-```c++
 输入: head = [4,5,1,9], node = 5
 输出: [4,1,9]
 解释: 给定你链表中值为 5 的第二个节点，那么在调用了你的函数之后，该链表应变为 4 -> 1 -> 9.
-```
 
-**示例 2:**
+示例 2:
 
-```c++
 输入: head = [4,5,1,9], node = 1
 输出: [4,5,9]
 解释: 给定你链表中值为 1 的第三个节点，那么在调用了你的函数之后，该链表应变为 4 -> 5 -> 9.
-```
 
-**说明:**
+说明:
 
 - 链表至少包含两个节点。
 - 链表中所有节点的值都是唯一的。
 - 给定的节点为非末尾节点并且一定是链表中的一个有效节点。
 - 不要从你的函数中返回任何结果。
 
- 唯一解
+唯一解
 
 思路：因为函数的输入只有待删除的节点，根本没法从头遍历，但是要删除这个节点，不一定要实实在在地释放这个这个节点的内存，可以这样做：把它的后继节点的值赋值给它，再把它的后继节点删除，这样看上去就像是没有这个节点了。这种方法只能适用于待删除节点是链表的中间节点，而题目已经说了待删除节点肯定不是尾节点。
 
- 时间和空间复杂度都是：O(1)
+时间和空间复杂度都是：O(1)
 
 ```c++
 /**
@@ -2889,6 +3300,14 @@ public:
         node->val = delNode->val;
         node->next = delNode->next;
         delete delNode;
+```
+
+如果考虑C++的指针特性，可以用解引用一行代码解决，结构体的等号直接赋值即可
+
+```c++
+void deleteNode(ListNode* node){
+    *(node) = *(node->next);
+}
 ```
 
 ## 树
@@ -3000,7 +3419,63 @@ public:
 };
 ```
 
-### 98.验证二叉搜索树
+### 94. 二叉树的中序遍历(medium)
+
+给定一个二叉树，返回它的中序 遍历。
+
+示例:
+
+输入: [1,null,2,3]
+   1
+    \
+     2
+    /
+   3
+
+输出: [1,3,2]
+进阶: 递归算法很简单，你可以通过迭代算法完成吗
+
+根据中序遍历的顺序，对于任一结点，优先访问其左孩子，而左孩子结点又可以看做一根结点，然后继续访问其左孩子结点，直到遇到左孩子结点为空的结点才进行访问，然后按相同的规则访问其右子树。因此其处理过程如下：
+
+对于任一结点P，
+
+1)若其左孩子不为空，则将P入栈并将P的左孩子置为当前的P，然后对当前结点P再进行相同的处理；
+2)若其左孩子为空，则取栈顶元素并进行出栈操作，访问该栈顶结点，然后将当前的P置为栈顶结点的右孩子；
+3)直到P为NULL并且栈为空则遍历结束
+
+```c++
+/**
+ * Definition for a binary tree node.
+ * struct TreeNode {
+ *     int val;
+ *     TreeNode *left;
+ *     TreeNode *right;
+ *     TreeNode(int x) : val(x), left(NULL), right(NULL) {}
+ * };
+ */
+class Solution {
+public:
+    vector<int> inorderTraversal(TreeNode* root) {
+        if(!root) return vector<int>();
+        vector<int> res;
+        stack<TreeNode*> s;
+        TreeNode* cur = root;
+        while(cur || !s.empty()){
+            while(cur){ // 1)
+                s.push(cur);
+                cur = cur->left;
+            }
+            cur = s.top(); // 2)
+            s.pop();
+            res.push_back(cur->val);
+            cur = cur->right;
+        }
+        return res;
+    }
+};
+```
+
+### 98.验证二叉搜索树(medium)
 
 给定一个二叉树，判断其是否是一个有效的二叉搜索树。
 
@@ -3146,7 +3621,7 @@ public:
 };
 ```
 
-### 101.对称二叉树
+### 101.对称二叉树(medium,based on 98)
 
 给定一个二叉树，检查它是否是镜像对称的。
 
@@ -3170,96 +3645,15 @@ public:
    3    3
 ```
 
-**说明:**
+说明:
 
 如果你可以运用递归和迭代两种方法解决这个问题，会很加分。
 
- 第一次尝试，前序遍历和后序遍历
+第一次尝试，查看前序遍历和后序遍历是否相等，用的递归方法，非常繁琐
 
-思路：镜像对称的二叉树，其前序遍历和后序遍历的列表一样，但是后来发现有错，比如`[1,2,2,2,null,2]`，其前序遍历列表和后序列表都是[2, 2, 1, 2, 2]
+递归最佳版本
 
-思路虽然错了，错误代码也放上来作为参考：
-
-```c++
-    bool isSymmetric(TreeNode* root) {
-        if(root == nullptr) return true;
-        vector<TreeNode*> pre_vec = {root};
-        preorderRecursion(root, pre_vec);
-        vector<TreeNode*> post_vec = {root};
-        postorderRecursion(root, post_vec);
-        for(int i = 0; i < pre_vec.size(); ++i){
-            if(pre_vec[i]->val != post_vec[i]->val){
-                return false;
-            }
-        }
-        return true;
-    }
-    void preorderRecursion(TreeNode* root, vector<TreeNode*> &vec){
-        if(root == nullptr) return;
-        preorderRecursion(root->left, vec);
-        vec.push_back(root);
-        preorderRecursion(root->right, vec);
-    }
-    void postorderRecursion(TreeNode* root, vector<TreeNode*> &vec){
-        if(root == nullptr) return;
-        postorderRecursion(root->right, vec);
-        vec.push_back(root);
-        postorderRecursion(root->left, vec);
-    }
-```
-
- 修正错误
-
-思路：上个代码没法判断前序遍历列表和后序遍历列表的同位置元素是否是对称的，观察到它们两个节点如果一左一右或一右一左地从父节点延伸出，则它们是镜面对称的，于是可以在构建前序/后序遍历列表时，把这个信息也加进去，列表的每个元素是一个pair，它包含了TreeNode*与一个用来指示是否是左叶结点的bool
-
-一次时间8ms（战胜72.84%的cpp），一次4ms（战胜94.72%的cpp），内存消耗16.1MB
-
-```c++
-/**
- * Definition for a binary tree node.
- * struct TreeNode {
- *     int val;
- *     TreeNode *left;
- *     TreeNode *right;
- *     TreeNode(int x) : val(x), left(NULL), right(NULL) {}
- * };
- */
-class Solution {
-public:
-    bool isSymmetric(TreeNode* root) {
-        if(root == nullptr) return true;
-        vector<pair<TreeNode*, bool>> pre_vec;
-        preorderRecursion(root, pre_vec, true);
-        vector<pair<TreeNode*, bool>> post_vec;
-        postorderRecursion(root, post_vec, false);
-        for(int i = 0; i < pre_vec.size(); ++i){
-            if(pre_vec[i].first->val != post_vec[i].first->val){
-                return false;
-            }
-            else if(pre_vec[i].second == post_vec[i].second){
-                return false;
-            }
-        }
-        return true;
-    }
-    void preorderRecursion(TreeNode* root, vector<pair<TreeNode*, bool>> &vec, bool isLeft){
-        if(root == nullptr) return;
-        preorderRecursion(root->left, vec, true);
-        vec.push_back(make_pair(root, isLeft));
-        preorderRecursion(root->right, vec, false);
-    }
-    void postorderRecursion(TreeNode* root, vector<pair<TreeNode*, bool>> &vec, bool isLeft){
-        if(root == nullptr) return;
-        postorderRecursion(root->right, vec, false);
-        vec.push_back(make_pair(root, isLeft));
-        postorderRecursion(root->left, vec, true);
-    }
-};
-```
-
- 递归最佳版本
-
-思路：左右同时出发，双管齐下！
+思路：左右同时出发，双管齐下！左右根节点是否相同，左根的左子树是否等于右根的右子树，左根的右子树是否等于右根的左子树
 
 时间复杂度：O(n)，因为我们遍历整个输入树一次，所以总的运行时间为 O(n)，其中 n是树中结点的总数。
 空间复杂度：递归调用的次数受树的高度限制。在最糟糕情况下，树是线性的，其高度为 O(n)。因此，在最糟糕的情况下，由栈上的递归调用造成的空间复杂度为 O(n)。
@@ -3273,13 +3667,12 @@ public:
     bool isSym(TreeNode *p, TreeNode *q){
         if(p == nullptr && q == nullptr) return true;
         if(!p || !q) return false;  // one is nullptr, the other is not, so return false
-        if(p->val == q->val) return isSym(p->left, q->right) && isSym(p->right, q->left);
-        return false;
+        return p->val == q->val && isSym(p->left, q->right) && isSym(p->right, q->left);
     }
 };
 ```
 
- 迭代最佳版本
+迭代最佳版本
 
 思路：左右同时出发，双管齐下！用双端队列存储节点，在迭代开始时，从队列头部拿出两个节点，如果这两个节点都有值且相等，则当前迭代成功，然后在队列后面加入左左、右右、左右、右左四个叶节点，连续两个的值应该是相等的，注意刚开始队列要先加入root节点两次
 
@@ -3308,7 +3701,40 @@ public:
 };
 ```
 
-### 102.二叉树的层次遍历
+y总的思路：
+
+用栈模拟递归，对根节点的左子树，我们用中序遍历；对根节点的右子树，我们用反中序遍历。则两个子树互为镜像，当且仅当同时遍历两课子树时，对应节点的值相等。
+
+```c++
+class Solution {
+public:
+    bool isSymmetric(TreeNode* root) {
+        if(root == nullptr) return true;
+        stack<TreeNode*> left, right;
+        TreeNode* l = root->left;
+        TreeNode* r = root->right;
+        while(l || r || !left.empty() || !right.empty()){
+            while(l && r){
+                left.push(l);
+                l = l->left;
+                right.push(r);
+                r = r->right;
+            }
+            if(l || r) return false; // l与r中有一个为空，另一个非空，则肯定不对称
+            l = left.top();
+            r = right.top();
+            left.pop();
+            right.pop();
+            if(l->val != r->val) return false;
+            l = l->right;
+            r = r->left;
+        }
+        return true;
+    }
+};
+```
+
+### 102.二叉树的层次遍历(medium)
 
 给定一个二叉树，返回其按层次遍历的节点值。 （即逐层地，从左到右访问所有节点）。
 
@@ -3333,7 +3759,7 @@ public:
 ]
 ```
 
- 第一次尝试，BFS+层数记录
+第一次尝试，BFS+层数记录
 
 思路：很容易想到BFS，但是没法记录每个节点所在层数，加上一个层数信息，也许可以解决问题，普通的BFS用迭代的解法，需要借助队列，比如第101题对称二叉树中就用到了`deque<TreeNode*>`，在这里为了记录层数信息，可以`deque<pair<TreeNode*, int>>`
 
@@ -3375,6 +3801,42 @@ public:
             }
         }
         return vecs;
+    }
+};
+```
+
+y总的解法，不需要双端队列，只需要调用size函数即可知道下一层的个数
+
+宽度优先遍历，一层一层来做。即：
+
+- 将根节点插入队列中；
+- 创建一个新队列，用来按顺序保存下一层的所有子节点；
+- 对于当前队列中的所有节点，按顺序依次将儿子加入新队列，并将当前节点的值记录在答案中；
+- 重复步骤2-3，直到队列为空为止。
+
+```c++
+class Solution {
+public:
+    vector<vector<int>> levelOrder(TreeNode* root) {
+        vector<vector<int>> res;
+        if (!root) return res;
+        queue<TreeNode*> q;
+        q.push(root);
+        while (!q.empty())
+        {
+            int len = q.size(); // 下一层有多少个元素
+            vector<int> level;
+            for (int i = 0; i < len; i ++ )
+            {
+                auto t = q.front();
+                q.pop();
+                level.push_back(t->val);
+                if (t->left) q.push(t->left);
+                if (t->right) q.push(t->right);
+            }
+            if (level.size()) res.push_back(level);
+        }
+        return res;
     }
 };
 ```
@@ -3461,6 +3923,51 @@ public:
 
  这题还可以用非递归的DFS解决，但需要栈这种数据结构，也可以使用广度优先搜索（BFS），但需要队列这种数据结构
 
+### 105. 从前序与中序遍历序列构造二叉树(medium)
+
+根据一棵树的前序遍历与中序遍历构造二叉树。
+
+注意:
+你可以假设树中没有重复的元素。
+
+例如，给出
+
+前序遍历 preorder = [3,9,20,15,7]
+中序遍历 inorder = [9,3,15,20,7]
+返回如下的二叉树：
+
+```c++
+    3
+   / \
+  9  20
+    /  \
+   15   7
+```
+
+y总用哈希表存储了中序遍历各元素的位置，这样查找更快，代码也更简洁一点，我加了点注释
+
+```c++
+class Solution {
+public:
+    unordered_map<int,int> pos; // 元素-位置，没有重复的元素，所以可以用哈希表，这样查找时可以更快
+    TreeNode* buildTree(vector<int>& preorder, vector<int>& inorder) {
+        int n = preorder.size();
+        for (int i = 0; i < n; i ++ )
+            pos[inorder[i]] = i;
+        return dfs(preorder, inorder, 0, n - 1, 0, n - 1);
+    }
+    TreeNode* dfs(vector<int>&pre, vector<int>&in, int pl, int pr, int il, int ir)
+    {
+        if (pl > pr) return NULL;
+        int k = pos[pre[pl]] - il; // 左子树共有k个元素
+        TreeNode* root = new TreeNode(pre[pl]); // 构造当前节点
+        root->left = dfs(pre, in, pl + 1, pl + k, il, il + k - 1); // 递归构造当前节点的左子树
+        root->right = dfs(pre, in, pl + k + 1, pr, il + k + 1, ir); // 递归构造当前节点的右子树
+        return root; // 返回当前节点
+    }
+};
+```
+
 ### 108.将有序数组转换为二叉搜索树
 
 将一个按照升序排列的有序数组，转换为一棵高度平衡二叉搜索树。
@@ -3529,6 +4036,329 @@ public:
 ```
 
 最后发现，AC的代码几乎跟我这个差不多，这题是独立完成的，耗时1h左右吧，我自己竟然也可以写出这么简洁高效的代码了！
+
+### 124. 二叉树中的最大路径和(hard, based on 543)
+
+给定一个非空二叉树，返回其最大路径和。
+
+本题中，路径被定义为一条从树中任意节点出发，达到任意节点的序列。该路径至少包含一个节点，且不一定经过根节点。
+
+示例 1:
+
+输入: [1,2,3]
+
+```c++
+       1
+      / \
+     2   3
+```
+
+输出: 6
+示例 2:
+
+输入: [-10,9,20,null,null,15,7]
+
+```c++
+   -10
+   / \
+  9  20
+    /  \
+   15   7
+```
+
+输出: 42
+
+与lc124模板一样
+
+(递归，树的遍历) O(n2)
+
+树中每条路径，都存在一个离根节点最近的点，我们把它记为割点，用割点可以将整条路径分为两部分：从该节点向左子树延伸的路径，和从该节点向右子树延伸的部分，而且两部分都是自上而下延伸的。
+
+我们可以递归遍历整棵树，递归时维护从每个节点开始往下延伸的最大路径和。
+对于每个点，递归计算完左右子树后，我们将左右子树维护的两条最大路径，和该点拼接起来，就可以得到以这个点为割点的最大路径。
+
+然后维护从这个点往下延伸的最大路径：从左右子树的路径中选择权值大的一条延伸即可。
+
+时间复杂度分析：每个节点仅会遍历一次，所以时间复杂度是 O(n)。
+
+```c++
+class Solution {
+public:
+    int ans;
+    int maxPathSum(TreeNode* root) {
+        ans = INT_MIN;
+        dfs(root);
+        return ans;
+    }
+    int dfs(TreeNode* root){
+        if (!root) return 0;
+        int left = max(0, dfs(root->left)); // 左子树最大值
+        int right = max(0, dfs(root->right)); // 右子树最大值
+        ans = max(ans, left + root->val + right); // 更新答案
+        return root->val + max(left, right); // 返回当前节点为最高点的最大值
+    }
+};
+```
+
+### 173. 二叉搜索树迭代器（medium, based on 94)
+
+实现一个二叉搜索树迭代器。你将使用二叉搜索树的根节点初始化迭代器。
+
+调用 next() 将返回二叉搜索树中的下一个最小的数。
+
+示例：
+
+BSTIterator iterator = new BSTIterator(root);
+iterator.next();    // 返回 3
+iterator.next();    // 返回 7
+iterator.hasNext(); // 返回 true
+iterator.next();    // 返回 9
+iterator.hasNext(); // 返回 true
+iterator.next();    // 返回 15
+iterator.hasNext(); // 返回 true
+iterator.next();    // 返回 20
+iterator.hasNext(); // 返回 false
+
+提示：
+
+next() 和 hasNext() 操作的时间复杂度是 O(1)，并使用 O(h) 内存，其中 h 是树的高度。
+你可以假设 next() 调用总是有效的，也就是说，当调用 next() 时，BST 中至少存在一个下一个最小的数。
+
+算法：（栈），把lc124的迭代代码拆分一下即可
+
+用栈来模拟BST的中序遍历过程，当前结点进栈，代表它的左子树正在被访问。栈顶结点代表当前访问到的结点。
+
+求后继时，只需要弹出栈顶结点，取出它的值。然后将它的右儿子以及右儿子的左儿子等一系列结点进栈，这一步代表找右子树中的最左子结点，并记录路径上的所有结点。
+判断是否还存在后继只需要判断栈是否为空即可，因为栈顶结点是下一次即将被访问到的结点。
+
+```c++
+/**
+ * Definition for binary tree
+ * struct TreeNode {
+ *     int val;
+ *     TreeNode *left;
+ *     TreeNode *right;
+ *     TreeNode(int x) : val(x), left(NULL), right(NULL) {}
+ * };
+ */
+class BSTIterator {
+public:
+    stack<TreeNode*> st;
+    BSTIterator(TreeNode *root) {
+        TreeNode *p = root;
+        while (p) {
+            st.push(p);
+            p = p -> left;
+        }
+    }
+
+    /** @return whether we have a next smallest number */
+    bool hasNext() {
+        return !st.empty();
+    }
+
+    /** @return the next smallest number */
+    int next() {
+        TreeNode *cur = st.top();
+        st.pop();
+        int v = cur -> val;
+        cur = cur -> right;
+        while (cur) {
+            st.push(cur);
+            cur = cur -> left;
+        }
+        return v;
+    }
+};
+
+/**
+ * Your BSTIterator will be called like this:
+ * BSTIterator i = BSTIterator(root);
+ * while (i.hasNext()) cout << i.next();
+ */
+```
+
+### 236. 二叉树的最近公共祖先(medium)
+
+给定一个二叉树, 找到该树中两个指定节点的最近公共祖先。
+
+百度百科中最近公共祖先的定义为：“对于有根树 T 的两个结点 p、q，最近公共祖先表示为一个结点 x，满足 x 是 p、q 的祖先且 x 的深度尽可能大（一个节点也可以是它自己的祖先）。”
+
+例如，给定如下二叉树:  root = [3,5,1,6,2,0,8,null,null,7,4]
+
+示例 1:
+
+输入: root = [3,5,1,6,2,0,8,null,null,7,4], p = 5, q = 1
+输出: 3
+解释: 节点 5 和节点 1 的最近公共祖先是节点 3。
+示例 2:
+
+输入: root = [3,5,1,6,2,0,8,null,null,7,4], p = 5, q = 4
+输出: 5
+解释: 节点 5 和节点 4 的最近公共祖先是节点 5。因为根据定义最近公共祖先节点可以为节点本身。
+
+说明:
+
+所有节点的值都是唯一的。
+p、q 为不同节点且均存在于给定的二叉树中。
+
+(递归) O(n)
+
+考虑在左子树和右子树中查找这两个节点，如果两个节点分别位于左子树和右子树，则最低公共祖先为自己(root)，若左子树中两个节点都找不到，说明最低公共祖先一定在右子树中，反之亦然。考虑到二叉树的递归特性，因此可以通过递归来求得。
+
+时间复杂度分析：需要遍历树，复杂度为 O(n)
+
+```c++
+class Solution {
+public:
+    TreeNode* lowestCommonAncestor(TreeNode* root, TreeNode* p, TreeNode* q) {
+        if(root == nullptr || root == p || root == q) return root;
+        TreeNode* left = lowestCommonAncestor(root->left, p, q);
+        TreeNode* right = lowestCommonAncestor(root->right, p, q);
+        if(!left) return right;
+        if(!right) return left;
+        return root;
+    }
+};
+```
+
+### 297. 二叉树的序列化与反序列化
+
+序列化是将一个数据结构或者对象转换为连续的比特位的操作，进而可以将转换后的数据存储在一个文件或者内存中，同时也可以通过网络传输到另一个计算机环境，采取相反方式重构得到原数据。
+
+请设计一个算法来实现二叉树的序列化与反序列化。这里不限定你的序列 / 反序列化算法执行逻辑，你只需要保证一个二叉树可以被序列化为一个字符串并且将这个字符串反序列化为原始的树结构。
+
+示例:
+
+你可以将以下二叉树：
+
+```c++
+    1
+   / \
+  2   3
+     / \
+    4   5
+```
+
+序列化为 "[1,2,3,null,null,4,5]"
+提示: 这与 LeetCode 目前使用的方式一致，详情请参阅 LeetCode 序列化二叉树的格式。你并非必须采取这种方式，你也可以采用其他的方法解决这个问题。
+
+说明: 不要使用类的成员 / 全局 / 静态变量来存储状态，你的序列化和反序列化算法应该是无状态的。
+
+算法：(先序遍历序列化) O(n)
+
+我们按照先序遍历，即可完整唯一的序列化一棵二叉树。但空结点需要在序列化中有所表示。
+
+例如样例中的二叉树可以表示为 "1,2,n,n,3,4,n,n,5,n,n,"，其中n可以去掉，进行简化。
+
+通过DFS即可序列化该二叉树；反序列化时，按照','作为分隔，构造当前结点后分别通过递归构造左右子树即可。
+
+时间复杂度：每个结点仅遍历两次，故时间复杂度为O(n)。
+
+```c++
+/**
+ * Definition for a binary tree node.
+ * struct TreeNode {
+ *     int val;
+ *     TreeNode *left;
+ *     TreeNode *right;
+ *     TreeNode(int x) : val(x), left(NULL), right(NULL) {}
+ * };
+ */
+class Codec {
+public:
+    // Encodes a tree to a single string.
+    string serialize(TreeNode* root) {
+        string res;
+        dfs1(root, res);
+        return res;
+    }
+    void dfs1(TreeNode* root, string& res){
+        if (!root){
+            res += "#,";
+            return;
+        }
+        res += to_string(root->val) + ',';
+        dfs1(root->left, res);
+        dfs1(root->right, res);
+    }
+
+    // Decodes your encoded data to tree.
+    TreeNode* deserialize(string data) {
+        int u = 0;
+        return dfs2(data, u);
+    }
+    TreeNode* dfs2(string &data, int &u)
+    {
+        if (data[u] == '#'){
+            u += 2;
+            return NULL;
+        }
+        int t = 0;
+        bool is_minus = false;
+        if (data[u] == '-'){
+            is_minus = true;
+            u ++;
+        }
+        while (data[u] != ','){
+            t = t * 10 + data[u] - '0';
+            u ++ ;
+        }
+        u ++ ; // 跳过','
+        if (is_minus) t = -t;
+        auto root = new TreeNode(t);
+        root->left = dfs2(data, u);
+        root->right = dfs2(data, u);
+        return root;
+    }
+};
+// Your Codec object will be instantiated and called as such:
+// Codec codec;
+// codec.deserialize(codec.serialize(root));
+```
+
+### 543. 二叉树的直径(medium)
+
+给定一棵二叉树，你需要计算它的直径长度。一棵二叉树的直径长度是任意两个结点路径长度中的最大值。这条路径可能穿过也可能不穿过根结点。
+
+示例 :
+给定二叉树
+
+```c++
+          1
+         / \
+        2   3
+       / \
+      4   5
+```
+
+返回 3, 它的长度是路径 [4,2,1,3] 或者 [5,2,1,3]。
+
+注意：两结点之间的路径长度是以它们之间边的数目表示。
+
+在求树的深度的过程中，保存左右子深度之和的最大值，最后的ans即为最长路径
+
+因为需要返回当前节点为最高点的最大长度，而返回值只能有一个（不考虑pair、vector什么的），所以ans作为全局变量
+
+```c++
+class Solution {
+public:
+    //递归函数的返回值定义为从当前结点到叶子结点的最大长度
+    int dfs(TreeNode* node, int &ans)
+    {
+        if (!node) return 0;
+        int d1 = dfs(node->left, ans); // 左子树最大长度
+        int d2 = dfs(node->right, ans); // 右子树最大长度
+        ans = max(ans, d1 + d2); // 更新全局答案
+        return max(d1, d2) + 1; // 返回以当前节点为最高点的最大长度
+    }
+    int diameterOfBinaryTree(TreeNode* root) {
+        int ans = 0;
+        dfs(root, ans);
+        return ans;  
+    }
+};
+```
 
 ## 动态规划
 
@@ -5750,53 +6580,6 @@ public:
             ++left;
         }
         return res;
-    }
-};
-```
-
-### 24. 两两交换链表中的节点
-
-给定一个链表，两两交换其中相邻的节点，并返回交换后的链表。
-
-你不能只是单纯的改变节点内部的值，而是需要实际的进行节点交换。
-
-示例:
-
-给定 1->2->3->4, 你应该返回 2->1->4->3.
-
-建议：改变结构的题，最好在纸上画一下，因为很可能链表会断，所以要有三个指针，
-
-```c++
-/**
- * Definition for singly-linked list.
- * struct ListNode {
- *     int val;
- *     ListNode *next;
- *     ListNode(int x) : val(x), next(NULL) {}
- * };
- */
-class Solution {
-public:
-    ListNode* swapPairs(ListNode* head) {
-        if(!head) return nullptr;
-        if(!head->next) return head;
-        ListNode* dummy = new ListNode(0);
-        dummy->next = head;
-        ListNode* cur = dummy;
-        ListNode* a;
-        ListNode* b;
-        while(cur && cur->next && cur->next->next){
-            // cur->a->b->x...
-            a = cur->next;
-            b = a->next;
-            cur->next = b;
-            a->next = b->next;
-            b->next = a;
-            // cur->b->a->x...
-            cur = a;
-            // ->b->a->x(cur)...
-        }
-        return dummy->next;
     }
 };
 ```
@@ -8764,7 +9547,7 @@ public:
 };
 ```
 
-### 374. 猜数字大小
+### 374. 猜数字大小(easy≈)
 
 我们正在玩一个猜数字游戏。 游戏规则如下：
 我从 1 到 n 选择一个数字。 你需要猜我选择了哪个数字。
