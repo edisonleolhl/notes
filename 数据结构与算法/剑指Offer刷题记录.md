@@ -365,6 +365,30 @@ public:
 };
 ```
 
+y总用哈希表存储了中序遍历各元素的位置，这样查找更快，代码也更简洁一点，我加了点注释
+
+```c++
+class Solution {
+public:
+    unordered_map<int,int> pos; // 元素-位置，没有重复的元素，所以可以用哈希表，这样查找时可以更快
+    TreeNode* buildTree(vector<int>& preorder, vector<int>& inorder) {
+        int n = preorder.size();
+        for (int i = 0; i < n; i ++ )
+            pos[inorder[i]] = i;
+        return dfs(preorder, inorder, 0, n - 1, 0, n - 1);
+    }
+    TreeNode* dfs(vector<int>&pre, vector<int>&in, int pl, int pr, int il, int ir)
+    {
+        if (pl > pr) return NULL;
+        int k = pos[pre[pl]] - il; // 左子树共有k个元素
+        TreeNode* root = new TreeNode(pre[pl]); // 构造当前节点
+        root->left = dfs(pre, in, pl + 1, pl + k, il, il + k - 1); // 递归构造当前节点的左子树
+        root->right = dfs(pre, in, pl + k + 1, pr, il + k + 1, ir); // 递归构造当前节点的右子树
+        return root; // 返回当前节点
+    }
+};
+```
+
 ### 8：二叉树的下一个节点
 
 给定一个二叉树和其中的一个结点，请找出中序遍历顺序的下一个结点并且返回。注意，树中的结点不仅包含左右子结点，同时包含指向父结点的指针next。
@@ -2157,6 +2181,35 @@ void LayerTraversalWithNewline(TreeNode* root){
         cout << tempNode->val << " ";
     }
 }
+```
+
+看了y总的视频，换一种思路，调用size函数知道下一层有len个节点，然后在这次迭代中遍历len次，力扣102，答案是输出到二维vector中
+
+```c++
+class Solution {
+public:
+    vector<vector<int>> levelOrder(TreeNode* root) {
+        vector<vector<int>> res;
+        if (!root) return res;
+        queue<TreeNode*> q;
+        q.push(root);
+        while (!q.empty())
+        {
+            int len = q.size(); // 下一层有多少个元素
+            vector<int> level;
+            for (int i = 0; i < len; i ++ )
+            {
+                auto t = q.front();
+                q.pop();
+                level.push_back(t->val);
+                if (t->left) q.push(t->left);
+                if (t->right) q.push(t->right);
+            }
+            if (level.size()) res.push_back(level);
+        }
+        return res;
+    }
+};
 ```
 
 ### 32-3：之字形打印二叉树
@@ -5560,7 +5613,9 @@ public:
         if(root == nullptr || root == p || root == q) return root;
         TreeNode* left = lowestCommonAncestor(root->left, p, q);
         TreeNode* right = lowestCommonAncestor(root->right, p, q);
-        return (left == nullptr) ? right : ((right == nullptr) ? left : root);
+        if(!left) return right;
+        if(!right) return left;
+        return root;
     }
 };
 ```
