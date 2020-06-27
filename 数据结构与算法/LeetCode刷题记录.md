@@ -3944,6 +3944,43 @@ public:
    15   7
 ```
 
+AC代码：
+
+```c++
+/**
+ * Definition for a binary tree node.
+ * struct TreeNode {
+ *     int val;
+ *     TreeNode *left;
+ *     TreeNode *right;
+ *     TreeNode(int x) : val(x), left(NULL), right(NULL) {}
+ * };
+ */
+class Solution {
+public:
+    TreeNode* buildTree(vector<int>& preorder, vector<int>& inorder) {
+        if (preorder.empty() || inorder.empty()) return nullptr;
+        return helper(
+            preorder.begin(), preorder.end() - 1, inorder.begin(), inorder.end() - 1);
+    }
+    TreeNode* helper(vector<int>::iterator pre_first, vector<int>::iterator pre_last, vector<int>::iterator in_first, vector<int>::iterator in_last) {
+        TreeNode* root = new TreeNode(*pre_first);
+        if (in_first == in_last) return root; // 这里用inorder或者preorder判断均可
+        auto root_inorder = find(in_first, in_last, root->val);
+        int left_subtree_size = root_inorder - in_first;
+        if (left_subtree_size > 0) {
+            root->left = helper(pre_first + 1, pre_first + left_subtree_size,
+                                in_first, root_inorder - 1);
+        }
+        if (root_inorder != in_last) {
+            root->right = helper(pre_first + left_subtree_size + 1, pre_last,
+                                root_inorder + 1, in_last);
+        }
+        return root;
+    }
+};
+```
+
 y总用哈希表存储了中序遍历各元素的位置，这样查找更快，代码也更简洁一点，我加了点注释
 
 ```c++
@@ -3964,6 +4001,65 @@ public:
         root->left = dfs(pre, in, pl + 1, pl + k, il, il + k - 1); // 递归构造当前节点的左子树
         root->right = dfs(pre, in, pl + k + 1, pr, il + k + 1, ir); // 递归构造当前节点的右子树
         return root; // 返回当前节点
+    }
+};
+```
+
+### 106. 从中序与后序遍历序列构造二叉树(medium)
+
+[从中序与后序遍历序列构造二叉树](https://leetcode-cn.com/problems/construct-binary-tree-from-inorder-and-postorder-traversal/)
+
+根据一棵树的中序遍历与后序遍历构造二叉树。
+
+注意:
+你可以假设树中没有重复的元素。
+
+例如，给出
+
+中序遍历 inorder = [9,3,15,20,7]
+后序遍历 postorder = [9,15,7,20,3]
+返回如下的二叉树：
+
+```shell
+    3
+   / \
+  9  20
+    /  \
+   15   7
+```
+
+AC代码，和上题差不多，没用哈希表存储中序遍历的下标，
+
+```c++
+/**
+ * Definition for a binary tree node.
+ * struct TreeNode {
+ *     int val;
+ *     TreeNode *left;
+ *     TreeNode *right;
+ *     TreeNode(int x) : val(x), left(NULL), right(NULL) {}
+ * };
+ */
+class Solution {
+public:
+    TreeNode* buildTree(vector<int>& inorder, vector<int>& postorder) {
+        if (inorder.empty() || postorder.empty()) return nullptr;
+        return helper(inorder.begin(), inorder.end() - 1, postorder.begin(), postorder.end() - 1);
+    }
+    TreeNode* helper(vector<int>::iterator in_first, vector<int>::iterator in_last, vector<int>::iterator post_first, vector<int>::iterator post_last) {
+        TreeNode* root = new TreeNode(*post_last);
+        if (post_first == post_last) return root;
+        auto root_inorder = find(in_first, in_last, root->val);
+        int left_len = root_inorder - in_first;
+        if (left_len > 0) {
+            root->left = helper(in_first, root_inorder - 1,
+                                post_first, post_first + left_len - 1);
+        }
+        if (left_len < in_last - in_first) {
+            root->right = helper(root_inorder + 1, in_last,
+                                post_first + left_len, post_last - 1);
+        }
+        return root;
     }
 };
 ```
@@ -5919,6 +6015,196 @@ private:
 };
 ```
 
+### 225. 用队列实现栈
+
+使用队列实现栈的下列操作：
+
+push(x) -- 元素 x 入栈
+pop() -- 移除栈顶元素
+top() -- 获取栈顶元素
+empty() -- 返回栈是否为空
+注意:
+
+你只能使用队列的基本操作-- 也就是 push to back, peek/pop from front, size, 和 is empty 这些操作是合法的。
+你所使用的语言也许不支持队列。 你可以使用 list 或者 deque（双端队列）来模拟一个队列 , 只要是标准的队列操作即可。
+你可以假设所有操作都是有效的（例如, 对一个空的栈不会调用 pop 或者 top 操作）。
+
+想了一会，仿照用两个栈实现队列的思路，插入O(n)，弹出O(1)
+
+```c++
+class MyStack {
+public:
+    /** Initialize your data structure here. */
+    MyStack() {
+
+    }
+
+    /** Push element x onto stack. */
+    void push(int x) {
+        if (q1.empty()) {
+            q1.push(x);
+            while (!q2.empty()) {
+                q1.push(q2.front());
+                q2.pop();
+            }
+        } else {
+            q2.push(x);
+            while (!q1.empty()) {
+                q2.push(q1.front());
+                q1.pop();
+            }
+        }
+    }
+
+    /** Removes the element on top of the stack and returns that element. */
+    int pop() {
+        if (!q1.empty()) {
+            int front = q1.front();
+            q1.pop();
+            return front;
+        } else {
+            int front = q2.front();
+            q2.pop();
+            return front;
+        }
+    }
+
+    /** Get the top element. */
+    int top() {
+        if (!q1.empty()) {
+            return q1.front();
+        } else {
+            return q2.front();
+        }
+    }
+
+    /** Returns whether the stack is empty. */
+    bool empty() {
+        return q1.empty() && q2.empty();
+    }
+    queue<int> q1, q2;
+};
+
+/**
+ * Your MyStack object will be instantiated and called as such:
+ * MyStack* obj = new MyStack();
+ * obj->push(x);
+ * int param_2 = obj->pop();
+ * int param_3 = obj->top();
+ * bool param_4 = obj->empty();
+ */
+```
+
+看力扣评论区，才发现可以用单队列，贼简单，只要保持插入时的新元素在队列头部即可
+
+```c++
+class MyStack {
+public:
+    /** Initialize your data structure here. */
+    MyStack() {
+
+    }
+
+    /** Push element x onto stack. */
+    void push(int x) {
+        int len = q.size();
+        q.push(x);
+        for (int i = 0; i < len; ++i) {
+            q.push(q.front());
+            q.pop();
+        }
+    }
+
+    /** Removes the element on top of the stack and returns that element. */
+    int pop() {
+        int front = q.front();
+        q.pop();
+        return front;
+    }
+
+    /** Get the top element. */
+    int top() {
+        return q.front();
+    }
+
+    /** Returns whether the stack is empty. */
+    bool empty() {
+        return q.empty();
+    }
+    queue<int> q;
+};
+```
+
+### 232. 用栈实现队列
+
+使用栈实现队列的下列操作：
+
+push(x) -- 将一个元素放入队列的尾部。
+pop() -- 从队列首部移除元素。
+peek() -- 返回队列首部的元素。
+empty() -- 返回队列是否为空。
+
+说明:
+
+你只能使用标准的栈操作 -- 也就是只有 push to top, peek/pop from top, size, 和 is empty 操作是合法的。
+你所使用的语言也许不支持栈。你可以使用 list 或者 deque（双端队列）来模拟一个栈，只要是标准的栈操作即可。
+假设所有操作都是有效的 （例如，一个空的队列不会调用 pop 或者 peek 操作）。
+
+```c++
+class MyQueue {
+public:
+    /** Initialize your data structure here. */
+    MyQueue() {
+
+    }
+
+    /** Push element x to the back of queue. */
+    void push(int x) {
+        stack1.push(x);
+    }
+
+    /** Removes the element from in front of queue and returns that element. */
+    int pop() {
+        if (stack2.empty()) {
+            while (!stack1.empty()) {
+                stack2.push(stack1.top());
+                stack1.pop();
+            }
+        }
+        int top = stack2.top();
+        stack2.pop();
+        return top;
+    }
+
+    /** Get the front element. */
+    int peek() {
+        if (stack2.empty()) {
+            while (!stack1.empty()) {
+                stack2.push(stack1.top());
+                stack1.pop();
+            }
+        }
+        return stack2.top();
+    }
+
+    /** Returns whether the queue is empty. */
+    bool empty() {
+        return stack1.empty() && stack2.empty();
+    }
+    stack<int> stack1;
+    stack<int> stack2;
+};
+
+/**
+ * Your MyQueue object will be instantiated and called as such:
+ * MyQueue* obj = new MyQueue();
+ * obj->push(x);
+ * int param_2 = obj->pop();
+ * int param_3 = obj->peek();
+ * bool param_4 = obj->empty();
+ */
+```
+
 ## DFS&回溯with闫学灿
 
 ### 784. 字母大小写全排列
@@ -6017,6 +6303,76 @@ public:
             dfs(ans, path, i+1, n, k-1);
             path.pop_back(); // 恢复现场
         }
+    }
+};
+```
+
+### 79. 单词搜索
+
+[LeetCode 79. 单词搜索](https://leetcode-cn.com/problems/word-search/)
+
+给定一个二维网格和一个单词，找出该单词是否存在于网格中。
+
+单词必须按照字母顺序，通过相邻的单元格内的字母构成，其中“相邻”单元格是那些水平相邻或垂直相邻的单元格。同一个单元格内的字母不允许被重复使用。
+
+ 
+
+示例:
+
+board =
+[
+  ['A','B','C','E'],
+  ['S','F','C','S'],
+  ['A','D','E','E']
+]
+
+给定 word = "ABCCED", 返回 true
+给定 word = "SEE", 返回 true
+给定 word = "ABCB", 返回 false
+
+提示：
+
+board 和 word 中只包含大写和小写英文字母。
+1 <= board.length <= 200
+1 <= board[i].length <= 200
+1 <= word.length <= 10^3
+
+```c++
+class Solution {
+public:
+    bool exist(vector<vector<char>>& matrix, string str) {
+        if (matrix.empty() || matrix[0].empty()) return false;
+        int rows = matrix.size();
+        int cols = matrix[0].size();
+        if (rows * cols < str.size()) return false;
+        vector<vector<bool>> is_visited(rows, vector<bool>(cols, false));
+        for (int i = 0; i < rows; ++i) {
+            for (int j = 0; j < cols; ++j) {
+                if (matrix[i][j] == str[0]) {
+                    if (dfs(matrix, is_visited, i, j, rows, cols, str, 0)) return true;
+                }
+            }
+        }
+        return false;
+    }
+    bool dfs(vector<vector<char>>& matrix, vector<vector<bool>>& is_visited, 
+            int i, int j, int rows, int cols, string &str, int step) {
+        if (step == str.size() - 1) {
+            if (matrix[i][j] == str[str.size() - 1]) return true;
+            else return false;
+        }
+        if (matrix[i][j] != str[step]) return false;
+        is_visited[i][j] = true;
+        bool flag = false;
+        if (!flag && i > 0 && !is_visited[i-1][j]) flag |= dfs(matrix, is_visited, i-1, j, rows, cols, str, step+1);
+        if (!flag && i < rows-1 && !is_visited[i+1][j]) flag |= dfs(matrix, is_visited, i+1, j, rows, cols, str, step+1);
+        if (!flag && j > 0 && !is_visited[i][j-1]) flag |= dfs(matrix, is_visited, i, j-1, rows, cols, str, step+1);
+        if (!flag && j < cols-1 && !is_visited[i][j+1]) flag |= dfs(matrix, is_visited, i, j+1, rows, cols, str, step+1);
+        if (!flag) {
+            is_visited[i][j] = false;
+            return false;
+        }
+        return true;
     }
 };
 ```
@@ -8667,9 +9023,38 @@ public:
 
 1、确定搜索区间初始化时候的左右边界，有时需要关注一下边界值。在初始化时，有时把搜索区间设置大一点没有关系，但是如果恰好把边界值排除在外，再怎么搜索都得不到结果。
 2、无条件写上 `while (left < right)` ，表示退出循环的条件是 left == right，对于返回左右边界就不用思考了，因此此时它们的值相等；有的是`while(left <= right)`，其实是把待搜索区间“三分”，略微码放
-3、先写**向下取整的中间数取法**，然后从如何把 mid 排除掉的角度思考 if 和 else 语句应该怎样写。记住：**在 if else 语句里面只要出现 left = mid 的时候，把去中间数行为改成上取整即可**。
+3、先写**向下取整的中间数取法**，然后从如何把 mid 排除掉的角度思考 if 和 else 语句应该怎样写。记住：**在 if else 语句里面只要出现 left = mid 的时候，把取中间数行为改成上取整即可**。
 4、根据 if else 里面写的情况，看看是否需要修改中间数下取整的行为。向下：`int mid = l + (r - l) / 2;`，向上：`int mid = l + (r - l + 1) / 2;`
 5、退出循环的时候，一定有 left == right 成立。有些时候可以直接返回 left （或者 right，由于它们相等，后面都省略括弧）或者与 left 相关的数值，有些时候还须要再做一次判断，判断 left 与 right 是否是我们需要查找的元素，这一步叫“后处理”。
+
+[整数二分算法模板 —— 模板](https://www.acwing.com/blog/content/277/)
+
+```c++
+bool check(int x) {/* ... */} // 检查x是否满足某种性质
+
+// 区间[l, r]被划分成[l, mid]和[mid + 1, r]时使用：
+int bsearch_1(int l, int r)
+{
+    while (l < r)
+    {
+        int mid = l + r >> 1;
+        if (check(mid)) r = mid;    // check()判断mid是否满足性质
+        else l = mid + 1;
+    }
+    return l;
+}
+// 区间[l, r]被划分成[l, mid - 1]和[mid, r]时使用：
+int bsearch_2(int l, int r)
+{
+    while (l < r)
+    {
+        int mid = l + r + 1 >> 1;
+        if (check(mid)) l = mid;
+        else r = mid - 1;
+    }
+    return l;
+}
+```
 
 ### 4. 寻找两个有序数组的中位数(hard)
 

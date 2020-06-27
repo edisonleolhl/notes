@@ -2,13 +2,15 @@
 
 ## 数组
 
-### 3-1：数组中的重复数组
+### 3-1：数组中重复的数字
+
+[nowcoder-数组中重复的数字](https://www.nowcoder.com/practice/623a5ac0ea5b4e5f95552655361ae0a8?tpId=13&tPage=3&rp=3&ru=%2Fta%2Fcoding-interviews&qru=%2Fta%2Fcoding-interviews%2Fquestion-ranking)
 
 题目描述
 
 在一个长度为 n 的数组里的所有数字都在 0 到 n-1 的范围内。 数组中某些数字是重复的，但不知道有几个数字是重复的。也不知道每个数字重复几次。请找出数组中任意一个重复的数字。 例如，如果输入长度为 7 的数组 {2,3,1,0,2,5,3}，那么对应的输出是第一个重复的数字 2
 
-#### 第3题：数组中的重复数组的暴力解法
+#### 第3题：数组中重复的数字的暴力解法
 
 没啥好说的，双层循环，最直观的解法，时间复杂度：O(n^2)，空间复杂度：O(1)
 
@@ -36,11 +38,11 @@ public:
 };
 ```
 
-#### 第3题：数组中的重复数组的排序解法
+#### 第3题：数组中重复的数字的排序解法
 
 先把整个数组排序，然后依次比较相邻元素是否相等，因为有了排序，时间复杂度O(nlogn)，空间复杂度O(1)，代码就不放了
 
-#### 第3题：数组中的重复数组的哈希解法
+#### 第3题：数组中重复的数字的哈希解法
 
 一次遍历即可，每次遍历在unordered_set（用哈希表实现）中寻找是否存在，若存在则重复，时间复杂度O(n)，空间复杂度O(n)
 
@@ -70,7 +72,7 @@ public:
 };
 ```
 
-#### 第3题：数组中的重复数组的交换解法
+#### 第3题：数组中重复的数字的交换解法
 
 数组的长度为 n 且所有数字都在 0 到 n-1 的范围内，我们可以将每次遇到的数进行 "归位"，当某个数发现自己的 "位置" 被相同的数占了，则出现重复。
 
@@ -106,9 +108,11 @@ public:
 
 ### 3-2：不修改数组找出重复的数字
 
+[leetcode-287. 寻找重复数](https://leetcode-cn.com/problems/find-the-duplicate-number/)
+
 题目：在一个长度为n+1的数组里的所有数字都在1到n的范围内，所以数组中至少有一个数字是重复的。请找出数组中任意一个重复的数字，但不能修改输入的数组。例如，如果输入长度为8的数组{2, 3, 5, 4, 3, 2, 6, 7}，那么对应的出是重复的数字2或者3。
 
-思路：
+#### 二分法
 
 用哈希表当然可以实现O(n)时间复杂度的算法，辅助空间为O(n)，但是没有充分考虑到数组的特点，实际上我们可以用O(n)的辅助空间数组来实现O(n)时间复杂度的算法，注意到值为1~n的数字存在于长度为n+1的数组中，对数组遍历，每次把当前元素m值复制到辅助空间下标为m的位置，这样很容易发现哪个数字是重复的。
 
@@ -155,7 +159,34 @@ int countRange(const int* numbers, int length, int start, int end)
 }
 ```
 
+#### 快慢指针
+
+[快慢指针的解释 [从@Damien_Undo写的题解得到启发]](https://leetcode-cn.com/problems/find-the-duplicate-number/solution/kuai-man-zhi-zhen-de-jie-shi-cong-damien_undoxie-d/)
+
+```c++
+class Solution {
+public:
+    int findDuplicate(vector<int>& nums) {
+        int slow = 0, fast = 0;
+        while (true) {
+            slow = nums[slow];
+            fast = nums[nums[fast]];
+            if (slow == fast) break;
+        }
+        int finder = 0;
+        while (true) {
+            slow = nums[slow];
+            finder = nums[finder];
+            if (slow == finder) break;
+        }
+        return slow;
+    }
+};
+```
+
 ### 4：二维数组中的查找
+
+同 LeetCode 第 240 题，LeetCode 传送门：[搜索二维矩阵 II](https://leetcode-cn.com/problems/search-a-2d-matrix-ii)，AcWing：[二维数组中的查找](https://www.acwing.com/problem/content/16/)，牛客网传送门：[二维数组中的查找](https://www.nowcoder.com/practice/abc3fe2ce8e146608e868a70efebf62e?tpId=13&tqId=11154&tPage=1&rp=1&ru=/ta/coding-interviews&qru=/ta/coding-interviews/question-ranking)。
 
 在一个二维数组中（每个一维数组的长度相同），每一行都按照从左到右递增的顺序排序，每一列都按照从上到下递增的顺序排序。请完成一个函数，输入这样的一个二维数组和一个整数，判断数组中是否含有该整数。
 
@@ -192,9 +223,32 @@ bool Find(int* matrix, int rows, int columns, int number)
 }
 ```
 
+更加C++风格的函数接口：
+
+```c++
+class Solution {
+public:
+    bool Find(int target, vector<vector<int> > array) {
+        if (array.empty() || array[0].empty()) return false;
+        int rows = array.size();
+        int cols = array[0].size();
+        // 从右上往左下搜索
+        int i = 0, j = cols - 1;
+        while (i < rows && j >= 0){
+            if (array[i][j] == target) return true;
+            if (array[i][j] > target) --j;
+            else ++i;
+        }
+        return false;
+    }
+};
+```
+
 ## 字符串
 
 ### 5：替换空格
+
+[nowcoder-替换空格](https://www.nowcoder.com/practice/4060ac7e3e404ad1a894ef3e17650423?tpId=13&tqId=11155&tPage=1&rp=1&ru=/ta/coding-interviews&qru=/ta/coding-interviews/question-ranking)
 
 题目：请实现一个函数，把字符串中的每个空格替换成"%20"。例如输入“We are happy.”，则输出“We%20are%20happy.”。
 
@@ -250,7 +304,35 @@ void ReplaceBlank(char str[], int length)
 }
 ```
 
-#### 双指针的举一反三
+实际上，在牛客上做题的时候，没把函数入参的length当做最大长度限制，也通过了，这题太C风格了，判断字符串末尾要用'\0'，附上牛客AC的代码，没有多余的东西
+
+```c++
+class Solution {
+public:
+    void replaceSpace(char *str, int length) {
+        if(str == nullptr && length <= 0) return;
+        int blank_cnt = 0;
+        char *ch = str;
+        for (int i = 0; *ch != '\0'; ++i){ // 判断字符串末尾用空字符\0
+            if (*ch == ' ') ++blank_cnt;
+            ++ch;
+        }
+        char *dst = ch + 2 * blank_cnt;
+        if (dst - str > length) return; // 把函数入参的length作为最大长度限制，去掉也可以AC
+        while (ch >= str) {
+            if (*ch != ' ') {
+                *dst-- = *ch--;
+            } else {
+                *dst-- = '0';
+                *dst-- = '2';
+                *dst-- = '%';
+                ch--;
+            }
+        }
+        return;
+    }
+};
+```
 
 如果有两个已排序的数组A1和A2，内存在A1的末尾有足够多的空余空间容纳A2，请实现一个函数，把A2中的所有数字插入到A1中并且所有的数字是排序的。和前面的例题一样，很多人首先想到的办法是在A1中从头到尾复制数字，但这样就会出现多次复制一个数字的情况。更好的办法是从尾到头比较A1和A2中的数字，并把较大的数字复制到A1的合适位置。
 
@@ -289,6 +371,8 @@ void AddToTail (ListNode** pHead, int value){
 
 ### 6：从尾到头打印链表
 
+传送门：[AcWing：从尾到头打印链表](https://www.acwing.com/problem/content/18/)，[牛客网 online judge 地址](https://www.nowcoder.com/practice/d0267f7f55b3412ba93bd35cfa8e8035?tpId=13&tqId=11156&tPage=1&rp=1&ru=/ta/coding-interviews&qru=/ta/coding-interviews/question-ranking)。
+
 输入一个链表，按链表从尾到头的顺序返回一个ArrayList。
 
 书本上是使用栈，但牛客网的题目是返回一个vector，所以就不用栈了
@@ -322,6 +406,8 @@ public:
 
 ### 7：重建二叉树
 
+同 LeetCode 第 105 题，传送门：[从前序与中序遍历序列构造二叉树](https://leetcode-cn.com/problems/construct-binary-tree-from-preorder-and-inorder-traversal/)。传送门：[AcWing：重建二叉树](https://www.acwing.com/problem/content/23/)，[牛客网 online judge 地址](https://www.nowcoder.com/practice/8a19cbe657394eeaac2f6ea9b0f6fcf6?tpId=13&tqId=11157&tPage=1&rp=2&ru=%2Fta%2Fcoding-interviews&qru=%2Fta%2Fcoding-interviews%2Fquestion-ranking)。
+
 输入某二叉树的前序遍历和中序遍历的结果，请重建出该二叉树。假设输入的前序遍历和中序遍历的结果中都不含重复的数字。例如输入前序遍历序列{1,2,4,7,3,5,6,8}和中序遍历序列{4,7,2,1,5,3,8,6}，则重建二叉树并返回。
 
 思路：在二叉树的前序遍历序列中，第一个数字总是树的根结点的值。但在中序遍历序列中，根结点的值在序列的中间，左子树的结点的值位于根结点的值的左边，而右子树的结点的值位于根结点的值的右边。因此我们需要扫描中序遍历序列，才能找到根结点的值。既然我们已经分别找到了左、右子树的前序遍历序列和中序遍历序列，我们可以用同样的方法分别去构建左右子树。也就是说，接下来的事情可以用递归的方法去完成。
@@ -346,7 +432,7 @@ public:
     TreeNode* helper(vector<int>::iterator pre_first, vector<int>::iterator pre_last,
                 vector<int>::iterator vin_first, vector<int>::iterator vin_last){
         TreeNode* root = new TreeNode(*pre_first);
-        if(pre_first == pre_last){
+        if(pre_first == pre_last){ // 这里判断preorder或者inorder均可，两者是一致的
             return root;
         }
         auto root_inorder = find(vin_first, vin_last, root->val);
@@ -389,7 +475,68 @@ public:
 };
 ```
 
+### LeetCode106. 从中序与后序遍历序列构造二叉树
+
+[从中序与后序遍历序列构造二叉树](https://leetcode-cn.com/problems/construct-binary-tree-from-inorder-and-postorder-traversal/)
+
+根据一棵树的中序遍历与后序遍历构造二叉树。
+
+注意:
+你可以假设树中没有重复的元素。
+
+例如，给出
+
+中序遍历 inorder = [9,3,15,20,7]
+后序遍历 postorder = [9,15,7,20,3]
+返回如下的二叉树：
+
+```shell
+    3
+   / \
+  9  20
+    /  \
+   15   7
+```
+
+AC代码，和上题差不多，没用哈希表存储中序遍历的下标，
+
+```c++
+/**
+ * Definition for a binary tree node.
+ * struct TreeNode {
+ *     int val;
+ *     TreeNode *left;
+ *     TreeNode *right;
+ *     TreeNode(int x) : val(x), left(NULL), right(NULL) {}
+ * };
+ */
+class Solution {
+public:
+    TreeNode* buildTree(vector<int>& inorder, vector<int>& postorder) {
+        if (inorder.empty() || postorder.empty()) return nullptr;
+        return helper(inorder.begin(), inorder.end() - 1, postorder.begin(), postorder.end() - 1);
+    }
+    TreeNode* helper(vector<int>::iterator in_first, vector<int>::iterator in_last, vector<int>::iterator post_first, vector<int>::iterator post_last) {
+        TreeNode* root = new TreeNode(*post_last);
+        if (post_first == post_last) return root;
+        auto root_inorder = find(in_first, in_last, root->val);
+        int left_len = root_inorder - in_first;
+        if (left_len > 0) {
+            root->left = helper(in_first, root_inorder - 1,
+                                post_first, post_first + left_len - 1);
+        }
+        if (left_len < in_last - in_first) {
+            root->right = helper(root_inorder + 1, in_last,
+                                post_first + left_len, post_last - 1);
+        }
+        return root;
+    }
+};
+```
+
 ### 8：二叉树的下一个节点
+
+[传送门：AcWing：二叉树的下一个结点](https://www.acwing.com/problem/content/31/)，[牛客网 online judge 地址](https://www.nowcoder.com/practice/9023a0c988684a53960365b889ceaf5e?tpId=13&tqId=11210&tPage=3&rp=3&ru=/ta/coding-interviews&qru=/ta/coding-interviews/question-ranking)。
 
 给定一个二叉树和其中的一个结点，请找出中序遍历顺序的下一个结点并且返回。注意，树中的结点不仅包含左右子结点，同时包含指向父结点的指针next。
 
@@ -443,6 +590,33 @@ public:
 };
 ```
 
+二刷的代码，仍然感觉不是很优雅
+
+```c++
+class Solution {
+public:
+    TreeLinkNode* GetNext(TreeLinkNode* pNode)
+    {
+        if (!pNode) return nullptr;
+        TreeLinkNode* node = pNode->right;
+        if (node) {
+            while (node->left) {
+                node = node->left;
+            }
+            return node;
+        }
+        TreeLinkNode* parent = pNode->next;
+        if (!parent) return nullptr;
+        if (pNode == parent->left) return parent;
+        while (parent->next && parent == parent->next->right) {
+            parent = parent->next;
+        }
+        if (!parent->next) return nullptr;
+        return parent->next;
+    }
+};
+```
+
 ## 栈和队列
 
 栈是一个非常常见的数据结构，它在计算机领域中被广泛应用，比如操作系统会给每个线程创建一个栈用来存储函数调用时各个函数的参数、返回地址及临时变量等。栈的特点是后进先出，即最后被压入（push）栈的元素会第一个被弹出（pop），在题22“栈的压入、弹出序列”中，我们再详细分析进栈和出栈序列的特点。
@@ -452,6 +626,8 @@ public:
 队列是另外一种很重要的数据结构。和栈不同的是，队列的特点是先进先出，即第一个进入队列的元素将会第一个出来。在2.3.4节介绍的树的宽度优先遍历算法中，我们在遍历某一层树的结点时，把结点的子结点放到一个队列里，以备下一层结点的遍历。详细的代码参见题23“从上
 
 ### 9：用两个栈实现队列
+
+[AcWing：用两个栈实现队列](https://www.acwing.com/problem/content/36/)，[牛客网 online judge 地址](https://www.nowcoder.com/practice/54275ddae22f475981afa2244dd448c6?tpId=13&tqId=11158&tPage=1&rp=1&ru=/ta/coding-interviews&qru=/ta/coding-interviews/question-ranking)。
 
 题目：用两个栈实现一个队列。队列的声明如下，请实现它的两个函数appendTail和deleteHead，分别完成在队列尾部插入结点和在队列头部删除结点的功能。
 
@@ -486,6 +662,73 @@ public:
 private:
     stack<int> stack1;
     stack<int> stack2;
+};
+```
+
+二刷，稍微简洁一些了
+
+```c++
+class Solution
+{
+public:
+    void push(int node) {
+        stack1.push(node);
+    }
+
+    int pop() {
+        if (stack2.empty()) {
+            while (!stack1.empty()) {
+                stack2.push(stack1.top());
+                stack1.pop();
+            }
+        }
+        int top = stack2.top();
+        stack2.pop();
+        return top;
+    }
+private:
+    stack<int> stack1;
+    stack<int> stack2;
+};
+```
+
+### LeetCode225. 用队列实现栈
+
+```c++
+class MyStack {
+public:
+    /** Initialize your data structure here. */
+    MyStack() {
+
+    }
+
+    /** Push element x onto stack. */
+    void push(int x) {
+        int len = q.size();
+        q.push(x);
+        for (int i = 0; i < len; ++i) {
+            q.push(q.front());
+            q.pop();
+        }
+    }
+
+    /** Removes the element on top of the stack and returns that element. */
+    int pop() {
+        int front = q.front();
+        q.pop();
+        return front;
+    }
+
+    /** Get the top element. */
+    int top() {
+        return q.front();
+    }
+
+    /** Returns whether the stack is empty. */
+    bool empty() {
+        return q.empty();
+    }
+    queue<int> q;
 };
 ```
 
@@ -549,9 +792,57 @@ public:
 };
 ```
 
+二刷，带备忘录的递归解法：
+
+```c++
+class Solution {
+public:
+    vector<int> table;
+    int Fibonacci(int n) {
+        if (n == 0 || n == 1) return n;
+        table.reserve(40);
+        table[0] = 0;
+        table[1] = 1;
+        return helper(2, n);
+    }
+    int helper(int k, int n) {
+        if (k == n) {
+            return table[n-1] + table[n-2];
+        }
+        table[k] = table[k-1] + table[k-2];
+        return helper(k+1, n);
+    }
+};
+```
+
+二刷，算是dp的解法：
+
+```c++
+class Solution {
+public:
+    int Fibonacci(int n) {
+        if (n == 0 || n == 1) return n;
+        int prepre = 0;
+        int pre = 1;
+        int cur;
+        int k = 2;
+        while (k++ <= n) {
+            cur = prepre + pre;
+            prepre = pre;
+            pre = cur;
+        }
+        return cur;
+    }
+};
+```
+
 ### 10-2：跳台阶
 
+[AcWing：跳台阶](https://www.acwing.com/problem/content/19/)，[牛客网 online judge 地址](https://www.nowcoder.com/practice/8c82a5b80378478f9484d87d1c5f12a4?tpId=13&tqId=11161&tPage=1&rp=1&ru=%2Fta%2Fcoding-interviews&qru=%2Fta%2Fcoding-interviews%2Fquestion-ranking)
+
 一只青蛙一次可以跳上1级台阶，也可以跳上2级。求该青蛙跳上一个n级的台阶总共有多少种跳法（先后次序不同算不同的结果）。
+
+注意一下，输入参数number指第几级台阶，青蛙初始应该站在第0级台阶上，并且在第0级台阶只有一种情况，故f(0)=0, f(1)=1, f(2)=2
 
 与第十题斐波那契数列一样，只不过初始值有变，这其实是一个动态规划的问题
 
@@ -574,6 +865,8 @@ public:
 ```
 
 ### 10-3：变态跳台阶
+
+[牛客网：变态跳台阶](https://www.nowcoder.com/practice/22243d016f6b47f2a6928b4313c85387?tpId=13&tqId=11162&tPage=1&rp=1&ru=%2Fta%2Fcoding-interviews&qru=%2Fta%2Fcoding-interviews%2Fquestion-ranking)
 
 一只青蛙一次可以跳上1级台阶，也可以跳上2级……它也可以跳上n级。求该青蛙跳上一个n级的台阶总共有多少种跳法。
 
@@ -612,6 +905,24 @@ public:
 };
 ```
 
+二刷，没想到直接用pow
+
+```c++
+class Solution {
+public:
+    int jumpFloorII(int number) {
+        if (number == 0 || number == 1 || number == 2) return number;
+        // 跳上第3级，有4种跳法：
+        // 0-3, 0-1-3, 0-1-2-3, 0-2-3
+        int sum = 4;
+        for (int k = 3; k < number; ++k) {
+            sum = sum << 1;
+        }
+        return sum;
+    }
+};
+```
+
 ## 查找和排序
 
 查找和排序都是在程序设计中经常用到的算法。查找相对而言较为简单，不外乎顺序查找、二分查找、哈希表查找和二叉排序树查找。在面试的时候，不管是用循环还是用递归，面试官都期待应聘者能够信手拈来写出完整正确的二分查找代码，否则可能连继续面试的兴趣都没有。题8“旋转数组的最小数字”和题38“数字在排序数组中出现的次数”都可以用二分查找算法解决。
@@ -623,6 +934,8 @@ public:
 当测试都通过之后，再和经典的实现做比较，看看有什么区别。
 
 ### 11：旋转数组的最小值
+
+传送门：[AcWing：旋转数组的最小数字](https://www.acwing.com/problem/content/20/)，[牛客网 online judge 地址](https://www.nowcoder.com/practice/9f3231a991af4f55b95579b44b7a01ba?tpId=13&tqId=11159&tPage=1&rp=1&ru=/ta/coding-interviews&qru=/ta/coding-interviews/question-ranking)
 
 把一个数组最开始的若干个元素搬到数组的末尾，我们称之为数组的旋转。输入一个非递减排序的数组的一个旋转，输出旋转数组的最小元素。例如数组{3,4,5,1,2}为{1,2,3,4,5}的一个旋转，该数组的最小值为1。NOTE：给出的所有元素都大于0，若数组大小为0，请返回0。
 
@@ -661,6 +974,8 @@ public:
 回溯法相当于暴力法的升级版
 
 ### 12：矩阵中的路径
+
+传送门：[AcWing：矩阵中的路径](https://www.acwing.com/problem/content/21/)，[牛客OJ](https://www.nowcoder.com/practice/c61c6999eecb4b8f88a98f66b273a3cc?tpId=13&tPage=1&rp=1&ru=%2Fta%2Fcoding-interviews&qru=%2Fta%2Fcoding-interviews%2Fquestion-ranking),[LeetCode 79. 单词搜索](https://leetcode-cn.com/problems/word-search/)
 
 请设计一个函数，用来判断在一个矩阵中是否存在一条包含某字符串所有字符的路径。路径可以从矩阵中的任意一个格子开始，每一步可以在矩阵中向左，向右，向上，向下移动一个格子。如果一条路径经过了矩阵中的某一个格子，则该路径不能再进入该格子。 例如 a b c e s f c s a d e e 矩阵中包含一条字符串"bcced"的路径，但是矩阵中不包含"abcb"路径，因为字符串的第一个字符b占据了矩阵中的第一行第二个格子之后，路径不能再次进入该格子。
 
@@ -710,7 +1025,51 @@ public:
 };
 ```
 
+二刷，用AcWing的OJ，二维数组，感觉没那么简洁，但好理解一点
+
+```c++
+class Solution {
+public:
+    bool hasPath(vector<vector<char>>& matrix, string &str) {
+        if (matrix.empty() || matrix[0].empty()) return false;
+        int rows = matrix.size();
+        int cols = matrix[0].size();
+        if (rows * cols < str.size()) return false;
+        vector<vector<bool>> is_visited(rows, vector<bool>(cols, false));
+        for (int i = 0; i < rows; ++i) {
+            for (int j = 0; j < cols; ++j) {
+                if (matrix[i][j] == str[0]) {
+                    if (dfs(matrix, is_visited, i, j, rows, cols, str, 0)) return true;
+                }
+            }
+        }
+        return false;
+    }
+    bool dfs(vector<vector<char>>& matrix, vector<vector<bool>>& is_visited,
+            int i, int j, int rows, int cols, string &str, int step) {
+        if (step == str.size() - 1) {
+            if (matrix[i][j] == str[str.size() - 1]) return true;
+            else return false;
+        }
+        if (matrix[i][j] != str[step]) return false;
+        is_visited[i][j] = true;
+        bool flag = false;
+        if (!flag && i > 0 && !is_visited[i-1][j]) flag |= dfs(matrix, is_visited, i-1, j, rows, cols, str, step+1);
+        if (!flag && i < rows-1 && !is_visited[i+1][j]) flag |= dfs(matrix, is_visited, i+1, j, rows, cols, str, step+1);
+        if (!flag && j > 0 && !is_visited[i][j-1]) flag |= dfs(matrix, is_visited, i, j-1, rows, cols, str, step+1);
+        if (!flag && j < cols-1 && !is_visited[i][j+1]) flag |= dfs(matrix, is_visited, i, j+1, rows, cols, str, step+1);
+        if (!flag) {
+            is_visited[i][j] = false;
+            return false;
+        }
+        return true;
+    }
+};
+```
+
 ### 13：机器人的运动范围
+
+[AcWing：机器人的运动范围](https://www.acwing.com/problem/content/22/)，[牛客网 online judge 地址](https://www.nowcoder.com/practice/6e5207314b5241fb83f2329e89fdecc8?tpId=13&tPage=3&rp=3&ru=%2Fta%2Fcoding-interviews&qru=%2Fta%2Fcoding-interviews%2Fquestion-ranking)，[LeetCode 剑指 Offer 13. 机器人的运动范围](https://leetcode-cn.com/problems/ji-qi-ren-de-yun-dong-fan-wei-lcof/)
 
 地上有一个m行和n列的方格。一个机器人从坐标0,0的格子开始移动，每一次只能向左，右，上，下四个方向移动一格，但是不能进入行坐标和列坐标的数位之和大于k的格子。 例如，当k为18时，机器人能够进入方格（35,37），因为3+5+3+7 = 18。但是，它不能进入方格（35,38），因为3+5+3+8 = 19。请问该机器人能够达到多少个格子？
 
@@ -756,6 +1115,43 @@ public:
             col = col / 10;
         }
         return sum > threshold ? true : false;
+    }
+};
+```
+
+二刷，很符合直觉的代码
+
+```c++
+class Solution {
+public:
+    int movingCount(int m, int n, int k) {
+        vector<vector<bool>> is_visited(m, vector<bool>(n, false));
+        int ans = 0;
+        dfs(m, n, k, is_visited, 0, 0, ans);
+        return ans;
+    }
+    void dfs(int m, int n, int k, vector<vector<bool>>& is_visited, int i, int j, int& ans){
+        if (!isValidBox(i, j, k)) return;
+        ++ans;
+        is_visited[i][j] = true;
+        if (i > 0 && !is_visited[i-1][j]) dfs(m, n, k, is_visited, i-1, j, ans);
+        if (i < m-1 && !is_visited[i+1][j]) dfs(m, n, k, is_visited, i+1, j, ans);
+        if (j > 0 && !is_visited[i][j-1]) dfs(m, n, k, is_visited, i, j-1, ans);
+        if (j < n-1 && !is_visited[i][j+1]) dfs(m, n, k, is_visited, i, j+1, ans);
+        return;
+    }
+    bool isValidBox(int i, int j, int k) {
+        int sum = 0;
+        while (i) {
+            sum += i % 10;
+            i = i / 10;
+        }
+        while (j) {
+            sum += j % 10;
+            j = j / 10;
+        }
+        if (sum > k) return false;
+        return true;
     }
 };
 ```

@@ -7069,7 +7069,7 @@ shape* create_shape(shape_type type) {
             return new rectangle(...);
     ...
 } }
-
+```
 
 ### 观察者模式
 
