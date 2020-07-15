@@ -2441,6 +2441,79 @@ public:
 };
 ```
 
+### 25. K 个一组翻转链表
+
+给你一个链表，每 k 个节点一组进行翻转，请你返回翻转后的链表。
+
+k 是一个正整数，它的值小于或等于链表的长度。
+
+如果节点总数不是 k 的整数倍，那么请将最后剩余的节点保持原有顺序。
+
+示例：
+
+给你这个链表：1->2->3->4->5
+
+当 k = 2 时，应当返回: 2->1->4->3->5
+
+当 k = 3 时，应当返回: 3->2->1->4->5
+
+说明：
+
+你的算法只能使用常数的额外空间。
+你不能只是单纯的改变节点内部的值，而是需要实际进行节点交换。
+
+[官方题解](https://leetcode-cn.com/problems/reverse-nodes-in-k-group/solution/k-ge-yi-zu-fan-zhuan-lian-biao-by-leetcode-solutio/)
+
+```c++
+/**
+ * Definition for singly-linked list.
+ * struct ListNode {
+ *     int val;
+ *     ListNode *next;
+ *     ListNode(int x) : val(x), next(NULL) {}
+ * };
+ */
+class Solution {
+public:
+    ListNode* reverseKGroup(ListNode* head, int k) {
+        ListNode* cur = head;
+        ListNode* dummy = new ListNode(-1);
+        dummy->next = head;
+        ListNode* pre = dummy; // dummy节点是上一组的尾节点
+        ListNode* tail;
+        while(cur != nullptr){
+            tail = pre; // 上一组的尾节点
+            for (int i = 0; i < k; ++i) {
+                tail = tail->next;
+                if(!tail) {
+                    return dummy->next;
+                }
+            }
+            ListNode* next = tail->next; // 下一组的头节点
+            pair<ListNode*, ListNode*> pair = myReverse(cur, tail);
+            pre->next = pair.first; // 拼接回原链表
+            pair.second->next = next; // 拼接回原链表
+            pre = pair.second;
+            cur = pair.second->next; // 下一组的头结点
+        }
+        return dummy->next;
+    }
+
+    // 翻转一个子链表，并且返回新的头与尾
+    pair<ListNode*, ListNode*> myReverse(ListNode* head, ListNode* tail) {
+        ListNode* prev = tail->next;
+        ListNode* p = head;
+        while (prev != tail) {
+            ListNode* nex = p->next;
+            p->next = prev;
+            prev = p;
+            p = nex;
+        }
+        return {tail, head};
+    }
+};
+```
+
 ### 61. 旋转链表(medium)
 
 给定一个链表，旋转链表，将链表每个节点向右移动 k 个位置，其中 k 是非负数。
