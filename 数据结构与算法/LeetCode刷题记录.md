@@ -876,6 +876,63 @@ public:
 };
 ```
 
+### 56. 合并区间
+
+给出一个区间的集合，请合并所有重叠的区间。
+
+示例 1:
+
+输入: [[1,3],[2,6],[8,10],[15,18]]
+输出: [[1,6],[8,10],[15,18]]
+解释: 区间 [1,3] 和 [2,6] 重叠, 将它们合并为 [1,6].
+示例 2:
+
+输入: [[1,4],[4,5]]
+输出: [[1,5]]
+解释: 区间 [1,4] 和 [4,5] 可被视为重叠区间。
+
+如果我们按照区间的左端点排序，那么在排完序的列表中，可以合并的区间一定是连续的
+
+我们用数组 merged 存储最终的答案。
+
+首先，我们将列表中的区间按照左端点升序排序。然后我们将第一个区间加入 merged 数组中，并按顺序依次考虑之后的每个区间：
+
+如果当前区间的左端点在数组 merged 中最后一个区间的右端点之后，那么它们不会重合，我们可以直接将这个区间加入数组 merged 的末尾；
+
+否则，它们重合，我们需要用当前区间的右端点更新数组 merged 中最后一个区间的右端点，将其置为二者的较大值。
+
+时间复杂度：O(nlogn)，其中 n 为区间的数量。除去排序的开销，我们只需要一次线性扫描，所以主要的时间开销是排序的 O(nlogn)。
+
+空间复杂度：O(logn)，其中 n 为区间的数量。这里计算的是存储答案之外，使用的额外空间。O(logn) 即为排序所需要的空间复杂度。
+
+```c++
+class Solution {
+public:
+    vector<vector<int>> merge(vector<vector<int>>& intervals) {
+        vector<vector<int>> ans;
+        if (intervals.empty()) return ans;
+        auto cmp = [] (vector<int> p1, vector<int> p2) {
+            // return p1[0] < p2[0];
+            if (p1[0] < p2[0]) return true;
+            if (p1[0] > p2[0]) return false;
+            return p1[1] < p2[1];
+        };
+        sort(intervals.begin(), intervals.end(), cmp); // 按区间头升序排列
+        int size = intervals.size();
+        for (int i = 0; i < size; ++i) {
+            int l = intervals[i][0];
+            int r = intervals[i][1];
+            while (i < size - 1 && r >= intervals[i+1][0]) {
+                r = max(r, intervals[i+1][1]);
+                ++i;
+            }
+            ans.push_back({l, r});
+        }
+        return ans;
+    }
+};
+```
+
 ### 66.加一
 
 给定一个由**整数**组成的**非空**数组所表示的非负整数，在该数的基础上加一。
@@ -2441,7 +2498,7 @@ public:
 };
 ```
 
-### 25. K 个一组翻转链表
+### 25. K 个一组翻转链表(Hard)
 
 给你一个链表，每 k 个节点一组进行翻转，请你返回翻转后的链表。
 
@@ -3427,66 +3484,28 @@ public:
 };
 ```
 
- 尝试改进
-
-思路：如果不允许用容器的resize操作，那nums1的数据要在其他地方存储下来，这就需要O(m)的额外空间，时间复杂度仍是O(n+m)
+二刷，直接从后往前构造，比以前的版本写得更加简洁易懂，所以删掉之前版本
 
 ```c++
 class Solution {
 public:
     void merge(vector<int>& nums1, int m, vector<int>& nums2, int n) {
-        vector<int> temp;
-        for(int i = 0; i < m; ++i){
-            temp.push_back(nums1[i]);
-        }
-        for(int i = 0, j = 0, k = 0; k < m + n; ++k){
-            if(i == m){
-                while(j < n) nums1[k++] = nums2[j++];
-                break;
-            }
-            if(j == n){
-                while(i < m) nums1[k++] = temp[i++];
-                break;
-            }
-            if(temp[i] < nums2[j]){
-                nums1[k] = temp[i++];
-            }
-            else{
-                nums1[k] = nums2[j++];
+        nums1.resize(m + n); // 其实力扣的用例保证了长度，后面的元素都是0
+        int i = m - 1;
+        int j = n - 1;
+        int k = m + n - 1;
+        while (i >= 0 && j >= 0) {
+            if (nums1[i] > nums2[j]) {
+                nums1[k--] = nums1[i--];
+            } else {
+                nums1[k--] = nums2[j--];
             }
         }
-    }
-};
-```
-
- 再改进，最佳版本
-
-思路：既然nums1后面的n个位置都为0，那么从后往前遍历，把较大值放在nums1的末尾，这样nums1的实际值就不会被覆盖
-
-```c++
-class Solution {
-public:
-    void merge(vector<int>& nums1, int m, vector<int>& nums2, int n) {
-        if(m == 0){
-            nums1 = nums2;
-            return;
+        while (i >= 0) {
+            nums1[k--] = nums1[i--];
         }
-        if(n == 0) return;
-        for(int i = m - 1, j = n - 1, k = m + n - 1; k >= 0; --k){
-            if(i < 0){
-                while(j >= 0) nums1[k--] = nums2[j--];
-                return;
-            }
-            if(j < 0){
-                while(i >= 0) nums1[k--] = nums1[i--];
-                return;
-            }
-            if(nums1[i] > nums2[j]){
-                nums1[k] = nums1[i--];
-            }
-            else{
-                nums1[k] = nums2[j--];
-            }
+        while (j >= 0) {
+            nums1[k--] = nums2[j--];
         }
     }
 };
@@ -3832,7 +3851,7 @@ public:
 ]
 ```
 
-第一次尝试，BFS+层数记录
+第一次尝试，BFS+层数记录（二刷时，还是用的这种方法，看来很直观）
 
 思路：很容易想到BFS，但是没法记录每个节点所在层数，加上一个层数信息，也许可以解决问题，普通的BFS用迭代的解法，需要借助队列，比如第101题对称二叉树中就用到了`deque<TreeNode*>`，在这里为了记录层数信息，可以`deque<pair<TreeNode*, int>>`
 
@@ -4206,6 +4225,8 @@ public:
 
 最后发现，AC的代码几乎跟我这个差不多，这题是独立完成的，耗时1h左右吧，我自己竟然也可以写出这么简洁高效的代码了！
 
+2020.7.16二刷，一次性AC，15min？有进步
+
 ### 124. 二叉树中的最大路径和(hard, based on 543)
 
 给定一个非空二叉树，返回其最大路径和。
@@ -4244,6 +4265,9 @@ public:
 树中每条路径，都存在一个离根节点最近的点，我们把它记为割点，用割点可以将整条路径分为两部分：从该节点向左子树延伸的路径，和从该节点向右子树延伸的部分，而且两部分都是自上而下延伸的。
 
 我们可以递归遍历整棵树，递归时维护从每个节点开始往下延伸的最大路径和。
+
+左右子树能向当前节点『贡献』的最大路径最少是0，比如如果左子树贡献了负数，当前节点可以不选左子树，于是可以取max。
+
 对于每个点，递归计算完左右子树后，我们将左右子树维护的两条最大路径，和该点拼接起来，就可以得到以这个点为割点的最大路径。
 
 然后维护从这个点往下延伸的最大路径：从左右子树的路径中选择权值大的一条延伸即可。
@@ -4345,6 +4369,64 @@ public:
  * BSTIterator i = BSTIterator(root);
  * while (i.hasNext()) cout << i.next();
  */
+```
+
+### 199. 二叉树的右视图(Medium)
+
+给定一棵二叉树，想象自己站在它的右侧，按照从顶部到底部的顺序，返回从右侧所能看到的节点值。
+
+示例:
+
+输入: [1,2,3,null,5,null,4]
+输出: [1, 3, 4]
+解释:
+
+   1            <---
+ /   \
+2     3         <---
+ \     \
+  5     4       <---
+
+bfs，记录层数，很简单了
+
+```c++
+/**
+ * Definition for a binary tree node.
+ * struct TreeNode {
+ *     int val;
+ *     TreeNode *left;
+ *     TreeNode *right;
+ *     TreeNode(int x) : val(x), left(NULL), right(NULL) {}
+ * };
+ */
+class Solution {
+public:
+    vector<int> rightSideView(TreeNode* root) {
+        vector<int> ans;
+        if (root == nullptr) return ans;
+        queue<pair<TreeNode*, int>> q;
+        q.push({root, 0});
+        TreeNode* node;
+        int cur_layer;
+        int last_layer = -1; // 上一层初始是-1
+        while (!q.empty()) {
+            node = q.front().first;
+            cur_layer = q.front().second;
+            q.pop();
+            if (cur_layer > last_layer) {
+                ans.push_back(node->val);
+            }
+            if (node->right) {
+                q.push({node->right, cur_layer+1});
+            }
+            if (node->left) {
+                q.push({node->left, cur_layer+1});
+            }
+            last_layer = cur_layer;
+        }
+        return ans;
+    }
+};
 ```
 
 ### 236. 二叉树的最近公共祖先(medium)
@@ -4530,6 +4612,91 @@ public:
 ```
 
 ## 动态规划
+
+### 3. 无重复字符的最长子串
+
+同剑指第48题，
+
+给定一个字符串，请你找出其中不含有重复字符的 最长子串 的长度。
+
+示例 1:
+
+输入: "abcabcbb"
+输出: 3
+解释: 因为无重复字符的最长子串是 "abc"，所以其长度为 3。
+示例 2:
+
+输入: "bbbbb"
+输出: 1
+解释: 因为无重复字符的最长子串是 "b"，所以其长度为 1。
+示例 3:
+
+输入: "pwwkew"
+输出: 3
+解释: 因为无重复字符的最长子串是 "wke"，所以其长度为 3。
+     请注意，你的答案必须是 子串 的长
+
+动态规划：
+
+定义dp[i]表示以第i个字符结尾的不包含重复字符的子字符串的最长长度，我们从左到右逐一扫描字符串每个字符，如果第i个字符之前没出现过，则f(i)=f(i-1)+1，如果第i个字符之前出现过，找到最近那个，与i的距离为d。
+
+如果d小于等于f(i-1)，则此时第i个字符上次出现在f(i-1)对应的最长子字符串中，因此f(i)=d，同时这也意味着在第i个字符出现两次所夹的字符串中再也没有其他重复的字符了
+
+如果d大于f(i-1)，则此时第i个字符上次出现在f(i-1)对应的最长子字符串之前，因此仍然有f(i)=f(i-1)+1
+
+```c++
+class Solution {
+public:
+    int lengthOfLongestSubstring(string s) {
+        if (s.empty()) return 0;
+        if (s.size() == 1) return 1;
+        unordered_map<char, int> table; // record char last apear
+        table[s[0]] = 0;
+        int longest = 0;
+        int size = s.size();
+        // dp[i]表示以第i个字符结尾的不包含重复字符的子字符串的最长长度
+        vector<int> vec(size, 1);
+        for (int i = 1; i < size; ++i) {
+            if (table.find(s[i]) == table.end() || i - table[s[i]] > vec[i-1]) {
+                vec[i] = vec[i-1] + 1;
+            } else {
+                vec[i] = i - table[s[i]];
+            }
+            table[s[i]] = i;
+            longest = vec[i] > longest ? vec[i] : longest;
+        }
+        return longest;
+    }
+};
+```
+
+因为f(i)只与f(i-1)有关，于是只需要一个变量即可，将空间复杂度下降为O(1)
+
+```c++
+class Solution {
+public:
+    int lengthOfLongestSubstring(string s) {
+        if (s.empty()) return 0;
+        if (s.size() == 1) return 1;
+        unordered_map<char, int> table; // record char last apear
+        table[s[0]] = 0;
+        int longest = 0;
+        int size = s.size();
+        // dp[i]表示以第i个字符结尾的不包含重复字符的子字符串的最长长度
+        int cur = 1;
+        for (int i = 1; i < size; ++i) {
+            if (table.find(s[i]) == table.end() || i - table[s[i]] > cur) {
+                ++cur;
+            } else {
+                cur = i - table[s[i]];
+            }
+            table[s[i]] = i;
+            longest = cur > longest ? cur : longest;
+        }
+        return longest;
+    }
+};
+```
 
 ### 5.最长回文子串
 
@@ -5293,6 +5460,30 @@ Accepted
 Your runtime beats 98.38 % of cpp submissions
 Your memory usage beats 35.59 % of cpp submissions (9.5 MB)
 
+二刷时，直接用变量解决了，记录一下之前扫描过的最低价格即可，如果当前价格低于之前最低价格，则更新最低价格
+
+```c++
+class Solution {
+public:
+    int maxProfit(vector<int>& prices) {
+        if (prices.empty()) return 0;
+        int size = prices.size();
+        int max_profit = 0;
+        int pre_min = prices[0];
+        for (int i = 1; i < size; ++i) {
+            if (prices[i] < pre_min) {
+                pre_min = prices[i];
+                continue;
+            }
+            if (prices[i] - pre_min > max_profit) {
+                max_profit = prices[i] - pre_min;
+            }
+        }
+        return max_profit;
+    }
+};
+```
+
 ### 198.打家劫舍
 
 你是一个专业的小偷，计划偷窃沿街的房屋。每间房内都藏有一定的现金，影响你偷窃的唯一制约因素就是相邻的房屋装有相互连通的防盗系统，如果两间相邻的房屋在同一晚上被小偷闯入，系统会自动报警。
@@ -6050,44 +6241,108 @@ cache.get(3);       // 返回  3
 cache.get(4);       // 返回  4
 ```
 
-链表（存储）+哈希表+pair（存储key和value）
+双向链表（存储）+哈希表+pair（存储key和value）
+
+二刷时优化了一下逻辑，更好理解了
 
 ```c++
-class LRUCache{
+class LRUCache
+{
 public:
-    LRUCache(int cap){
-        capacity = cap;
+    typedef list<pair<int, int>> List;
+    typedef list<pair<int, int>>::iterator ListIter;
+    LRUCache(int capacity){
+        capacity_ = capacity;
     }
+
     int get(int key){
-        if(position.find(key) != position.end()){
-            // 找到
-            put(key, position[key]->second);
-            isFound = true;
-            return position[key]->second;
+        if (map.find(key) == map.end()){
+            return -1;
         }
-        isFound = false;
-        return -1;
+        int val = map[key]->second;
+        doubleLinkedList.erase(map[key]); // 根据iter删除
+        doubleLinkedList.push_front({key, val});
+        map[key] = doubleLinkedList.begin();
+        return map[key]->second;
     }
+
     void put(int key, int value){
-        if(position.find(key) != position.end()){
-            recent.erase(position[key]); // 从链表中删除
+        if (map.find(key) == map.end()){
+            if (capacity_ == doubleLinkedList.size()){
+                map.erase(doubleLinkedList.back().first); // 根据key删除
+                doubleLinkedList.pop_back();
+            }
+            doubleLinkedList.push_front({key, value});
+            map[key] = doubleLinkedList.begin();
         }
-        if(recent.size() >= capacity){
-            // 超过缓存，删除最老的记录
-            position.erase(recent.back().first);
-            recent.pop_back();
+        else{
+            doubleLinkedList.erase(map[key]); // 一定要在前面
+            doubleLinkedList.push_front({key, value}); // 否则会erase刚删除的
+            map[key] = doubleLinkedList.begin();
         }
-        recent.push_front(pair<int, int>(key, value));
-        position[key] = recent.begin();
     }
-    bool isFound; // get返回-1时，检查该变量即可知道是否得到相应缓存
-private:
-    int capacity;
-    list<pair<int, int>> recent; // 用链表记录最近的key与value的pair
-    unordered_map<int, list<pair<int, int>>::iterator> position; // 用哈希表记录位置，哈希表的键就是key
+
+    int capacity_;
+    List doubleLinkedList;
+    unordered_map<int, ListIter> map;
 };
 ```
 
+### 155. 最小栈
+
+设计一个支持 push ，pop ，top 操作，并能在常数时间内检索到最小元素的栈。
+
+push(x) —— 将元素 x 推入栈中。
+pop() —— 删除栈顶的元素。
+top() —— 获取栈顶元素。
+getMin() —— 检索栈中的最小元素。
+
+两个栈模拟，其中一个正常push和pop，另外一个每次压入元素前先比较一下与栈顶元素的大小，若小于才压入，若不小于则压入与栈顶一样的元素，保证两个栈同等高度
+
+```c++
+class MinStack {
+public:
+    /** initialize your data structure here. */
+    stack<int> s1, s2;
+    MinStack() {}
+
+    void push(int x) {
+        if (s1.empty() && s2.empty()) {
+            s1.push(x);
+            s2.push(x);
+        } else {
+            s1.push(x);
+            if (s2.top() > x) {
+                s2.push(x);
+            } else {
+                s2.push(s2.top());
+            }
+        }
+    }
+    
+    void pop() {
+        s1.pop();
+        s2.pop();
+    }
+    
+    int top() {
+        return s1.top();
+    }
+    
+    int getMin() {
+        return s2.top();
+    }
+};
+
+/**
+ * Your MinStack object will be instantiated and called as such:
+ * MinStack* obj = new MinStack();
+ * obj->push(x);
+ * obj->pop();
+ * int param_3 = obj->top();
+ * int param_4 = obj->getMin();
+ */
+```
 ### 225. 用队列实现栈
 
 使用队列实现栈的下列操作：
