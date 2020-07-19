@@ -905,6 +905,8 @@ public:
 
 空间复杂度：O(logn)，其中 n 为区间的数量。这里计算的是存储答案之外，使用的额外空间。O(logn) 即为排序所需要的空间复杂度。
 
+**经测试，cmp只比较【0】、cmp先比较【0】再比较【1】、不用cmp，这三种方法都可以**
+
 ```c++
 class Solution {
 public:
@@ -1166,6 +1168,91 @@ public:
         int offset = k % nums.size();
         if(offset == 0) return;
         reverseVec(nums, offset);
+    }
+};
+```
+
+### 215.数组中的第K个最大元素(Medium)
+
+在未排序的数组中找到第 k 个最大的元素。请注意，你需要找的是数组排序后的第 k 个最大的元素，而不是第 k 个不同的元素。
+
+示例 1:
+
+输入: [3,2,1,5,6,4] 和 k = 2
+输出: 5
+示例 2:
+
+输入: [3,2,3,1,2,4,5,5,6] 和 k = 4
+输出: 4
+说明:
+
+你可以假设 k 总是有效的，且 1 ≤ k ≤ 数组的长度。
+
+小根堆
+
+```c++
+class Solution {
+public:
+    int findKthLargest(vector<int>& nums, int k) {
+        priority_queue<int, vector<int>, greater<int>> pq; // 小根堆
+        for (int i = 0; i < nums.size(); ++i) {
+            pq.push(nums[i]);
+            if (pq.size() > k) {
+                pq.pop();
+            }
+        }
+        return pq.top();
+    }
+};
+```
+
+大根堆，得多遍历一下
+
+```c++
+class Solution {
+public:
+    int findKthLargest(vector<int>& nums, int k) {
+        priority_queue<int> pq;
+        for (int i = 0; i < nums.size(); ++i) {
+            pq.push(nums[i]);
+        }
+        for (int i = 0; i < k - 1; ++i) {
+            pq.pop();
+        }
+        return pq.top();
+    }
+};
+```
+
+快速选择，找到个很容易理解（背诵）的模板，它直接取最左端为pivot，在数组有序时效率很差，不过对于模板来说，这份代码很工整
+
+```c++
+class Solution {
+public:
+    int findKthLargest(vector<int>& nums, int k) {
+        if (nums.empty()) return 0;
+        int left = 0, right = nums.size() - 1;
+        while (true) {
+            int position = partition(nums, left, right);
+            if (position == k - 1) return nums[position]; //每一轮返回当前pivot的最终位置，它的位置就是第几大的，如果刚好是第K大的数
+            else if (position > k - 1) right = position - 1; //二分的思想
+            else left = position + 1;
+        }
+    }
+
+    int partition(vector<int>& nums, int left, int right) {
+        int pivot = left;
+        int l = left + 1; //记住这里l是left + 1
+        int r = right;
+        while (l <= r) {
+            while (l <= r && nums[l] >= nums[pivot]) l++; //从左边找到第一个小于nums[pivot]的数
+            while (l <= r && nums[r] <= nums[pivot]) r--; //从右边找到第一个大于nums[pivot]的数
+            if (l <= r && nums[l] < nums[pivot] && nums[r] > nums[pivot]) {
+                swap(nums[l++], nums[r--]);
+            }
+        }
+        swap(nums[pivot], nums[r]); //交换pivot到它所属的最终位置，也就是在r的位置，因为此时r的左边都比r大，右边都比r小
+        return r; //返回最终pivot的位置
     }
 };
 ```
@@ -2212,6 +2299,103 @@ public:
 
 一定要画图！
 
+### 2.两数相加(Medium)
+
+给出两个 非空 的链表用来表示两个非负的整数。其中，它们各自的位数是按照 逆序 的方式存储的，并且它们的每个节点只能存储 一位 数字。
+
+如果，我们将这两个数相加起来，则会返回一个新的链表来表示它们的和。
+
+您可以假设除了数字 0 之外，这两个数都不会以 0 开头。
+
+示例：
+
+输入：(2 -> 4 -> 3) + (5 -> 6 -> 4)
+输出：7 -> 0 -> 8
+原因：342 + 465 = 807
+
+第一次尝试，还行
+
+```c++
+class Solution {
+public:
+    ListNode* addTwoNumbers(ListNode* l1, ListNode* l2) {
+        ListNode* dummy = new ListNode(-1);
+        ListNode* pre = dummy;
+        ListNode* cur;
+        int carry = 0;
+        int tmp = 0;
+        while (l1 && l2) {
+            tmp = l1->val + l2->val + carry;
+            if (tmp >= 10) carry = 1;
+            else carry = 0;
+            tmp %= 10;
+            cur = new ListNode(tmp);
+            pre->next = cur;
+            pre = cur;
+            l1 = l1->next;
+            l2 = l2->next;
+        }
+        while (l1) {
+            tmp = l1->val + carry;
+            if (tmp >= 10) carry = 1;
+            else carry = 0;
+            tmp %= 10;
+            cur = new ListNode(tmp);
+            pre->next = cur;
+            pre = cur;
+            l1 = l1->next;
+        }
+        while (l2) {
+            tmp = l2->val + carry;
+            if (tmp >= 10) carry = 1;
+            else carry = 0;
+            tmp %= 10;
+            cur = new ListNode(tmp);
+            pre->next = cur;
+            pre = cur;
+            l2 = l2->next;
+        }
+        if (carry == 1) {
+            cur = new ListNode(1);
+            pre->next = cur;
+        }
+        return dummy->next;
+    }
+};
+```
+
+是这个思路没错，但是其实可以省略为一个while循环，如果l1或l2为空，补0即可
+
+```c++
+class Solution {
+public:
+    ListNode* addTwoNumbers(ListNode* l1, ListNode* l2) {
+        ListNode* dummy = new ListNode(-1);
+        ListNode* pre = dummy;
+        ListNode* cur;
+        int carry = 0;
+        int tmp = 0;
+        while (l1 || l2) {
+            tmp = (l1 != nullptr ? l1->val : 0) +
+                    (l2 != nullptr ? l2->val : 0) + carry;
+            if (tmp >= 10) carry = 1;
+            else carry = 0;
+            tmp %= 10;
+            cur = new ListNode(tmp);
+            pre->next = cur;
+            pre = cur;
+            l1 = l1 != nullptr ? l1->next : nullptr;
+            l2 = l2 != nullptr ? l2->next : nullptr;
+        }
+        if (carry == 1) {
+            cur = new ListNode(1);
+            pre->next = cur;
+        }
+        return dummy->next;
+    }
+};
+```
+
 ### 19.删除链表的倒数第N个节点(easy)
 
 给定一个链表，删除链表的倒数第 *n* 个节点，并且返回链表的头结点。
@@ -2874,6 +3058,8 @@ public:
 };
 ```
 
+二刷，还没上个简洁，记住，while循环里面不用判断slow是否为空，如果链表没环，肯定是fast先到尾
+
 ### 142. 环形链表 II(mdium)
 
 给定一个链表，返回链表开始入环的第一个节点。 如果链表无环，则返回 null。
@@ -3106,6 +3292,8 @@ public:
     }
 };
 ```
+
+二刷，想到了双指针，但是实现代码时还是多此一举地把长度计算出来，y总
 
 ### 206.反转链表(easy)
 
@@ -4097,6 +4285,28 @@ public:
 };
 ```
 
+二刷，还行
+
+```c++
+class Solution {
+public:
+    TreeNode* buildTree(vector<int>& preorder, vector<int>& inorder) {
+        if (preorder.empty() || inorder.empty()) return nullptr;
+        return helper(preorder, inorder, 0, preorder.size()-1, 0, inorder.size()-1);
+    }
+    TreeNode* helper(vector<int>& preorder, vector<int>& inorder, int pre_l, int pre_r, int in_l, int in_r) {
+        if (pre_l > pre_r || in_l > in_r) return nullptr;
+        int root_val = preorder[pre_l];
+        TreeNode* root = new TreeNode(root_val); // 当前节点
+        auto it = find(inorder.begin(), inorder.end(), root_val);
+        int left_subtree_size = it - (inorder.begin() + in_l);
+        root->left = helper(preorder, inorder, pre_l+1, pre_l+left_subtree_size, in_l, in_l+left_subtree_size-1);
+        root->right = helper(preorder, inorder, pre_l+left_subtree_size+1, pre_r, in_l+left_subtree_size+1, in_r);
+        return root;
+    }
+};
+```
+
 ### 106. 从中序与后序遍历序列构造二叉树(medium)
 
 [从中序与后序遍历序列构造二叉树](https://leetcode-cn.com/problems/construct-binary-tree-from-inorder-and-postorder-traversal/)
@@ -4226,6 +4436,92 @@ public:
 最后发现，AC的代码几乎跟我这个差不多，这题是独立完成的，耗时1h左右吧，我自己竟然也可以写出这么简洁高效的代码了！
 
 2020.7.16二刷，一次性AC，15min？有进步
+
+### 110. 平衡二叉树
+
+同剑指55-2
+
+给定一个二叉树，判断它是否是高度平衡的二叉树。
+
+本题中，一棵高度平衡二叉树定义为：
+
+一个二叉树每个节点 的左右两个子树的高度差的绝对值不超过1。
+
+```c++
+class Solution {
+public:
+    bool isBalanced(TreeNode* root) {
+        return recursion(root, 0).first;
+    }
+    pair<bool, int> recursion(TreeNode* root, int hight) { // 返回：当前节点是否平衡 and 当前节点最大高度
+        if (root == nullptr) return {true, hight-1}; // 空节点肯定是平衡的，不贡献深度
+        pair<bool, int> left = recursion(root->left, hight+1);
+        pair<bool, int> right = recursion(root->right, hight+1);
+        bool flag = left.first && right.first && abs(left.second-right.second) <= 1; // 左右节点都平衡，且左右子树最大高度差不超过1，当前节点才平衡
+        int max_hight = max(left.second, right.second);
+        return {flag, max_hight};
+    }
+};
+```
+
+### 113. 路径总和 II(Medium)
+
+给定一个二叉树和一个目标和，找到所有从根节点到叶子节点路径总和等于给定目标和的路径。
+
+说明: 叶子节点是指没有子节点的节点。
+
+自己想的，可以看到path是拷贝赋值，很影响性能，应该改为通用回溯模板
+
+```c++
+class Solution {
+public:
+    vector<vector<int>> ans;
+    vector<vector<int>> pathSum(TreeNode* root, int sum) {
+        if (!root) return ans;
+        vector<int> path;
+        helper(root, path, 0, sum);
+        return ans;
+    }
+    void helper(TreeNode* root, vector<int> path, int cur, int sum) {
+        if (!root) return;
+        path.push_back(root->val);
+        cur += root->val;
+        if (!root->left && !root->right && cur == sum) {
+            ans.push_back(path);
+            return;
+        }
+        helper(root->left, path, cur, sum);
+        helper(root->right, path, cur, sum);
+    }
+};
+```
+
+题解区找的优秀代码，用了回溯模板，最后还原path，效率很高，接近双百了
+
+```c++
+class Solution {
+public:
+    vector<vector<int>> res;
+    vector<int> temp; //防止反复初始化数组 
+    void dfs (TreeNode* root,int sum) {
+        if (!root) return;
+        int resum = sum - root->val;
+        temp.push_back(root->val);
+        if (resum == 0 && !root->left && !root->right) {
+            res.push_back(temp); //找到答案 
+            temp.pop_back();
+            return;
+        }
+        dfs(root->left, resum);
+        dfs(root->right, resum);
+        temp.pop_back(); //回溯，还原path 
+    }
+    vector<vector<int>> pathSum(TreeNode* root, int sum) {
+        dfs(root,sum);
+        return res;
+    }
+};
+```
 
 ### 124. 二叉树中的最大路径和(hard, based on 543)
 
@@ -4468,7 +4764,41 @@ public:
         TreeNode* right = lowestCommonAncestor(root->right, p, q);
         if(!left) return right;
         if(!right) return left;
-        return root;
+        return root; // p和q在两侧
+    }
+};
+```
+
+二刷的代码，好不简洁啊。。
+
+```c++
+class Solution {
+public:
+    TreeNode* lowestCommonAncestor(TreeNode* root, TreeNode* p, TreeNode* q) {
+        if (!root || !p || !q) return nullptr;
+        return helper(root, p, q).first;
+    }
+    pair<TreeNode*, pair<bool, bool>> helper(TreeNode* root, TreeNode* p, TreeNode* q) {
+        if (root == nullptr) return {nullptr, {false, false}};
+        bool p_bool = false;
+        bool q_bool = false;
+        auto triple = helper(root->left, p, q);
+        bool p_bool_l = triple.second.first;
+        bool q_bool_l = triple.second.second;
+        if (p_bool_l && q_bool_l) {
+            return {triple.first, {true, true}};
+        }
+        triple = helper(root->right, p, q);
+        bool p_bool_r = triple.second.first;
+        bool q_bool_r = triple.second.second;
+        if (p_bool_r && q_bool_r) {
+            return {triple.first, {true, true}};
+        }
+        if (root == p) p_bool = true;
+        if (root == q) q_bool = true;
+        p_bool = p_bool || p_bool_l || p_bool_r;
+        q_bool = q_bool || q_bool_l || q_bool_r;
+        return {root, {p_bool, q_bool}};
     }
 };
 ```
@@ -4607,6 +4937,42 @@ public:
         int ans = 0;
         dfs(root, ans);
         return ans;  
+    }
+};
+```
+
+### 958. 二叉树的完全性检验(Medium)
+
+给定一个二叉树，确定它是否是一个完全二叉树。
+
+百度百科中对完全二叉树的定义如下：
+
+若设二叉树的深度为 h，除第 h 层外，其它各层 (1～h-1) 的结点数都达到最大个数，第 h 层所有的结点都连续集中在最左边，这就是完全二叉树。（注：第 h 层可能包含 1~ 2h 个节点。）
+
+第一次尝试，思路就是层序遍历，第一次出现叶子节点，后面应该都是叶子节点，看了一圈题解区，我这种想法应该是最优雅的
+
+```c++
+class Solution {
+public:
+    bool isCompleteTree(TreeNode* root) {
+        if (!root) return true;
+        queue<TreeNode*> q;
+        q.push(root);
+        TreeNode* cur;
+        while (!q.empty()) {
+            cur = q.front();
+            q.pop();
+            if (!cur) break; // 第一次出现叶子节点，直接break
+            q.push(cur->left);
+            q.push(cur->right);
+        }
+        while (!q.empty()) {
+            if (q.front() != nullptr) {
+                return false;
+            }
+            q.pop();
+        }
+        return true;
     }
 };
 ```
@@ -4979,6 +5345,24 @@ public:
 202/202 cases passed (12 ms)
 Your runtime beats 46.05 % of cpp submissions
 Your memory usage beats 81.66 % of cpp submissions (9.2 MB)
+
+二刷，修改后更简洁的代码
+
+```c++
+class Solution {
+public:
+    int maxSubArray(vector<int>& nums) {
+        int sum = nums[0];
+        int max_ = nums[0];
+        for (int i = 1; i < nums.size(); ++i) {
+            if (sum <= 0) sum = nums[i];
+            else sum += nums[i];
+            max_ = max(max_, sum);
+        }
+        return max_;
+    }
+};
+```
 
  最大子序和的分治法
 
@@ -5688,7 +6072,42 @@ public:
         return dp[amount] == INT_MAX ? -1 : dp[amount];
     }
 };
+```
 
+二刷，看答案有了更容易理解的解法
+
+定义 F(i) 为组成金额 i 所需最少的硬币数量，假设在计算 F(i) 之前，我们已经计算出 F(0) ~ F(i−1) 的答案。 则 F(i) 对应的转移方程应为 F(i) = min F(i-cj) + 1
+
+例子1：假设
+
+coins = [1, 2, 5], amount = 11
+则，当 i==0i==0 时无法用硬币组成，为 0 。当 i<0i<0 时，忽略 F(i)F(i)
+
+F(i) 最小硬币数量
+F(0)=0 //金额为0不能由硬币组成
+F(1)=1 //F(1)=min(F(1-1),F(1-2),F(1-5))+1=1F(1)=min(F(1−1),F(1−2),F(1−5))+1=1
+F(2)=1 //F(2)=min(F(2-1),F(2-2),F(2-5))+1=1F(2)=min(F(2−1),F(2−2),F(2−5))+1=1
+F(3)=2 //F(3)=min(F(3-1),F(3-2),F(3-5))+1=2F(3)=min(F(3−1),F(3−2),F(3−5))+1=2
+F(4)=2 //F(4)=min(F(4-1),F(4-2),F(4-5))+1=2F(4)=min(F(4−1),F(4−2),F(4−5))+1=2
+...=...
+F(11)=3 //F(11)=min(F(11-1),F(11-2),F(11-5))+1=3F(11)=min(F(11−1),F(11−2),F(11−5))+1=3
+
+```c++
+class Solution {
+public:
+    int coinChange(vector<int>& coins, int amount) {
+        vector<int> dp(amount+1, amount+1);
+        dp[0] = 0;
+        for (int i = 1; i <= amount; ++i) {
+            for (int j = 0; j < coins.size(); ++j) {
+                if (i >= coins[j]) {
+                    dp[i] = min(dp[i], dp[i - coins[j]] + 1);
+                }
+            }
+        }
+        return dp[amount] > amount ? -1 : dp[amount];
+    }
+};
 ```
 
 ### 354. 俄罗斯套娃信封问题
@@ -8490,9 +8909,42 @@ public:
  */
 ```
 
-### 128. 最长连续序列
+### 128. 最长连续序列(Hard)
 
 hard题，就不看了hhh
+
+刷字节top题碰到了，还是看答案弄懂它吧
+
+先将所有元素存储到哈希表，时间复杂度为 O(N);
+对每一个元素进行查表，向上向下分别查找，找到所有相邻元素，并将找到的元素标记为已访问。
+查找完毕之后，更新结果。
+由于：每次查找都将找到的相邻元素标记为已访问，之后如果访问到该元素，发现为已访问就跳过。
+所以：尽管 for 里面有 while 循环，但实际时间复杂度还是O (N)。
+
+```c++
+class Solution {
+public:
+    int longestConsecutive(vector<int>& nums) {
+        unordered_set<int> set;
+        int cur_len = 0;
+        int max_len = 0;
+        for (const int& num : nums) set.insert(num);
+        for (const int& num : nums) {
+            if (set.count(num-1)) {
+                continue; // 当前num是之前出现的数字+1，肯定在num-1的while循环中计算过，可跳过
+            }
+            int cur_len = 1; // num-1不存在，num作为起点，计算连续序列的长度
+            int i = 1;
+            while (set.count(num+i)) {
+                ++cur_len;
+                ++i;
+            }
+            max_len = max(max_len, cur_len);
+        }
+        return max_len;
+    }
+};
+```
 
 ## 贪心with闫学灿
 

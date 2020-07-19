@@ -5881,6 +5881,36 @@ priority_queue默认最大堆，若想用最小堆，传入仿函数`greater<T>`
 
 partition时间复杂度为O(n)的证明（等比数列求和）：T = O(n)+O(n/2)+O(n/4)+...=O(2n)=O(n)
 
+lc 215:
+
+```c++
+ int findKthLargest(vector<int>& nums, int k) {
+     if (nums.empty()) return 0;
+     int left = 0, right = nums.size() - 1;
+     while (true) {
+         int position = partition(nums, left, right);
+         if (position == k - 1) return nums[position]; //每一轮返回当前pivot的最终位置，它的位置就是第几大的，如果刚好是第K大的数
+         else if (position > k - 1) right = position - 1; //二分的思想
+         else left = position + 1;
+     }
+ }
+
+ int partition(vector<int>& nums, int left, int right) {
+     int pivot = left;
+     int l = left + 1; //记住这里l是left + 1
+     int r = right;
+     while (l <= r) {
+         while (l <= r && nums[l] >= nums[pivot]) l++; //从左边找到第一个小于nums[pivot]的数
+         while (l <= r && nums[r] <= nums[pivot]) r--; //从右边找到第一个大于nums[pivot]的数
+         if (l <= r && nums[l] < nums[pivot] && nums[r] > nums[pivot]) {
+             swap(nums[l++], nums[r--]);
+         }
+     }
+     swap(nums[pivot], nums[r]); //交换pivot到它所属的最终位置，也就是在r的位置，因为此时r的左边都比r大，右边都比r小
+     return r; //返回最终pivot的位置
+ }
+```
+
 海量数据下的TopK变形问题
 
 Hash法：如果这些数据中有很多重复的数据，可以先通过hash法，把重复的数去掉，这样可以大大减少运算量，但有可能会产生**数据倾斜问题**：有些数据重复很大，即使Hash过也没法一次性读入内存，则需要把这个Hash文件单独拎出来随即拆分，所以可以用**哈希算法分片**

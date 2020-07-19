@@ -3627,14 +3627,14 @@ public:
             else{
                 cur_sum += array[i];
             }
-            if(cur_sum > sum){
-                sum = cur_sum;
-            }
+            sum = max(sum, cur_sum);
         }
         return sum;
     }
 };
 ```
+
+二刷，稍显繁琐，还是上面的代码简洁易懂
 
 ### 43：1~n整数中1出现的次数
 
@@ -5531,6 +5531,36 @@ public:
             if(continuousCount == 5) break;
         }
         return true;
+    }
+};
+```
+
+二刷，这种方法最直观，如果出现了大小王，则max_-min_<4即可认为是顺子，如果没有大小王，则max_-min_==4才是顺子
+
+```c++
+class Solution {
+public:
+    bool isStraight(vector<int>& nums) {
+        vector<int> poker(14, 1);
+        poker[0] = 5; // 大小王有任意张
+        int zero_cnt = 0;
+        int max_ = 0;
+        int min_ = 14;
+        for (const auto &num : nums) {
+            if (poker[num] == 0) return false; // 出现重复
+            if (num == 0) {
+                ++zero_cnt;
+            }
+            else {
+                min_ = min(min_, num);
+                max_ = max(max_, num);
+            }
+            --poker[num];
+        }
+        if (poker[0] == 0) return true; // 五个大小王也算true
+        if (zero_cnt > 0 && (max_ - min_ < 5)) return true;
+        if (zero_cnt == 0 && (max_ - min_ == 4)) return true;
+        return false;
     }
 };
 ```
