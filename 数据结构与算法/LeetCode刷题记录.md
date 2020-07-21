@@ -65,6 +65,70 @@ public:
 };
 ```
 
+### 9. 回文数(easy)
+
+判断一个整数是否是回文数。回文数是指正序（从左向右）和倒序（从右向左）读都是一样的整数。
+
+示例 1:
+
+输入: 121
+输出: true
+示例 2:
+
+输入: -121
+输出: false
+解释: 从左向右读, 为 -121 。 从右向左读, 为 121- 。因此它不是一个回文数。
+示例 3:
+
+输入: 10
+输出: false
+解释: 从右向左读, 为 01 。因此它不是一个回文数。
+进阶:
+
+你能不将整数转为字符串来解决这个问题吗？
+
+```c++
+class Solution {
+public:
+    bool isPalindrome(int x) {
+        if (x < 0) return false;
+        string s;
+        while (x) {
+            s += x % 10;
+            x /= 10;
+        }
+        int n = s.size();
+        for (int i = 0; i < (n+1) / 2; ++i) { // +1即可忽略奇偶
+            if (s[i] != s[n-1-i]) return false;
+        }
+        return true;
+    }
+};
+```
+
+官方给出了不需要额外空间的解法，很简洁
+
+注意返回语句：
+
+1. 当数字长度为奇数时，我们可以通过 revertedNumber/10 去除处于中位的数字。
+2. 例如，当输入为 12321 时，在 while 循环的末尾我们可以得到 x = 12，revertedNumber = 123，
+3. 由于处于中位的数字不影响回文（它总是与自己相等），所以我们可以简单地将其去除。
+
+```c++
+class Solution {
+public:
+    bool isPalindrome(int x) {
+        if (x < 0 || (x % 10 == 0 && x != 0)) return false;
+        int revertedNumber = 0;
+        while (x > revertedNumber) { // 一个从0出发，一个从最高位出发，计算到一半即可
+            revertedNumber = revertedNumber * 10 + x % 10;
+            x /= 10;
+        }
+        return x == revertedNumber || x == revertedNumber / 10;
+    }
+};
+```
+
 ### 11.盛最多水的容器
 
 给定 n 个非负整数 a1，a2，...，an，每个数代表坐标中的一个点 (i, ai) 。在坐标内画 n 条垂直线，垂直线 i 的两个端点分别为 (i, ai) 和 (i, 0)。找出其中的两条线，使得它们与 x 轴共同构成的容器可以容纳最多的水。
@@ -905,7 +969,7 @@ public:
 
 空间复杂度：O(logn)，其中 n 为区间的数量。这里计算的是存储答案之外，使用的额外空间。O(logn) 即为排序所需要的空间复杂度。
 
-**经测试，cmp只比较【0】、cmp先比较【0】再比较【1】、不用cmp，这三种方法都可以**
+**注意**：经测试，cmp只比较【0】、cmp先比较【0】再比较【1】、不用cmp，这三种方法都可以
 
 ```c++
 class Solution {
@@ -1312,6 +1376,96 @@ public:
                 return true;
         }
         return false;
+    }
+};
+```
+
+### 231. 2的幂(Easy)
+
+给定一个整数，编写一个函数来判断它是否是 2 的幂次方。
+
+示例 1:
+
+输入: 1
+输出: true
+解释: 20 = 1
+示例 2:
+
+输入: 16
+输出: true
+解释: 24 = 16
+示例 3:
+
+输入: 218
+输出: false
+
+```c++
+class Solution {
+public:
+    bool isPowerOfTwo(int n) {
+        return n > 0 && !(n & n-1);
+    }
+};
+```
+
+### 238. 除自身以外数组的乘积
+
+给你一个长度为 n 的整数数组 nums，其中 n > 1，返回输出数组 output ，其中 output[i] 等于 nums 中除 nums[i] 之外其余各元素的乘积。
+
+示例:
+
+输入: [1,2,3,4]
+输出: [24,12,8,6]
+
+提示：题目数据保证数组之中任意元素的全部前缀元素和后缀（甚至是整个数组）的乘积都在 32 位整数范围内。
+
+说明: 请不要使用除法，且在 O(n) 时间复杂度内完成此题。
+
+进阶：
+你可以在常数空间复杂度内完成这个题目吗？（ 出于对空间复杂度分析的目的，输出数组不被视为额外空间。）
+
+构造L数组和R数组，需要O(n)额外空间
+
+```c++
+class Solution {
+public:
+    vector<int> productExceptSelf(vector<int>& nums) {
+        int n = nums.size();
+        vector<int> ans;
+        if (nums.empty() || nums.size() == 1) return ans;
+        vector<int> L(n, 1), R(n, 1); // L[i]代表的是序号i左侧所有数字的乘积，右侧
+        for (int i = 1; i < n; ++i) {
+            L[i] = L[i-1] * nums[i-1];
+        }
+        for (int i = n-2; i >= 0; --i) {
+            R[i] = R[i+1] * nums[i+1];
+        }
+        for (int i = 0; i < n; ++i) {
+            ans.push_back(L[i]*R[i]);
+        }
+        return ans;
+    }
+};
+```
+
+复用ans数组，O(1)额外空间
+
+```c++
+class Solution {
+public:
+    vector<int> productExceptSelf(vector<int>& nums) {
+        int n = nums.size();
+        vector<int> ans (n, 1); // L与R数组共用ans，额外空间为为O(1)
+        if (nums.empty() || nums.size() == 1) return ans;
+        for (int i = 1; i < n; ++i) { // 先把ans当L数组用
+            ans[i] = ans[i-1] * nums[i-1];
+        }
+        int rightProduct = 1; // 第一次进入：ans[n-1]=L[n-1]*1
+        for (int i = n-1; i >= 0; --i) {
+            ans[i] *= rightProduct;
+            rightProduct *= nums[i];
+        }
+        return ans;
     }
 };
 ```
@@ -1834,6 +1988,71 @@ public:
 };
 ```
 
+### 20. 有效的括号
+
+给定一个只包括 '('，')'，'{'，'}'，'['，']' 的字符串，判断字符串是否有效。
+
+有效字符串需满足：
+
+左括号必须用相同类型的右括号闭合。
+左括号必须以正确的顺序闭合。
+注意空字符串可被认为是有效字符串。
+
+示例 1:
+
+输入: "()"
+输出: true
+示例 2:
+
+输入: "()[]{}"
+输出: true
+示例 3:
+
+输入: "(]"
+输出: false
+示例 4:
+
+输入: "([)]"
+输出: false
+示例 5:
+
+输入: "{[]}"
+输出: true
+
+```c++
+class Solution {
+public:
+    bool isValid(string s) {
+        if (s.empty()) return true;
+        stack<char> st;
+        if (!isLeftQuote(s[0])) {
+            return false;
+        }
+        st.push(s[0]);
+        for (int i = 1; i < s.size(); ++i) {
+            if (isLeftQuote(s[i])) st.push(s[i]);
+            else if (!st.empty() && isMatch(st.top(), s[i])) st.pop();
+            else return false;
+        }
+        if (!st.empty()) return false;
+        return true;
+    }
+    bool isLeftQuote(char ch) {
+        if (ch == '(' || ch == '[' || ch == '{') {
+            return true;
+        } else {
+            return false;
+        }
+    }
+    bool isMatch(char ch1, char ch2) {
+        if (ch1 == '[' && ch2 == ']') return true;
+        if (ch1 == '{' && ch2 == '}') return true;
+        if (ch1 == '(' && ch2 == ')') return true;
+        return false;
+    }
+};
+```
+
 ### 28.实现 strStr ()
 
 实现 [strStr()](https://baike.baidu.com/item/strstr/811469) 函数。
@@ -2048,6 +2267,107 @@ public:
 
 思路：可以看到，每次循环都是以上一次字符串为输入的，所以很容易构造递归函数
 
+### 43. 字符串相乘(Medium)
+
+给定两个以字符串形式表示的非负整数 num1 和 num2，返回 num1 和 num2 的乘积，它们的乘积也表示为字符串形式。
+
+示例 1:
+
+输入: num1 = "2", num2 = "3"
+输出: "6"
+示例 2:
+
+输入: num1 = "123", num2 = "456"
+输出: "56088"
+说明：
+
+num1 和 num2 的长度小于110。
+num1 和 num2 只包含数字 0-9。
+num1 和 num2 均不以零开头，除非是数字 0 本身。
+不能使用任何标准库的大数类型（比如 BigInteger）或直接将输入转换为整数来处理。
+
+第一次尝试，基于字符串各位相乘再想加，写了个又臭又长的代码，有很多次string的拷贝，速度和内存都很差
+
+```c++
+class Solution {
+public:
+    string multiply(string num1, string num2) {
+        if (num1.size() == 1 && num1[0] == '0' || num2.size() == 1 && num2[0] == '0') return "0";
+        string ans = "0";
+        string surfix = "";
+        for (int i = num1.size()-1; i >= 0; --i) {
+            if (num1[i] == 0) continue;
+            ans = add(ans, singleMultiply(num1[i], num2) + surfix);
+            surfix += "0";
+        }
+        return ans;
+    }
+    string singleMultiply(char ch, string num) {
+        int single = ch - '0';
+        int carry = 0;
+        int product = 0;
+        string ans = "";
+        for (int i = num.size()-1; i >= 0; --i) {
+            product = (num[i] - '0') * single + carry;
+            ans = string(1, (product % 10) + '0') + ans;
+            carry = product / 10;
+        }
+        if (carry) ans = string(1, carry + '0') + ans;
+        return ans;
+    }
+    string add(string num1, string num2) {
+        int len1 = num1.size();
+        int len2 = num2.size();
+        int len = max(len1, len2);
+        if (len1 > len2) {
+            int diff = len1 - len2;
+            while (diff--) {
+                num2 = "0" + num2;
+            }
+        } else {
+            int diff = len2 - len1;
+            while (diff--) {
+                num1 = "0" + num1;
+            }
+        }
+        string ans = "";
+        int carry = 0;
+        int sum = 0;
+        for (int i = len-1; i >= 0; --i) {
+            sum = num1[i] - '0' + num2[i] - '0' + carry;
+            ans = string(1, (sum % 10) + '0') + ans;
+            carry = sum / 10;
+        }
+        if (carry) ans = string(1, '1') + ans;
+        return ans;
+    }
+};
+```
+
+优化：竖式运算，对于 a 的第 i 位 和 b 的第 j 位相乘的结果存储在 c[i + j] 上，即 c[i + j] += a[i] * b[j]，注意有可能进位，进位不需要一直往下走，可以暂存超过10的数，因为后面还是会计算到那的
+
+```c++
+class Solution {
+public:
+    string multiply(string num1, string num2) {
+        int n1 = num1.size();
+        int n2 = num2.size();
+        string res(n1+n2,'0');
+        for(int i = n2-1; i >= 0; i--){
+            for(int j = n1-1; j>=0; j--){
+                int temp= (res[i+j+1]-'0') + (num1[j]-'0') * (num2[i]-'0');
+                res[i+j+1] = temp%10+'0';//当前位
+                res[i+j] += temp/10; //前一位加上进位，res[i+j]已经初始化为'0'，加上int类型自动转化为char，所以此处不加'0'
+            }
+        }
+        for (int i = 0; i < n1+n2; i++){
+            if(res[i] != '0') return res.substr(i);
+        }
+        return "0";
+    }
+};
+```
+
 ### 125.验证回文字符串
 
 给定一个字符串，验证它是否是回文串，只考虑字母和数字字符，可以忽略字母的大小写。
@@ -2130,6 +2450,102 @@ public:
                 return false;
         }
         return true;
+    }
+};
+```
+
+### 151. 151. 翻转字符串里的单词
+
+给定一个字符串，逐个翻转字符串中的每个单词。
+
+示例 1：
+
+输入: "the sky is blue"
+输出: "blue is sky the"
+示例 2：
+
+输入: "  hello world!  "
+输出: "world! hello"
+解释: 输入字符串可以在前面或者后面包含多余的空格，但是反转后的字符不能包括。
+示例 3：
+
+输入: "a good   example"
+输出: "example good a"
+解释: 如果两个单词间有多余的空格，将反转后单词间的空格减少到只含一个。
+
+说明：
+
+无空格字符构成一个单词。
+输入字符串可以在前面或者后面包含多余的空格，但是反转后的字符不能包括。
+如果两个单词间有多余的空格，将反转后单词间的空格减少到只含一个。
+
+进阶：
+
+请选用 C 语言的用户尝试使用 O(1) 额外空间复杂度的原地解法。
+
+```c++
+class Solution {
+public:
+    string reverseWords(string s) {
+        // 反转整个字符串
+        reverse(s.begin(), s.end());
+
+        int n = s.size();
+        int idx = 0;
+        for (int start = 0; start < n; ++start) {
+            if (s[start] != ' ') {
+                // 填一个空白字符然后将idx移动到下一个单词的开头位置
+                if (idx != 0) s[idx++] = ' ';
+
+                // 循环遍历至单词的末尾
+                int end = start;
+                while (end < n && s[end] != ' ') s[idx++] = s[end++];
+
+                // 反转整个单词
+                reverse(s.begin() + idx - (end - start), s.begin() + idx);
+
+                // 更新start，去找下一个单词
+                start = end;
+            }
+        }
+        s.erase(s.begin() + idx, s.end());
+        return s;
+    }
+};
+```
+
+由于双端队列支持从队列头部插入的方法，因此我们可以沿着字符串一个一个单词处理，然后将单词压入队列的头部，再将队列转成字符串即可。
+
+```c++
+class Solution {
+public:
+    string reverseWords(string s) {
+        int left = 0, right = s.size() - 1;
+        // 去掉字符串开头的空白字符
+        while (left <= right && s[left] == ' ') ++left;
+        // 去掉字符串末尾的空白字符
+        while (left <= right && s[right] == ' ') --right;
+        deque<string> d;
+        string word;
+        while (left <= right) {
+            char c = s[left];
+            if (word.size() && c == ' ') {
+                d.push_front(move(word)); // 单词结束，push到队列的头部
+                word = "";
+            }
+            else if (c != ' ') { // 构造单词
+                word += c;
+            }
+            ++left;
+        }
+        d.push_front(move(word)); // move 更快，也不用手动再置空word
+        string ans;
+        while (!d.empty()) {
+            ans += d.front();
+            d.pop_front();
+            if (!d.empty()) ans += ' ';
+        }
+        return ans;
     }
 };
 ```
@@ -2291,6 +2707,38 @@ public:
             }
         }
         return -1;
+    }
+};
+```
+
+### 557. 反转字符串中的单词 III(Easy)
+
+给定一个字符串，你需要反转字符串中每个单词的字符顺序，同时仍保留空格和单词的初始顺序。
+
+示例 1:
+
+输入: "Let's take LeetCode contest"
+输出: "s'teL ekat edoCteeL tsetnoc"
+注意：在字符串中，每个单词由单个空格分隔，并且字符串中不会有任何额外的空格。
+
+很简单，一次AC了
+
+```c++
+class Solution {
+public:
+    string reverseWords(string s) {
+        if (s.empty()) return s;
+        int n = s.size();
+        int idx = 0;
+        int start = 0;
+        for (; idx < n; ++idx) {
+            if (s[idx] == ' ') {
+                reverse(s.begin() + start, s.begin() + idx);
+                start = idx + 1; // 下个单词的起点
+            }
+        }
+        reverse(s.begin() + start, s.begin() + idx);
+        return s;
     }
 };
 ```
@@ -3138,6 +3586,64 @@ public:
         }
 
         return 0;
+    }
+};
+```
+
+### 143. 重排链表(Medium)
+
+给定一个单链表 L：L0→L1→…→Ln-1→Ln ，
+将其重新排列后变为： L0→Ln→L1→Ln-1→L2→Ln-2→…
+
+你不能只是单纯的改变节点内部的值，而是需要实际的进行节点交换。
+
+示例 1:
+
+给定链表 1->2->3->4, 重新排列为 1->4->2->3.
+示例 2:
+
+给定链表 1->2->3->4->5, 重新排列为 1->5->2->4->3.
+
+```c++
+/**
+ * Definition for singly-linked list.
+ * struct ListNode {
+ *     int val;
+ *     ListNode *next;
+ *     ListNode() : val(0), next(nullptr) {}
+ *     ListNode(int x) : val(x), next(nullptr) {}
+ *     ListNode(int x, ListNode *next) : val(x), next(next) {}
+ * };
+ */
+class Solution {
+public:
+    void reorderList(ListNode* head) {
+        if (!head) return;
+        ListNode* cur = head;
+        ListNode* rev = nullptr;
+        ListNode* next;
+        ListNode* rev_next;
+        int len = 0;
+        while (cur) {
+            rev_next = new ListNode(cur->val, rev);
+            cur = cur->next;
+            rev = rev_next;
+            ++len;
+        }
+        // 此时rev指向反转的头部
+        cur = head;
+        int k = len / 2;
+        while (k--) {
+            next = cur->next; // 保存，防止断链
+            rev_next = rev->next; // 保存，防止断链
+            cur->next = rev;
+            if (k==0 && (len & 1) == 0) rev->next = nullptr; // 偶数长度，则最后一个元素是反转链表的
+            else rev->next = next;
+            cur = next;
+            rev = rev_next;
+            if (k == 0 && (len & 1) == 1) cur->next = nullptr; // 奇数长度，则最后一个元素是原链表的
+        }
+        // TODO：有内存泄漏问题
     }
 };
 ```
@@ -4121,6 +4627,53 @@ public:
 };
 ```
 
+### 103.二叉树的锯齿形排列
+
+同牛客32-3
+
+给定一个二叉树，返回其节点值的锯齿形层次遍历。（即先从左往右，再从右往左进行下一层遍历，以此类推，层与层之间交替进行）。
+
+算是二刷了，还不错，这个解法比较简洁，最外层循环每次会处理同一层所有节点再进入第二层，用size很巧妙
+
+```c++
+class Solution {
+public:
+    vector<vector<int>> zigzagLevelOrder(TreeNode* root) {
+        vector<vector<int>> ans;
+        if (!root) return ans;
+        deque<TreeNode*> dq;
+        dq.push_back(root);
+        bool l2r = true;
+        TreeNode* cur;
+        vector<int> tmp;
+        while (!dq.empty()) {
+            int size = dq.size();
+            if (l2r) {
+                while (size--) {
+                    cur = dq.front();
+                    tmp.push_back(cur->val);
+                    dq.pop_front();
+                    if (cur->left) dq.push_back(cur->left);
+                    if (cur->right) dq.push_back(cur->right);
+                }
+            } else {
+                while (size--) {
+                    cur = dq.back();
+                    tmp.push_back(cur->val);
+                    dq.pop_back();
+                    if (cur->right) dq.push_front(cur->right);
+                    if (cur->left) dq.push_front(cur->left);
+                }
+            }
+            l2r = (l2r == true) ? false : true;
+            ans.push_back(tmp);
+            tmp.clear();
+        }
+        return ans;
+    }
+};
+```
+
 ### 104.二叉树的最大深度
 
 给定一个二叉树，找出其最大深度。
@@ -4502,23 +5055,110 @@ public:
 class Solution {
 public:
     vector<vector<int>> res;
-    vector<int> temp; //防止反复初始化数组 
+    vector<int> temp; //防止反复初始化数组
     void dfs (TreeNode* root,int sum) {
         if (!root) return;
         int resum = sum - root->val;
         temp.push_back(root->val);
         if (resum == 0 && !root->left && !root->right) {
-            res.push_back(temp); //找到答案 
+            res.push_back(temp); //找到答案
             temp.pop_back();
             return;
         }
         dfs(root->left, resum);
         dfs(root->right, resum);
-        temp.pop_back(); //回溯，还原path 
+        temp.pop_back(); //回溯，还原path
     }
     vector<vector<int>> pathSum(TreeNode* root, int sum) {
         dfs(root,sum);
         return res;
+    }
+};
+```
+
+### 114. 二叉树展开为链表(Medium)
+
+给定一个二叉树，原地将它展开为一个单链表。
+
+例如，给定二叉树
+
+.   1
+   / \
+  2   5
+ / \   \
+3   4   6
+将其展开为：
+
+1
+ \
+  2
+   \
+    3
+     \
+      4
+       \
+        5
+         \
+          6
+
+第一次尝试，用栈前序遍历，因为访问过的节点的左右儿子会压入栈中，所以可以放心修改它
+
+```c++
+/**
+ * Definition for a binary tree node.
+ * struct TreeNode {
+ *     int val;
+ *     TreeNode *left;
+ *     TreeNode *right;
+ *     TreeNode() : val(0), left(nullptr), right(nullptr) {}
+ *     TreeNode(int x) : val(x), left(nullptr), right(nullptr) {}
+ *     TreeNode(int x, TreeNode *left, TreeNode *right) : val(x), left(left), right(right) {}
+ * };
+ */
+class Solution {
+public:
+    void flatten(TreeNode* root) {
+        if (!root) return;
+        stack<TreeNode*> st;
+        st.push(root);
+        TreeNode* cur;
+        TreeNode* pre = new TreeNode();
+        while (!st.empty()) {
+            cur = st.top();
+            st.pop();
+            pre->right = cur;
+            pre->left = nullptr;
+            pre = cur;
+            if (cur->right) st.push(cur->right);
+            if (cur->left) st.push(cur->left);
+        }
+    }
+};
+```
+
+在评论区看到一个很妙的方法，空间复杂度为O(1)
+
+1、判断左子树是否为空，若为空则直接往右走，若不为空则2
+2、将当前节点root的右子树接到当前root节点的左孩子节点的最右下边的孩子节点
+3、将当前节点root的左子树接到右子树上，并将左节点置为NULL。
+
+```c++
+class Solution {
+public:
+    void flatten(TreeNode* root) {
+        if (!root) return;
+        TreeNode* l;
+        TreeNode* cur = root;
+        while (cur){ // 每次循环会把cur的左子树处理掉
+            if (cur->left) {
+                l = cur->left;
+                while(l->right) l = l->right; // 找到左儿子最右端的叶子节点
+                l->right = cur->right; // 叶子节点的后继是当前节点的右儿子
+                cur->right = cur->left; // 移过去
+                cur->left = nullptr;
+            }
+            cur = cur->right;
+        }
     }
 };
 ```
@@ -4585,6 +5225,123 @@ public:
         int right = max(0, dfs(root->right)); // 右子树最大值
         ans = max(ans, left + root->val + right); // 更新答案
         return root->val + max(left, right); // 返回当前节点为最高点的最大值
+    }
+};
+```
+
+### 144. 二叉树的前序遍历(Medium)
+
+递归
+
+```c++
+class Solution {
+public:
+    vector<int> preorderTraversal(TreeNode* root) {
+        vector<int> ans;
+        dfs(root, ans);
+        return ans;
+    }
+    void dfs(TreeNode* root, vector<int>& ans) {
+        if (!root) return;
+        ans.push_back(root->val);
+        dfs(root->left, ans);
+        dfs(root->right, ans);
+    }
+};
+```
+
+迭代
+
+```c++
+class Solution {
+public:
+    vector<int> preorderTraversal(TreeNode* root) {
+        vector<int> ans;
+        if (!root) return ans;
+        stack<TreeNode*> st;
+        st.push(root);
+        TreeNode* cur;
+        while (!st.empty()) {
+            cur = st.top();
+            st.pop();
+            ans.push_back(cur->val);
+            if (cur->right) st.push(cur->right);
+            if (cur->left) st.push(cur->left);
+        }
+        return ans;
+    }
+};
+```
+
+### 145. 二叉树的后序遍历(Hard)
+
+迭代比较难写，
+
+容易想到的就是先写个迭代的先序遍历，最后再把vector reverse
+
+如果跟这中序遍历的迭代写法的思路，可以用个isVisited备忘录记录所有访问过的节点，如果当前节点被访问过，则可以输出
+
+```c++
+class Solution {
+public:
+    vector<int> postorderTraversal(TreeNode* root) {
+        vector<int> ans;
+        if (!root) return ans;
+        stack<TreeNode*> st;
+        TreeNode* cur = root;
+        unordered_map<TreeNode*, bool> isVisited;
+        while (cur || !st.empty()) {
+            while (cur) {
+                st.push(cur);
+                cur = cur->left;
+            }
+            cur = st.top();
+            if (isVisited.count(cur)) {
+                ans.push_back(cur->val);
+                st.pop();
+                cur = nullptr;
+                continue;
+            }
+            else {
+                isVisited[cur] = true;
+            }
+            cur = cur->right;
+        }
+        return ans;
+    }
+};
+```
+
+下面的解法最妙，直接记录pre访问节点即可，记着吧
+
+- 要保证根结点在左孩子和右孩子访问之后才能访问，因此对于任一结点P，先将其入栈。
+- 如果P不存在左孩子和右孩子，则可以直接访问它；
+- 或者P存在左孩子或者右孩子，但是其左孩子和右孩子都已被访问过了，则同样可以直接访问该结点。因为访问顺序一定是：左（如果有的话）-右（如果有的话）-根。
+- 若非上述两种情况，则将P的右孩子和左孩子依次入栈，这样就保证了每次取栈顶元素的时候，左孩子在右孩子前面被访问，左孩子和右孩子都在根结点前面被访问。
+
+```c++
+class Solution {
+public:
+    vector<int> postorderTraversal(TreeNode *root){
+        vector<int> ans;
+        if (root == nullptr) return ans;
+        stack<TreeNode *> s;
+        TreeNode *cur;
+        TreeNode *pre = nullptr;
+        s.push(root);
+        while (!s.empty()){
+            cur = s.top();
+            if ((!cur->left && !cur->right) ||
+                (pre && (pre == cur->left || pre == cur->right))) {
+                ans.push_back(cur->val);
+                pre = cur;
+                s.pop();
+            } else {
+                if (cur->right) s.push(cur->right);
+                if (cur->left) s.push(cur->left);
+            }
+        }
+        return ans;
     }
 };
 ```
@@ -4721,6 +5478,150 @@ public:
             last_layer = cur_layer;
         }
         return ans;
+    }
+};
+```
+
+### 230. 二叉搜索树中第K小的元素(Medium)
+
+给定一个二叉搜索树，编写一个函数 kthSmallest 来查找其中第 k 个最小的元素。
+
+说明：
+你可以假设 k 总是有效的，1 ≤ k ≤ 二叉搜索树元素个数。
+
+示例 1:
+
+输入: root = [3,1,4,null,2], k = 1
+   3
+  / \
+ 1   4
+  \
+   2
+输出: 1
+示例 2:
+
+输入: root = [5,3,6,2,4,null,null,1], k = 3
+       5
+      / \
+     3   6
+    / \
+   2   4
+  /
+ 1
+输出: 3
+进阶：
+如果二叉搜索树经常被修改（插入/删除操作）并且你需要频繁地查找第 k 小的值，你将如何优化 kthSmallest 函数？
+
+```c++
+/**
+ * Definition for a binary tree node.
+ * struct TreeNode {
+ *     int val;
+ *     TreeNode *left;
+ *     TreeNode *right;
+ *     TreeNode() : val(0), left(nullptr), right(nullptr) {}
+ *     TreeNode(int x) : val(x), left(nullptr), right(nullptr) {}
+ *     TreeNode(int x, TreeNode *left, TreeNode *right) : val(x), left(left), right(right) {}
+ * };
+ */
+class Solution {
+public:
+    int kthSmallest(TreeNode* root, int k) {
+        priority_queue<int> pq; // 默认最大堆
+        stack<TreeNode*> st;
+        st.push(root);
+        TreeNode* cur;
+        while (!st.empty()) {
+            cur = st.top();
+            st.pop();
+            if (pq.size() < k) pq.push(cur->val);
+            else {
+                if (cur->val < pq.top()) {
+                    pq.push(cur->val);
+                    pq.pop();
+                }
+            }
+            if (cur->right) st.push(cur->right);
+            if (cur->left) st.push(cur->left);
+        }
+        return pq.top();
+    }
+    // TODO: 进阶
+};
+```
+
+还用到了优先队列（最大堆），不是很优雅，其实直接改为中序遍历即可，BST的中序遍历就是升序的
+
+```c++
+class Solution {
+public:
+    int kthSmallest(TreeNode* root, int k) {
+        stack<TreeNode*> st;
+         int res;
+         int n = 0;
+         TreeNode* cur = root;
+         while(cur || !st.empty()){
+            while(cur){
+                st.push(cur);
+                cur=cur->left;
+            }
+            cur = st.top();
+            st.pop();
+            n++;
+            if(n == k) return cur->val;
+            cur = cur->right;
+         }
+         return 0;
+    }
+};
+```
+
+在题解区看到进阶的讨论，感觉有点复杂，就先不看了
+
+### 235. 235. 二叉搜索树的最近公共祖先(Medium)
+
+给定一个二叉搜索树, 找到该树中两个指定节点的最近公共祖先。
+
+百度百科中最近公共祖先的定义为：“对于有根树 T 的两个结点 p、q，最近公共祖先表示为一个结点 x，满足 x 是 p、q 的祖先且 x 的深度尽可能大（一个节点也可以是它自己的祖先）。”
+
+例如，给定如下二叉搜索树:  root = [6,2,8,0,4,7,9,null,null,3,5]
+
+示例 1:
+
+输入: root = [6,2,8,0,4,7,9,null,null,3,5], p = 2, q = 8
+输出: 6
+解释: 节点 2 和节点 8 的最近公共祖先是 6。
+示例 2:
+
+输入: root = [6,2,8,0,4,7,9,null,null,3,5], p = 2, q = 4
+输出: 2
+解释: 节点 2 和节点 4 的最近公共祖先是 2, 因为根据定义最近公共祖先节点可以为节点本身。
+
+说明:
+
+所有节点的值都是唯一的。
+p、q 为不同节点且均存在于给定的二叉搜索树中。
+
+```c++
+/**
+ * Definition for a binary tree node.
+ * struct TreeNode {
+ *     int val;
+ *     TreeNode *left;
+ *     TreeNode *right;
+ *     TreeNode(int x) : val(x), left(NULL), right(NULL) {}
+ * };
+ */
+
+class Solution {
+public:
+    TreeNode* lowestCommonAncestor(TreeNode* root, TreeNode* p, TreeNode* q) {
+        if (p == root || q == root) return root;
+        if (p->val > q->val) swap(p, q); // 确保p指向较小的节点
+        if (p->val < root->val && q->val > root->val) return root;
+        if (p->val < root->val && q->val < root->val) return lowestCommonAncestor(root->left, p, q);
+        else return lowestCommonAncestor(root->right, p, q);
+        return nullptr; // never reached
     }
 };
 ```
@@ -4979,7 +5880,7 @@ public:
 
 ## 动态规划
 
-### 3. 无重复字符的最长子串
+### 3. 无重复字符的最长子串(Medium)
 
 同剑指第48题，
 
@@ -5465,6 +6366,29 @@ public:
 };
 ```
 
+### 62. 不同路径
+
+一个机器人位于一个 m x n 网格的左上角 （起始点在下图中标记为“Start” ）。
+
+机器人每次只能向下或者向右移动一步。机器人试图达到网格的右下角（在下图中标记为“Finish”）。
+
+问总共有多少条不同的路径？
+
+```c++
+class Solution {
+public:
+    int uniquePaths(int m, int n) {
+        vector<int> dp(m, 1);
+        for (int i = 1; i < n; ++i) {
+            for (int j = 1; j < m; ++j) {
+                dp[j] = dp[j-1] + dp[j];
+            }
+        }
+        return dp[m-1];
+    }
+};
+```
+
 ### 63. 不同路径II
 
 一个机器人位于一个 m x n 网格的左上角 （起始点在下图中标记为“Start” ）。
@@ -5681,6 +6605,60 @@ public:
 时间复杂度：O(n)，树形递归的大小可以达到 n。
 空间复杂度：O(n)，递归树的深度可以达到 n。
 
+### 89. 格雷编码(Medium)
+
+格雷编码是一个二进制数字系统，在该系统中，两个连续的数值仅有一个位数的差异。
+
+给定一个代表编码总位数的非负整数 n，打印其格雷编码序列。即使有多个不同答案，你也只需要返回其中一种。
+
+格雷编码序列必须以 0 开头。
+
+示例 1:
+
+输入: 2
+输出: [0,1,3,2]
+解释:
+00 - 0
+01 - 1
+11 - 3
+10 - 2
+
+对于给定的 n，其格雷编码序列并不唯一。
+例如，[0,2,3,1] 也是一个有效的格雷编码序列。
+
+00 - 0
+10 - 2
+11 - 3
+01 - 1
+示例 2:
+
+输入: 0
+输出: [0]
+解释: 我们定义格雷编码序列必须以 0 开头。
+     给定编码总位数为 n 的格雷编码序列，其长度为 2n。当 n = 0 时，长度为 20 = 1。
+     因此，当 n = 0 时，其格雷编码序列为 [0]。
+
+```c++
+// n = 0, [0]
+// n = 1, [0,1] //新的元素1，为0+2^0
+// n = 2, [0,1,3,2] // 新的元素[3,2]为[0,1]->[1,0]后分别加上2^1
+// n = 3, [0,1,3,2,6,7,5,4] // 新的元素[6,7,5,4]为[0,1,3,2]->[2,3,1,0]后分别加上2^2->[6,7,5,4]
+class Solution {
+public:
+    vector<int> grayCode(int n) {
+        int shift = 1;
+        vector<int> ans {0};
+        for (int i = 0; i < n; ++i){
+            for(int j = shift-1; j >= 0; --j){ //倒序遍历，并且加上一个值添加到结果中
+                ans.push_back(ans[j] + shift);
+            }
+            shift <<= 1; //要加的数
+        }
+        return ans;
+    }
+};
+```
+
 ### 120. 三角形最小路径和
 
 给定一个三角形，找出自顶向下的最小路径和。每一步只能移动到下一行中相邻的结点上。
@@ -5764,7 +6742,7 @@ int main(){
 }
 ```
 
-### 121.买卖股票的最佳时机
+### 121.买卖股票的最佳时机(Easy)
 
 给定一个数组，它的第 i 个元素是一支给定股票第 i 天的价格。
 
@@ -6357,7 +7335,7 @@ int main()
 }
 ```
 
-### 300. 最长上升子序列
+### 300. 最长上升子序列(Medium)
 
 给定一个无序的整数数组，找到其中最长上升子序列的长度。
 
@@ -6397,20 +7375,20 @@ O(n^2)时间的动态规划
 class Solution {
 public:
     int lengthOfLIS(vector<int>& nums) {
-        if(nums.empty()) return 0;
-        int n = nums.size();
-        vector<int> dp(n, 1);
-        for(int i = 1; i < n; ++i){
-            for(int j = 0; j < i; ++j){
-                // 如果nums[j] < nums[i]，则dp[i] = dp[j] + 1，遍历所有j<i的情况，取max
-                if(nums[j] < nums[i]) dp[i] = max(dp[i], dp[j] + 1);
+        if (nums.empty()) return 0;
+        int size = nums.size();
+        vector<int> dp(size, 1); // 以nums[i]结尾的最长上升子序列
+        int longest = 1;
+        for (int i = 1; i < size; ++i) {
+            for (int j = i - 1; j >= 0; --j) {
+                if (nums[i] > nums[j]) {
+                    // 如果nums[j] < nums[i]，则dp[i] = dp[j] + 1，遍历所有j<i的情况，取max
+                    dp[i] = max(dp[i], dp[j] + 1);
+                }
             }
+            longest = max(longest, dp[i]);
         }
-        int len = 1;
-        for(int i = 0; i < n; ++i){
-            len = max(len, dp[i]);
-        }
-        return len;
+        return longest;
     }
 };
 ```
@@ -6444,6 +7422,8 @@ public:
     }
 };
 ```
+
+二刷时，第二个思路还是做不出，第一个O(n^2)的解法倒是搞出来了，就记第一个吧
 
 ### 1143. 最长公共子序列
 
@@ -6633,7 +7613,7 @@ public:
 
 ## 设计
 
-### 146. LRU缓存设计
+### 146. LRU缓存设计(Medium)
 
 运用你所掌握的数据结构，设计和实现一个  LRU (最近最少使用) 缓存机制。它应该支持以下操作： 获取数据 get 和 写入数据 put 。
 
@@ -6738,16 +7718,13 @@ public:
             }
         }
     }
-    
     void pop() {
         s1.pop();
         s2.pop();
     }
-    
     int top() {
         return s1.top();
     }
-    
     int getMin() {
         return s2.top();
     }
@@ -6762,6 +7739,7 @@ public:
  * int param_4 = obj->getMin();
  */
 ```
+
 ### 225. 用队列实现栈
 
 使用队列实现栈的下列操作：
@@ -6952,6 +7930,97 @@ public:
  */
 ```
 
+### 460. LFU(Hard)
+
+请你为 最不经常使用（LFU）缓存算法设计并实现数据结构。它应该支持以下操作：get 和 put。
+
+get(key) - 如果键存在于缓存中，则获取键的值（总是正数），否则返回 -1。
+put(key, value) - 如果键已存在，则变更其值；如果键不存在，请插入键值对。当缓存达到其容量时，则应该在插入新项之前，使最不经常使用的项无效。在此问题中，当存在平局（即两个或更多个键具有相同使用频率）时，应该去除最久未使用的键。
+「项的使用次数」就是自插入该项以来对其调用 get 和 put 函数的次数之和。使用次数会在对应项被移除后置为 0 。
+
+进阶：你是否可以在 O(1) 时间复杂度内执行两项操作？
+
+双哈希表+链表
+
+我们定义两个哈希表，第一个 freq_table 以频率 freq 为索引，每个索引存放一个双向链表，这个链表里存放所有使用频率为 freq 的缓存，缓存里存放三个信息，分别为键 key，值 value，以及使用频率 freq。第二个 key_table 以键值 key 为索引，每个索引存放对应缓存在 freq_table 中链表里的内存地址，这样我们就能利用两个哈希表来使得两个操作的时间复杂度均为 O(1)O(1)。同时需要记录一个当前缓存最少使用的频率 minFreq，这是为了删除操作服务的。
+
+对于 get(key) 操作，我们能通过索引 key 在 key_table 中找到缓存在 freq_table 中的链表的内存地址，如果不存在直接返回 -1，否则我们能获取到对应缓存的相关信息，这样我们就能知道缓存的键值还有使用频率，直接返回 key 对应的值即可。
+
+但是我们注意到 get 操作后这个缓存的使用频率加一了，所以我们需要更新缓存在哈希表 freq_table 中的位置。已知这个缓存的键 key，值 value，以及使用频率 freq，那么该缓存应该存放到 freq_table 中 freq + 1 索引下的链表中。所以我们在当前链表中 O(1)O(1) 删除该缓存对应的节点，根据情况更新 minFreq 值，然后将其O(1)O(1) 插入到 freq + 1 索引下的链表头完成更新。这其中的操作复杂度均为 O(1)O(1)。你可能会疑惑更新的时候为什么是插入到链表头，这其实是为了保证缓存在当前链表中从链表头到链表尾的插入时间是有序的，为下面的删除操作服务。
+
+对于 put(key, value) 操作，我们先通过索引 key在 key_table 中查看是否有对应的缓存，如果有的话，其实操作等价于 get(key) 操作，唯一的区别就是我们需要将当前的缓存里的值更新为 value。如果没有的话，相当于是新加入的缓存，如果缓存已经到达容量，需要先删除最近最少使用的缓存，再进行插入。
+
+先考虑插入，由于是新插入的，所以缓存的使用频率一定是 1，所以我们将缓存的信息插入到 freq_table 中 1 索引下的列表头即可，同时更新 key_table[key] 的信息，以及更新 minFreq = 1。
+
+那么剩下的就是删除操作了，由于我们实时维护了 minFreq，所以我们能够知道 freq_table 里目前最少使用频率的索引，同时因为我们保证了链表中从链表头到链表尾的插入时间是有序的，所以 freq_table[minFreq] 的链表中链表尾的节点即为使用频率最小且插入时间最早的节点，我们删除它同时根据情况更新 minFreq ，整个时间复杂度均为 O(1)O(1)。
+
+```c++
+// 缓存的节点信息
+struct Node {
+    int key, val, freq;
+    Node(int _key,int _val,int _freq): key(_key), val(_val), freq(_freq){}
+};
+class LFUCache {
+    int minfreq, capacity;
+    unordered_map<int, list<Node>::iterator> key_table; // 指向freq_table的list
+    unordered_map<int, list<Node>> freq_table;
+public:
+    LFUCache(int _capacity) {
+        minfreq = 0;
+        capacity = _capacity;
+        key_table.clear();
+        freq_table.clear();
+    }
+    int get(int key) {
+        if (capacity == 0) return -1;
+        auto it = key_table.find(key);
+        if (it == key_table.end()) return -1;
+        auto node = it -> second;
+        int val = node -> val, freq = node -> freq;
+        freq_table[freq].erase(node);
+        // 如果当前链表为空，我们需要在哈希表中删除，且更新minFreq
+        if (freq_table[freq].size() == 0) {
+            freq_table.erase(freq);
+            if (minfreq == freq) minfreq += 1;
+        }
+        // 插入到 freq + 1 中
+        freq_table[freq + 1].push_front(Node(key, val, freq + 1));
+        key_table[key] = freq_table[freq + 1].begin();
+        return val;
+    }
+    void put(int key, int value) {
+        if (capacity == 0) return;
+        auto it = key_table.find(key);
+        if (it == key_table.end()) {
+            // 缓存已满，需要进行删除操作
+            if (key_table.size() == capacity) {
+                // 通过 minFreq 拿到 freq_table[minFreq] 链表的末尾节点
+                auto it2 = freq_table[minfreq].back();
+                key_table.erase(it2.key);
+                freq_table[minfreq].pop_back();
+                if (freq_table[minfreq].size() == 0) {
+                    freq_table.erase(minfreq);
+                }
+            }
+            freq_table[1].push_front(Node(key, value, 1));
+            key_table[key] = freq_table[1].begin();
+            minfreq = 1;
+        } else {
+            // 与 get 操作基本一致，除了需要更新缓存的值
+            auto node = it -> second;
+            int freq = node -> freq;
+            freq_table[freq].erase(node);
+            if (freq_table[freq].size() == 0) {
+                freq_table.erase(freq);
+                if (minfreq == freq) minfreq += 1;
+            }
+            freq_table[freq + 1].push_front(Node(key, value, freq + 1));
+            key_table[key] = freq_table[freq + 1].begin();
+        }
+    }
+};
+```
+
 ## DFS&回溯with闫学灿
 
 ### 784. 字母大小写全排列
@@ -7010,6 +8079,47 @@ public:
             dfs(S, ans, step+1);
 ```
 
+### 46. 全排列(Medium)
+
+给定一个 没有重复 数字的序列，返回其所有可能的全排列。
+
+示例:
+
+输入: [1,2,3]
+输出:
+[
+  [1,2,3],
+  [1,3,2],
+  [2,1,3],
+  [2,3,1],
+  [3,1,2],
+  [3,2,1]
+]
+
+没啥好说的，dfs模板一把梭
+
+```c++
+class Solution {
+public:
+    vector<vector<int>> ans;
+    vector<vector<int>> permute(vector<int>& nums) {
+        dfs(nums, 0);
+        return ans;
+    }
+    void dfs(vector<int> &nums, int k) {
+        if (nums.size() == k) {
+            ans.push_back(nums);
+            return;
+        }
+        for (int i = k; i < nums.size(); ++i) {
+            swap(nums[k], nums[i]);
+            dfs(nums, k+1);
+            swap(nums[k], nums[i]);
+        }
+    }
+};
+```
+
 ### 77. 组合
 
 给定两个整数 n 和 k，返回 1 ... n 中所有可能的 k 个数的组合。
@@ -7054,6 +8164,52 @@ public:
 };
 ```
 
+### 78. 子集(Medium)
+
+给定一组不含重复元素的整数数组 nums，返回该数组所有可能的子集（幂集）。
+
+说明：解集不能包含重复的子集。
+
+示例:
+
+输入: nums = [1,2,3]
+输出:
+[
+  [3],
+  [1],
+  [2],
+  [1,2,3],
+  [1,3],
+  [2,3],
+  [1,2],
+  []
+]
+
+```c++
+class Solution {
+public:
+    vector<vector<int>> ans;
+    vector<vector<int>> subsets(vector<int>& nums) {
+        // 对于每个元素，选或者不选，共有2^n种可能
+        if (nums.empty()) return ans;
+        int n = nums.size();
+        vector<int> path;
+        dfs(nums, path, 0, n);
+        return ans;
+    }
+    void dfs(vector<int>& nums, vector<int>& path, int k, int n) {
+        if (k == n) {
+            ans.push_back(path);
+            return;
+        }
+        path.push_back(nums[k]); // pick
+        dfs(nums, path, k+1, n);
+        path.pop_back();  // not pick
+        dfs(nums, path, k+1, n);
+    }
+};
+```
+
 ### 79. 单词搜索
 
 [LeetCode 79. 单词搜索](https://leetcode-cn.com/problems/word-search/)
@@ -7061,8 +8217,6 @@ public:
 给定一个二维网格和一个单词，找出该单词是否存在于网格中。
 
 单词必须按照字母顺序，通过相邻的单元格内的字母构成，其中“相邻”单元格是那些水平相邻或垂直相邻的单元格。同一个单元格内的字母不允许被重复使用。
-
- 
 
 示例:
 
@@ -7102,7 +8256,7 @@ public:
         }
         return false;
     }
-    bool dfs(vector<vector<char>>& matrix, vector<vector<bool>>& is_visited, 
+    bool dfs(vector<vector<char>>& matrix, vector<vector<bool>>& is_visited,
             int i, int j, int rows, int cols, string &str, int step) {
         if (step == str.size() - 1) {
             if (matrix[i][j] == str[str.size() - 1]) return true;
@@ -7295,7 +8449,7 @@ public:
 };
 ```
 
-### 394. 字符串解码
+### 394. 字符串解码(Medium)
 
 给定一个经过编码的字符串，返回它解码后的字符串。
 
@@ -7316,6 +8470,67 @@ s = "2[abc]3[cd]ef", 返回 "abcabccdcdcdef".
 方法二：每碰到一个`[`就需要递归一层，完成之后`]`再跳出该层
 
 TODO
+
+刷字节top时碰到了，只用了一个栈，没有用逆波兰式那样把操作数和操作符号分开存放，代码略微繁琐，但也能接受
+
+```c++
+class Solution {
+public:
+    string decodeString(string s) {
+        string ans;
+        string tmp;
+        string tmp_single;
+        stack<string> st;
+        for (char & ch : s) {
+            if (ch >= '0' && ch <= '9') {// 数字有可能不止一位，要与前面出现的数字组合起来
+                if (!st.empty() && isNum(st.top())) {
+                    tmp = st.top();
+                    st.pop();
+                    st.push(tmp+ch);
+                } else {
+                    st.push(string(1, ch));
+                }
+                continue;
+            }
+            if (ch == ']') {
+                tmp = "";
+                while (!st.empty() && st.top()[0] != '[') {
+                    tmp = st.top() + tmp;
+                    st.pop();
+                    cout << tmp << endl;
+                }
+                if (!st.empty()) {
+                    st.pop(); // 弹出'['
+                    int k = 1;
+                    if (!st.empty() && isNum(st.top())) { // 检测'['之前的数字
+                        k = stoi(st.top());
+                        st.pop();
+                    }
+                    tmp_single = tmp;
+                    tmp = "";
+                    while (k-- > 0){
+                        tmp += tmp_single;
+                    }
+                }
+                cout << tmp << endl;
+                st.push(tmp);
+            } else {
+                st.push(string(1, ch)); // '['也会push进去
+            }
+        }
+        while (!st.empty()) { // 这时栈里只剩字母
+            ans = st.top() + ans;
+            st.pop();
+        }
+        return ans;
+    }
+
+    bool isNum(string str) {
+        if (str[0] >= '0' && str[0] <= '9') return true;
+        return false;
+    }
+};
+```
 
 ### 341. 扁平化嵌套列表迭代器
 
@@ -7441,6 +8656,79 @@ public:
 
 ## 模拟
 
+### 190.颠倒二进制位(Easy)
+
+颠倒给定的 32 位无符号整数的二进制位
+
+示例 1：
+
+输入: 00000010100101000001111010011100
+输出: 00111001011110000010100101000000
+解释: 输入的二进制串 00000010100101000001111010011100 表示无符号整数 43261596，
+     因此返回 964176192，其二进制表示形式为 00111001011110000010100101000000。
+示例 2：
+
+输入：11111111111111111111111111111101
+输出：10111111111111111111111111111111
+解释：输入的二进制串 11111111111111111111111111111101 表示无符号整数 4294967293，
+     因此返回 3221225471 其二进制表示形式为 10111111111111111111111111111111 。
+
+提示：
+
+请注意，在某些语言（如 Java）中，没有无符号整数类型。在这种情况下，输入和输出都将被指定为有符号整数类型，并且不应影响您的实现，因为无论整数是有符号的还是无符号的，其内部的二进制表示形式都是相同的。
+在 Java 中，编译器使用二进制补码记法来表示有符号整数。因此，在上面的 示例 2 中，输入表示有符号整数 -3，输出表示有符号整数 -1073741825。
+
+这题本身不是很难，一个while循环即可搞定，一次AC，时间复杂度O(logN)
+
+```c++
+class Solution {
+public:
+    uint32_t reverseBits(uint32_t n) {
+        uint32_t ans = 0;
+        for (int i = 1; i <= 32; ++i) {
+            int bit = n & 1;
+            ans |= bit << (32 - i);
+            n >>= 1;
+        }
+        return ans;
+    }
+};
+```
+
+思考，如何不用循环做呢？
+
+可以考虑分治方法，既然知道 int 值一共32位，那么可以采用分治思想，反转左右16位，然后反转每个16位中的左右8位，依次类推，最后反转2位，反转后合并即可，同时可以利用位运算在原地反转。JDK中的Integer.bitCount()函数也是使用类似的方法。
+
+0xff00ff00 表示 1111 1111 0000 0000 _ 1111 1111 0000 0000
+
+0x00ff00ff 表示 0000 0000 1111 1111 _ 0000 0000 1111 1111
+
+0xf0f0f0f0 表示 1111 0000 1111 0000 _ 1111 0000 1111 0000
+
+0x0f0f0f0f 表示 0000 1111 0000 1111 _ 0000 1111 0000 1111
+
+0xcccccccc 表示 1100 1100 1100 1100 _ 1100 1100 1100 1100
+
+0x33333333 表示 0011 0011 0011 0011 _ 0011 0011 0011 0011
+
+0xaaaaaaaa 表示 1010 1010 1010 1010 _ 1010 1010 1010 1010
+
+0x55555555 表示 0101 0101 0101 0101 _ 0101 0101 0101 0101
+
+```c++
+class Solution {
+public:
+    uint32_t reverseBits(uint32_t n) {
+        n = (n >> 16) | (n << 16); // 32位中16位和16位翻转
+        n = ((n & 0xff00ff00) >> 8) | ((n & 0x00ff00ff) << 8); // 16位中8位和8位翻转
+        n = ((n & 0xf0f0f0f0) >> 4) | ((n & 0x0f0f0f0f) << 4); // 8位中4位和4位翻转
+        n = ((n & 0xcccccccc) >> 2) | ((n & 0x33333333) << 2); // 4位中2位和2位翻转
+        n = ((n & 0xaaaaaaaa) >> 1) | ((n & 0x55555555) << 1); // 2位中1位和1位翻转
+        return n;
+    }
+};
+```
+
 ### 415. 字符串相加
 
 给定两个字符串形式的非负整数 num1 和num2 ，计算它们的和。
@@ -7482,7 +8770,7 @@ public:
 };
 ```
 
-### 43. 字符串相乘
+### 43.字符串相乘
 
 给定两个以字符串形式表示的非负整数 num1 和 num2，返回 num1 和 num2 的乘积，它们的乘积也表示为字符串形式。
 
@@ -7683,6 +8971,78 @@ public:
             ++left;
         }
         return res;
+    }
+};
+```
+
+### 59. 螺旋矩阵 II(Medium)
+
+给定一个正整数 n，生成一个包含 1 到 n2 所有元素，且元素按顺时针顺序螺旋排列的正方形矩阵。
+
+示例:
+
+输入: 3
+输出:
+[
+ [ 1, 2, 3 ],
+ [ 8, 9, 4 ],
+ [ 7, 6, 5 ]
+]
+
+没啥好说的，就是刚
+
+```c++
+class Solution {
+public:
+    vector<vector<int>> generateMatrix(int n) {
+        vector<vector<int>> ans(n, vector<int>(n, 0));
+        int i = 0;
+        int j = 0;
+        int loop = 0;
+        int num = 1;
+        while (true) {
+            while (j <= n-1-loop) ans[i][j++] = num++;
+            --j;
+            ++i;
+            while (i <= n-1-loop) ans[i++][j] = num++;
+            --i;
+            --j;
+            while (j >= loop) ans[i][j--] = num++;
+            ++j;
+            --i;
+            ++loop;
+            while (i >= loop) ans[i--][j] = num++;
+            ++i;
+            ++j;
+            if (n*n+1 == num) break;
+        }
+        return ans;
+    }
+};
+```
+
+### 292. Nim 游戏
+
+你和你的朋友，两个人一起玩 Nim 游戏：桌子上有一堆石头，每次你们轮流拿掉 1 - 3 块石头。 拿掉最后一块石头的人就是获胜者。你作为先手。
+
+你们是聪明人，每一步都是最优解。 编写一个函数，来判断你是否可以在给定石头数量的情况下赢得游戏。
+
+示例:
+
+输入: 4
+输出: false
+解释: 如果堆中有 4 块石头，那么你永远不会赢得比赛；
+     因为无论你拿走 1 块、2 块 还是 3 块石头，最后一块石头总是会被你的朋友拿走。
+
+```c++
+class Solution {
+public:
+    bool canWinNim(int n) {
+        // n=4x, x为自然数，必输
+        // n=4x+1，可先取一个，然后每轮跟随对手决策保证每轮减少4个，自己可以拿最后一个
+        // n=4x+2, 4x+3同理
+        if (n % 4 == 0) return false;
+        return true;
     }
 };
 ```
@@ -10180,6 +11540,28 @@ public:
             int mid = (l + 1ll + r) >> 1; // 中间值向上取整
             if(mid <= x / mid) l = mid; // 中间值平方小于等于x，待搜索区间为[mid, r]
             else r = mid - 1; // 中间值平方大于x，待搜索区间为[l, mid - 1]
+        }
+        return l;
+    }
+};
+```
+
+牛顿法
+
+```c++
+class Solution {
+public:
+    int mySqrt(int x) {
+        if (x < 1) return 0;
+        if (x >= 1 && x < 4) return 1;
+        double tmp = (double)x;
+        int l = x;
+        int r = x;
+        while (!(x / l >= l && x / r <= r)) {
+            tmp = 0.5 * (tmp + x /tmp);
+            l = (int)floor(tmp);
+            r = (int)ceil(tmp);
+            cout << l << " " << tmp << " " << r << endl;
         }
         return l;
     }

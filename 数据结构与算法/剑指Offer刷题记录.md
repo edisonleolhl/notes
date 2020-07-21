@@ -2654,6 +2654,47 @@ void LayerTraversalWithZigzag(TreeNode* root){
 }
 ```
 
+算是二刷了，还不错，这个解法比较简洁，最外层循环每次会处理同一层所有节点再进入第二层，用size很巧妙
+
+```c++
+class Solution {
+public:
+    vector<vector<int>> zigzagLevelOrder(TreeNode* root) {
+        vector<vector<int>> ans;
+        if (!root) return ans;
+        deque<TreeNode*> dq;
+        dq.push_back(root);
+        bool l2r = true;
+        TreeNode* cur;
+        vector<int> tmp;
+        while (!dq.empty()) {
+            int size = dq.size();
+            if (l2r) {
+                while (size--) {
+                    cur = dq.front();
+                    tmp.push_back(cur->val);
+                    dq.pop_front();
+                    if (cur->left) dq.push_back(cur->left);
+                    if (cur->right) dq.push_back(cur->right);
+                }
+            } else {
+                while (size--) {
+                    cur = dq.back();
+                    tmp.push_back(cur->val);
+                    dq.pop_back();
+                    if (cur->right) dq.push_front(cur->right);
+                    if (cur->left) dq.push_front(cur->left);
+                }
+            }
+            l2r = (l2r == true) ? false : true;
+            ans.push_back(tmp);
+            tmp.clear();
+        }
+        return ans;
+    }
+};
+```
+
 ### 33：二叉搜索树的后序遍历序列
 
 输入一个整数数组，判断该数组是不是某二叉搜索树的后序遍历的结果。如果是则输出Yes,否则输出No。假设输入的数组的任意两个数字都互不相同。
