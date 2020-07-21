@@ -6157,35 +6157,30 @@ vector<int> postorderTraversal(TreeNode *root)
 - 若非上述两种情况，则将P的右孩子和左孩子依次入栈，这样就保证了每次取栈顶元素的时候，左孩子在右孩子前面被访问，左孩子和右孩子都在根结点前面被访问。
 
 ```c++
-vector<int> postorderTraversal(TreeNode *root)
-{
-    if (root == nullptr)
-        return vector<int>();
-    vector<int> res;
-    stack<TreeNode *> s;
-    TreeNode *cur;
-    TreeNode *pre = nullptr;
-    s.push(root);
-    while (!s.empty())
-    {
-        cur = s.top();
-        if ((!cur->left && !cur->right) ||
-            (pre && (pre == cur->left || pre == cur->right)))
-        {
-            res.push_back(cur->val);
-            pre = cur;
-            s.pop();
+class Solution {
+public:
+    vector<int> postorderTraversal(TreeNode *root){
+        vector<int> ans;
+        if (root == nullptr) return ans;
+        stack<TreeNode *> s;
+        TreeNode *cur;
+        TreeNode *pre = nullptr;
+        s.push(root);
+        while (!s.empty()){
+            cur = s.top();
+            if ((!cur->left && !cur->right) ||
+                (pre && (pre == cur->left || pre == cur->right))) {
+                ans.push_back(cur->val);
+                pre = cur;
+                s.pop();
+            } else {
+                if (cur->right) s.push(cur->right);
+                if (cur->left) s.push(cur->left);
+            }
         }
-        else
-        {
-            if (cur->right)
-                s.push(cur->right);
-            if (cur->left)
-                s.push(cur->left);
-        }
+        return ans;
     }
-    return res;
-}
+};
 ```
 
 ### 数学算法
