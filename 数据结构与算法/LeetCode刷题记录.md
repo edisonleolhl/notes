@@ -868,6 +868,146 @@ public:
 };
 ```
 
+### 42.接雨水(Hard)
+
+给定 n 个非负整数表示每个宽度为 1 的柱子的高度图，计算按此排列的柱子，下雨之后能接多少雨水。
+
+上面是由数组 [0,1,0,2,1,0,1,3,2,1,2,1] 表示的高度图，在这种情况下，可以接 6 个单位的雨水（蓝色部分表示雨水）。 感谢 Marcos 贡献此图。
+
+示例:
+
+输入: [0,1,0,2,1,0,1,3,2,1,2,1]
+输出: 6
+
+暴力，对于数组中的每个元素，我们找出下雨后水能达到的最高位置，等于两边最大高度的较小值减去当前高度的值。O(n^2)时间复杂度
+
+```c++
+class Solution {
+public:
+    int trap(vector<int>& height){
+        int ans = 0;
+        int size = height.size();
+        for (int i = 1; i < size - 1; i++) {
+            int max_left = 0, max_right = 0;
+            for (int j = i; j >= 0; j--) { //Search the left part for max bar size
+                max_left = max(max_left, height[j]);
+            }
+            for (int j = i; j < size; j++) { //Search the right part for max bar size
+                max_right = max(max_right, height[j]);
+            }
+            ans += min(max_left, max_right) - height[i];
+        }
+        return ans;
+    }
+};
+```
+
+DP，在暴力方法中，我们仅仅为了找到最大值每次都要向左和向右扫描一次。但是我们可以提前存储这个值。因此，可以通过动态编程解决。O(n)时间，O(n)空间
+
+创建两个数字left_max与right_max，
+
+left_max[i]记录着最左端到i-1这段区间的最高高度
+
+right_max[i]记录着i+1到最右端这段区间的最高高度
+
+则height[i]所能贡献的雨水量 tmp = min(left_max[i], right_max[i]) - hight[i]
+
+最后ans += tmp
+
+```c++
+class Solution {
+public:
+    int trap(vector<int>& height){
+        if (height.empty()) return 0;
+        int ans = 0;
+        int size = height.size();
+        vector<int> left_max(size), right_max(size);
+        left_max[0] = height[0];
+        for (int i = 1; i < size; i++) {
+            left_max[i] = max(height[i], left_max[i - 1]);
+        }
+        right_max[size - 1] = height[size - 1];
+        for (int i = size - 2; i >= 0; i--) {
+            right_max[i] = max(height[i], right_max[i + 1]);
+        }
+        for (int i = 1; i < size - 1; i++) {
+            ans += min(left_max[i], right_max[i]) - height[i];
+        }
+        return ans;
+    }
+};
+```
+
+双指针法：**最优解法**，O(n)时间，O(1)空间
+
+本题解的双指针先找到当前维护的左、右最大值中较小的那个，例 当前 i 处左边的最大值如果比右边的小，那么就可以不用考虑 i 处右边最大值的影响了，因为 i 处 右边真正的最大值绝对比左边的最大值要大，在不断遍历时，更新max_l和max_r以及返回值即可。例 [0,1,0,2,1,0,1,3,2,1,2,1]中i=2时，值为0，此时max_l一定为1，当前max_r如果为2，即便max_r不是真正的i右边的最大值，也可忽略右边最大值的影响，因为右边真正的最大值一定比左边真正的最大值大。
+
+```c++
+class Solution {
+public:
+    int trap(vector<int>& height) {
+        if (height.empty() || height.size() < 3) return 0;
+        int ans = 0;
+        int l_max = height[0], r_max = height[height.size()-1]; // 初始化
+        int l = 1, r = height.size()-2;
+        while (l <= r) {
+            if (l_max < r_max) {
+                if (height[l] < l_max) ans += l_max - height[l];
+                else l_max = height[l];
+                ++l;
+            } else {
+                if (height[r] < r_max) ans += r_max - height[r];
+                else r_max = height[r];
+                --r;
+            }
+        }
+        return ans;
+    }
+};
+```
+
+单调递减栈
+
+理解题目，参考图解，注意题目的性质，当后面的柱子高度比前面的低时，是无法接雨水的。当找到一根比前面高的柱子，就可以计算接到的雨水。所以使用单调递减栈
+
+对更低的柱子入栈
+
+更低的柱子以为这后面如果能找到高柱子，这里就能接到雨水，所以入栈把它保存起来。平地相当于高度 0 的柱子，没有什么特别影响。当出现高于栈顶的柱子时
+
+1. 说明可以对前面的柱子结算了
+2. 计算已经到手的雨水，然后出栈前面更低的柱子
+
+计算雨水的时候需要注意的是
+
+- 雨水区域的右边 r 指的自然是当前索引 i
+- 底部是栈顶 st.top() ，因为遇到了更高的右边，所以它即将出栈，使用 cur 来记录它，并让它出栈
+- 左边 l 就是新的栈顶 st.top()
+
+雨水的区域全部确定了，水坑的高度就是左右两边更低的一边减去底部，宽度是在左右中间，使用乘法即可计算面积
+
+```c++
+class Solution {
+public:
+    int trap(vector<int>& height){
+        int ans = 0;
+        stack<int> st;
+        for (int i = 0; i < height.size(); i++) {
+            while (!st.empty() && height[st.top()] < height[i]) {
+                int cur = st.top();
+                st.pop();
+                if (st.empty()) break;
+                int l = st.top();
+                int r = i;
+                int h = min(height[r], height[l]) - height[cur]; // 当前储水高度
+                ans += (r - l - 1) * h; // 面积
+            }
+            st.push(i);
+        }
+        return ans;
+    }
+};
+```
+
 ### 48.旋转图像
 
 给定一个 *n* × *n* 的二维矩阵表示一个图像。
@@ -1031,6 +1171,133 @@ public:
             digits.insert(digits.begin(), 1);
         }
         return digits;
+    }
+};
+```
+
+### 75. 颜色分类
+
+给定一个包含红色、白色和蓝色，一共 n 个元素的数组，原地对它们进行排序，使得相同颜色的元素相邻，并按照红色、白色、蓝色顺序排列。
+
+此题中，我们使用整数 0、 1 和 2 分别表示红色、白色和蓝色。
+
+注意:
+不能使用代码库中的排序函数来解决这道题。
+
+示例:
+
+输入: [2,0,2,1,1,0]
+输出: [0,0,1,1,2,2]
+进阶：
+
+一个直观的解决方案是使用计数排序的两趟扫描算法。
+首先，迭代计算出0、1 和 2 元素的个数，然后按照0、1、2的排序，重写当前数组。
+你能想出一个仅使用常数空间的一趟扫描算法吗？
+
+本问题被称为 荷兰国旗问题，最初由 Edsger W. Dijkstra提出。其主要思想是给每个数字设定一种颜色，并按照荷兰国旗颜色的顺序进行调整。
+
+我们用三个指针（p0, p2 和curr）来分别追踪0的最右边界，2的最左边界和当前考虑的元素。
+
+本解法的思路是沿着数组移动 curr 指针，若nums[curr] = 0，则将其与 nums[p0]互换；若 nums[curr] = 2 ，则与 nums[p2]互换。
+
+```c++
+class Solution {
+public:
+    void sortColors(vector<int>& nums) {
+        if (nums.empty() || nums.size() == 1) return;
+        int i = 0;
+        int j = nums.size() - 1;
+        while (i <= j && nums[i] == 0) ++i; // 跳过前导0，i指向第一个不为0的下标
+        int cur = i;
+        while (cur <= j) {
+            if (nums[cur] == 0) swap(nums[cur++], nums[i++]);
+            else if (nums[cur] == 2) swap(nums[cur], nums[j--]); // 因为右边交换过来的还未确定，所以不能++cur
+            else ++cur;
+        }
+        return;
+    }
+};
+```
+
+### 84. 柱状图中最大的矩形(Hard)
+
+给定 n 个非负整数，用来表示柱状图中各个柱子的高度。每个柱子彼此相邻，且宽度为 1 。
+
+求在该柱状图中，能够勾勒出来的矩形的最大面积。
+
+以上是柱状图的示例，其中每个柱子的宽度为 1，给定的高度为 [2,1,5,6,2,3]。
+
+图中阴影部分为所能勾勒出的最大矩形面积，其面积为 10 个单位。
+
+示例:
+
+输入: [2,1,5,6,2,3]
+输出: 10
+
+无论枚举柱子的高度还是宽度，暴力都会超时
+
+[单调栈解法](https://leetcode-cn.com/problems/largest-rectangle-in-histogram/solution/84-by-ikaruga/)
+
+单调栈分为单调递增栈和单调递减栈
+
+1. 单调递增栈即栈内元素保持单调递增的栈
+1. 同理单调递减栈即栈内元素保持单调递减的栈
+
+操作规则（下面都以单调递增栈为例）
+
+1. 如果新的元素比栈顶元素大，就入栈
+2. 如果新的元素较小，那就一直把栈内元素弹出来，直到栈顶比新元素小
+
+加入这样一个规则之后，会有什么效果
+
+1. 栈内的元素是递增的
+2. 当元素出栈时，说明这个新元素是出栈元素向后找第一个比其小的元素
+    > 举个例子，[2,1,5,6,2,3]，现在索引在 6 ，栈里是 1 5 6 。接下来新元素是 2 ，那么 6 需要出栈。当 6 出栈时，右边 2 代表是 6 右边第一个比 6 小的元素。
+3. 当元素出栈后，说明新栈顶元素是出栈元素向前找第一个比其小的元素。
+    > 当 6 出栈时，5 成为新的栈顶，那么 5 就是 6 左边第一个比 6 小的元素。
+
+单调递增栈的模板代码：
+
+```c++
+stack<int> st;
+for(int i = 0; i < nums.size(); i++)
+{
+    while (!st.empty() && st.top() > nums[i]) {
+        st.pop();
+    }
+    st.push(nums[i]);
+}
+```
+
+思路
+
+1. 对于一个高度，如果能得到向左和向右的边界
+2. 那么就能对每个高度求一次面积
+3. 遍历所有高度，即可得出最大面积
+4. 使用单调栈，在出栈操作时得到前后边界并计算面积
+
+为了简便，在前后都插入了0，因为函数入参是引用，为了不修改原数组，新建了vec
+
+```c++
+class Solution {
+public:
+    int largestRectangleArea(vector<int>& heights) {
+        stack<int> st;
+        vector<int> vec(heights.begin(), heights.end());
+        vec.insert(vec.begin(), 0);
+        vec.push_back(0);
+        int ans = 0;
+        for (int i = 0; i < vec.size(); ++i) {
+            while (!st.empty() && vec[st.top()] > vec[i]) {
+                int cur = st.top();
+                st.pop();
+                int left = st.top(); // 左端点，仍然比vec[i]更高
+                int right = i - 1; // 右端点
+                ans = max(ans, (right - left) * vec[cur]);
+            }
+            st.push(i);
+        }
+        return ans;
     }
 };
 ```
@@ -1470,6 +1737,55 @@ public:
 };
 ```
 
+### 240. 搜索二维矩阵 II
+
+同剑指第24题
+
+编写一个高效的算法来搜索 m x n 矩阵 matrix 中的一个目标值 target。该矩阵具有以下特性：
+
+每行的元素从左到右升序排列。
+每列的元素从上到下升序排列。
+示例:
+
+现有矩阵 matrix 如下：
+
+[
+  [1,   4,  7, 11, 15],
+  [2,   5,  8, 12, 19],
+  [3,   6,  9, 16, 22],
+  [10, 13, 14, 17, 24],
+  [18, 21, 23, 26, 30]
+]
+给定 target = 5，返回 true。
+
+给定 target = 20，返回 false。
+
+最高效的算法，时间O(n+m)，空间O(1)，类似于减治的思想，每次都缩小范围
+
+- 选左上角，往右走和往下走都增大，不能选
+- 选右下角，往上走和往左走都减小，不能选
+- 选左下角，往右走增大，往上走减小，可选
+- 选右上角，往下走增大，往左走减小，可选
+
+```c++
+class Solution {
+public:
+    bool searchMatrix(vector<vector<int>>& matrix, int target) {
+        if (matrix.empty() || matrix[0].empty()) return false;
+        int rows = matrix.size();
+        int cols = matrix[0].size();
+        int i = 0;
+        int j = cols - 1;
+        while (i < rows && j >= 0) {
+            if (matrix[i][j] > target) --j;
+            else if (matrix[i][j] < target) ++i;
+            else return true;
+        }
+        return false;
+    }
+};
+```
+
 ### 283.移动零
 
 给定一个数组 `nums`，编写一个函数将所有 `0` 移动到数组的末尾，同时保持非零元素的相对顺序。
@@ -1726,6 +2042,165 @@ public:
             }
         }
         return res;
+    }
+};
+```
+
+### 496. 下一个更大元素 I(Easy)
+
+给定两个 没有重复元素 的数组 nums1 和 nums2 ，其中nums1 是 nums2 的子集。找到 nums1 中每个元素在 nums2 中的下一个比其大的值。
+
+nums1 中数字 x 的下一个更大元素是指 x 在 nums2 中对应位置的右边的第一个比 x 大的元素。如果不存在，对应位置输出 -1 。
+
+示例 1:
+
+输入: nums1 = [4,1,2], nums2 = [1,3,4,2].
+输出: [-1,3,-1]
+解释:
+    对于num1中的数字4，你无法在第二个数组中找到下一个更大的数字，因此输出 -1。
+    对于num1中的数字1，第二个数组中数字1右边的下一个较大数字是 3。
+    对于num1中的数字2，第二个数组中没有下一个更大的数字，因此输出 -1。
+示例 2:
+
+输入: nums1 = [2,4], nums2 = [1,2,3,4].
+输出: [3,-1]
+解释:
+    对于 num1 中的数字 2 ，第二个数组中的下一个较大数字是 3 。
+    对于 num1 中的数字 4 ，第二个数组中没有下一个更大的数字，因此输出 -1 。
+
+提示：
+
+nums1和nums2中所有元素是唯一的。
+nums1和nums2 的数组大小都不超过1000。
+
+哈希表+单调栈，很有意思的一道题
+
+```c++
+class Solution {
+public:
+    vector<int> nextGreaterElement(vector<int>& nums1, vector<int>& nums2) {
+        vector<int> ans (nums1.size(), -1);
+        unordered_map<int, int> map; // 记录nums1每个元素与其对应下标
+        for (int i = 0; i < nums1.size(); ++i) {
+            map[nums1[i]] = i;
+        }
+        stack<int> st; // mono decreasing stack
+        for (int i = 0; i < nums2.size(); ++i) {
+            while (!st.empty() && nums2[st.top()] < nums2[i]) {
+                int cur = st.top();
+                st.pop();
+                if (map.count(nums2[cur])) ans[map[nums2[cur]]] = nums2[i];
+            }
+            st.push(i);
+        }
+        return ans;
+    }
+};
+```
+
+### 503. 下一个更大元素 II(Medium)
+
+给定一个循环数组（最后一个元素的下一个元素是数组的第一个元素），输出每个元素的下一个更大元素。数字 x 的下一个更大的元素是按数组遍历顺序，这个数字之后的第一个比它更大的数，这意味着你应该循环地搜索它的下一个更大的数。如果不存在，则输出 -1。
+
+示例 1:
+
+输入: [1,2,1]
+输出: [2,-1,2]
+解释: 第一个 1 的下一个更大的数是 2；
+数字 2 找不到下一个更大的数；
+第二个 1 的下一个最大的数需要循环搜索，结果也是 2。
+注意: 输入数组的长度不会超过 10000。
+
+单调栈，循环两次即可保证每个元素之后的所有可能
+
+```c++
+class Solution {
+public:
+    vector<int> nextGreaterElements(vector<int>& nums) {
+        if (nums.empty()) return {};
+        vector<int> ans(nums.size(), -1);
+        stack<int> st; // mono decreasing stack
+        // search two rounds
+        for (int k = 0; k < nums.size() * 2; ++k) {
+            int i = k % nums.size();
+            while (!st.empty() && nums[st.top()] < nums[i]) {
+                int cur = st.top();
+                st.pop();
+                if (ans[cur] == -1) ans[cur] = nums[i];
+            }
+            st.push(i);
+        }
+        return ans;
+    }
+};
+```
+
+### 556. 下一个更大元素 III
+
+给定一个32位正整数 n，你需要找到最小的32位整数，其与 n 中存在的位数完全相同，并且其值大于n。如果不存在这样的32位整数，则返回-1。
+
+示例 1:
+
+输入: 12
+输出: 21
+示例 2:
+
+输入: 21
+输出: -1
+
+其实就是next permutation的翻版，我首先以为这个32位整数是需要考虑它的bit，没想到就是对于十进制的n做一次next permutation即可
+
+注意，题目要求在32位正整数中寻找next permutation，所以要及时判断
+
+```c++
+class Solution {
+public:
+    int nextGreaterElement(int n) {
+        if (n == 0x7fffffff) return -1;
+        string s;
+        while (n) {
+            s = to_string(n % 10) + s;
+            n /= 10;
+        }
+        if (!next_permutation(s.begin(), s.end())) return -1;
+        long ans = 0;
+        long base = 1;
+        for (int i = s.size()-1; i >= 0; --i) {
+            ans += (s[i] - '0') * base;
+            base *= 10;
+            if (ans > INT_MAX) return -1;
+        }
+        return ans;
+    }
+};
+```
+
+### 739. 每日温度(Medium)
+
+请根据每日 气温 列表，重新生成一个列表。对应位置的输出为：要想观测到更高的气温，至少需要等待的天数。如果气温在这之后都不会升高，请在该位置用 0 来代替。
+
+例如，给定一个列表 temperatures = [73, 74, 75, 71, 69, 72, 76, 73]，你的输出应该是 [1, 1, 4, 2, 1, 1, 0, 0]。
+
+提示：气温 列表长度的范围是 [1, 30000]。每个气温的值的均为华氏度，都是在 [30, 100] 范围内的整数。
+
+复习单调栈的绝佳例题
+
+```c++
+class Solution {
+public:
+    vector<int> dailyTemperatures(vector<int>& T) {
+        if (T.empty()) return {};
+        vector<int> ans(T.size(), 0);
+        stack<int> st; // mono decreasing stack
+        for (int i = 0; i < T.size(); ++i) {
+            while (!st.empty() && T[st.top()] < T[i]) {
+                int cur = st.top();
+                st.pop();
+                ans[cur] = i - cur;
+            }
+            st.push(i);
+        }
+        return ans;
     }
 };
 ```
@@ -2141,6 +2616,93 @@ TODO
 
 最坏情况：O(nm)
 平均情况：O(n)
+
+### 32.最长有效括号(Hard)
+
+给定一个只包含 '(' 和 ')' 的字符串，找出最长的包含有效括号的子串的长度。
+
+示例 1:
+
+输入: "(()"
+输出: 2
+解释: 最长有效括号子串为 "()"
+示例 2:
+
+输入: ")()())"
+输出: 4
+解释: 最长有效括号子串为 "()()"
+
+暴力法一次AC了，O(n^2)事件，O(n)空间
+
+```c++
+class Solution {
+public:
+    int longestValidParentheses(string s) {
+        if (s.empty() || s.size() == 1) return 0;
+        int n = s.size();
+        vector<int> vec(n, 0); // 0 means not matched
+        for (int i = 0; i < n; ++i) {
+            if (s[i] == ')') {
+                for (int j = i - 1; j >=0; --j) {
+                    if (s[j] == '(' && !vec[j]) {
+                        vec[j] = true;
+                        vec[i] = true;
+                        break;
+                    }
+                }
+            }
+        }
+        // 遍历取值为0或1的vec，取最长连续的1的长度
+        int ans = 0;
+        int len = 0;
+        for (int i = 0; i < n; ++i) {
+            if (vec[i] == 0) len = 0;
+            else {
+                ++len;
+                ans = max(ans, len);
+            }
+        }
+        return ans;
+    }
+};
+```
+
+利用栈，O(n)时间，O(n)空间
+
+具体做法是我们始终保持栈底元素为当前已经遍历过的元素中「最后一个没有被匹配的右括号的下标」，这样的做法主要是考虑了边界条件的处理，栈里其他元素维护左括号的下标：
+
+- 对于遇到的每个 ‘(’ ，我们将它的下标放入栈中
+- 对于遇到的每个 ‘)’ ，我们先弹出栈顶元素表示匹配了当前右括号：
+  - 如果栈为空，说明当前的右括号是一个没有被匹配的右括号，我们将其下标放入栈中来更新我们之前提到的「最后一个没有被匹配的右括号的下标」
+  - 如果栈不为空，当前右括号的下标减去栈顶元素即为「以该右括号为结尾的最长有效括号的长度」
+
+我们从前往后遍历字符串并更新答案即可。
+
+需要注意的是，如果一开始栈为空，第一个字符为左括号的时候我们会将其放入栈中，这样就不满足提及的「最后一个没有被匹配的右括号的下标」，为了保持统一，我们在一开始的时候往栈中放入一个值为 -1−1 的元素。
+
+```c++
+class Solution {
+public:
+    int longestValidParentheses(string s) {
+        int ans = 0;
+        stack<int> st; // 保持栈底元素为最后一个没有被匹配的右括号的下标
+        st.push(-1);
+        for (int i = 0; i < s.length(); i++) {
+            if (s[i] == '(') {
+                st.push(i);
+            } else {
+                st.pop();
+                if (st.empty()) {
+                    st.push(i);
+                } else {
+                    ans = max(ans, i - st.top());
+                }
+            }
+        }
+        return ans;
+    }
+};
+```
 
 ### 38.报数
 
@@ -2609,6 +3171,69 @@ public:
 
 思路：使用哈希表（c++中用unordered_map）而不是固定大小的计数器。想象一下，分配一个大的数组来适应整个 Unicode 字符范围，这个范围可能超过 100 万。哈希表是一种更通用的解决方案，可以适应任何字符范围。
 
+### 316. 去除重复字母(Hard)
+
+同力扣1081题
+
+给你一个仅包含小写字母的字符串，请你去除字符串中重复的字母，使得每个字母只出现一次。需保证返回结果的字典序最小（要求不能打乱其他字符的相对位置）。
+
+示例 1:
+
+输入: "bcabc"
+输出: "abc"
+示例 2:
+
+输入: "cbacdcbc"
+输出: "acdb"
+
+观察示例 1：bcabc。
+
+单调栈
+
+1、遍历字符串里的字符，如果读到的字符的 ASCII 值是升序，依次存到一个栈中；
+2、如果读到的字符在栈中已经存在，这个字符我们不需要；
+3、如果读到的 ASCII 值比栈顶元素严格小，看看栈顶元素在后面是否还会出现，如果还会出现，则舍弃栈顶元素，而选择后出现的那个字符，这样得到的字典序更小。
+
+因为需要判断读到的字符在栈中是否已经存在，因此可以使用哈希表，又因为题目中说，字符只会出现小写字母，用一个布尔数组也是可以的，注意在出栈入栈的时候，需要同步更新一下这个布尔数组。
+
+又因为要判断栈顶元素在后面是否会被遍历到，因此我们需要先遍历一次字符，存一下这个字符最后出现的位置，就能判断栈顶元素在后面是否会被遍历到。
+
+```c++
+class Solution {
+public:
+    string removeDuplicateLetters(string s) {
+        size_t size = s.size();
+        if (size < 2) return s;
+        bool used[26]; // 在栈中这个字母是否存在
+        for (bool &i : used) {
+            i = false;
+        }
+        int lastAppearIndex[26]; // 每个字母在字符串中最后出现的位置
+        for (int i = 0; i < size; i++) {
+            lastAppearIndex[s[i] - 'a'] = i;
+        }
+        stack<char> st; // mono increasing stack
+        for (int i = 0; i < size; i++) {
+            if (used[s[i] - 'a']) continue;
+            while (!st.empty() && st.top() > s[i] && lastAppearIndex[st.top() - 'a'] >= i) {
+                char top = st.top();
+                st.pop();
+                used[top - 'a'] = false;
+            }
+            st.push(s[i]);
+            used[s[i] - 'a'] = true;
+        }
+        string ans;
+        while (!st.empty()) {
+            ans += st.top();
+            st.pop();
+        }
+        reverse(ans.begin(), ans.end());
+        return ans;
+    }
+};
+```
+
 ### 344.反转字符串
 
 编写一个函数，其作用是将输入的字符串反转过来。输入字符串以字符数组 `char[]` 的形式给出。
@@ -2742,6 +3367,10 @@ public:
     }
 };
 ```
+
+### 1081. 不同字符的最小子序列
+
+同力扣316题
 
 ## 链表
 
@@ -5799,6 +6428,43 @@ public:
 // codec.deserialize(codec.serialize(root));
 ```
 
+### 437. 路径总和 III
+
+给定一个二叉树，它的每个结点都存放着一个整数值。
+
+找出路径和等于给定数值的路径总数。
+
+路径不需要从根节点开始，也不需要在叶子节点结束，但是路径方向必须是向下的（只能从父节点到子节点）。
+
+二叉树不超过1000个节点，且节点数值范围是 [-1000000,1000000] 的整数。
+
+dfs
+
+先序递归遍历每个节点
+
+以每个节点作为起始节点DFS寻找满足条件的路径
+
+```c++
+class Solution {
+public:
+    int ans = 0;
+    void dfs(TreeNode* root, int sum){
+        if(!root) return;
+        sum -= root->val;
+        if(sum == 0) ans++;
+        dfs(root->left, sum);
+        dfs(root->right, sum);
+    }
+    int pathSum(TreeNode* root, int sum) {
+        if(!root) return ans;
+        dfs(root, sum);
+        pathSum(root->left, sum); // 将每个节点作为根节点执行dfs
+        pathSum(root->right, sum); // 将每个节点作为根节点执行dfs
+        return ans;
+    }
+};
+```
+
 ### 543. 二叉树的直径(medium)
 
 给定一棵二叉树，你需要计算它的直径长度。一棵二叉树的直径长度是任意两个结点路径长度中的最大值。这条路径可能穿过也可能不穿过根结点。
@@ -8079,6 +8745,282 @@ public:
             dfs(S, ans, step+1);
 ```
 
+### 10. 正则表达式匹配
+
+同剑指19题
+
+给你一个字符串 s 和一个字符规律 p，请你来实现一个支持 '.' 和 '*' 的正则表达式匹配。
+
+'.' 匹配任意单个字符
+'*' 匹配零个或多个前面的那一个元素
+所谓匹配，是要涵盖 整个 字符串 s的，而不是部分字符串。
+
+说明:
+
+s 可能为空，且只包含从 a-z 的小写字母。
+p 可能为空，且只包含从 a-z 的小写字母，以及字符 . 和 *。
+示例 1:
+
+输入:
+s = "aa"
+p = "a"
+输出: false
+解释: "a" 无法匹配 "aa" 整个字符串。
+示例 2:
+
+输入:
+s = "aa"
+p = "a*"
+输出: true
+解释: 因为 '*' 代表可以匹配零个或多个前面的那一个元素, 在这里前面的元素就是 'a'。因此，字符串 "aa" 可被视为 'a' 重复了一次。
+示例 3:
+
+输入:
+s = "ab"
+p = ".*"
+输出: true
+解释: ".*" 表示可匹配零个或多个（'*'）任意字符（'.'）。
+示例 4:
+
+输入:
+s = "aab"
+p = "c*a*b"
+输出: true
+解释: 因为 '*' 表示零个或多个，这里 'c' 为 0 个, 'a' 被重复一次。因此可以匹配字符串 "aab"。
+示例 5:
+
+输入:
+s = "mississippi"
+p = "mis*is*p*."
+输出: false
+
+```c++
+class Solution {
+public:
+    int n, m;
+    bool isMatch(string s, string p) {
+        n = s.size();
+        m = p.size();
+        return helper(s, p, 0, 0);
+    }
+    bool helper(string &s, string &p, int i, int j) {
+        if (i == n && j == m) return true;
+        if (j == m) return false;
+        if (j == m-1 || p[j+1] != '*') {
+            if ((i < n && p[j] == '.') || (s[i] == p[j])) {
+                return helper(s, p, i+1, j+1);
+            }
+        } else { // p[j+1]是'*'
+            if ((i < n && p[j] == '.') || (s[i] == p[j])) {
+                return helper(s, p, i, j+2) // 'x*'匹配零个
+                        || helper(s, p, i+1, j); // 'x*'吃掉这个字符，后移
+                            // || helper(s, p, i+1, j+2) // 'x*'匹配一个 ，是冗余的，可以用i+1再j+2这两步得到，加上就会超时！
+            }
+            else {
+                return helper(s, p, i, j+2); // '*'匹配零个
+            }
+        }
+        return false; // never reached
+    }
+};
+```
+
+### 17. 电话号码的字母组合
+
+给定一个仅包含数字 2-9 的字符串，返回所有它能表示的字母组合。
+
+给出数字到字母的映射如下（与电话按键相同）。注意 1 不对应任何字母。
+
+示例:
+
+输入："23"
+输出：["ad", "ae", "af", "bd", "be", "bf", "cd", "ce", "cf"].
+
+```c++
+class Solution {
+public:
+    vector<string> ans;
+    int n;
+    unordered_map<char, string> map;
+    vector<string> letterCombinations(string digits) {
+        if (digits.empty()) return ans;
+        n = digits.size();
+        map['2'] = "abc";
+        map['3'] = "def";
+        map['4'] = "ghi";
+        map['5'] = "jkl";
+        map['6'] = "mno";
+        map['7'] = "pqrs";
+        map['8'] = "tuv";
+        map['9'] = "wxyz";
+        string path;
+        dfs(digits, path, 0);
+        return ans;
+    }
+    void dfs(string &digits, string &path, int k) {
+        if (k == n) {
+            ans.push_back(path);
+            return;
+        }
+        for (char &ch : map[digits[k]]) {
+            path.push_back(ch);
+            dfs(digits, path, k+1);
+            path.pop_back();
+        }
+    }
+};
+```
+
+### 22. 括号生成(Medium)
+
+数字 n 代表生成括号的对数，请你设计一个函数，用于能够生成所有可能的并且 有效的 括号组合。
+
+示例：
+
+输入：n = 3
+输出：[
+       "((()))",
+       "(()())",
+       "(())()",
+       "()(())",
+       "()()()"
+     ]
+
+回溯模板一把梭
+
+```c++
+class Solution {
+public:
+    vector<string> ans;
+    vector<string> generateParenthesis(int n) {
+        if (n <= 0) return ans;
+        string path = "(";
+        dfs(path, 1, 0, n);
+        return ans;
+    }
+    void dfs(string &path, int leftQuoteNum, int rightQuoteNum, int n) {
+        if (leftQuoteNum == rightQuoteNum && leftQuoteNum == n) {
+            ans.push_back(path);
+            return;
+        }
+        if (leftQuoteNum > rightQuoteNum) {
+            path.push_back(')');
+            dfs(path, leftQuoteNum, rightQuoteNum+1, n);
+            path.pop_back();
+        }
+        if (leftQuoteNum < n) {
+            path.push_back('(');
+            dfs(path, leftQuoteNum+1, rightQuoteNum, n);
+            path.pop_back();
+        }
+    }
+};
+```
+
+### 39. 组合总和(Medium)
+
+给定一个无重复元素的数组 candidates 和一个目标数 target ，找出 candidates 中所有可以使数字和为 target 的组合。
+
+candidates 中的数字可以无限制重复被选取。
+
+说明：
+
+所有数字（包括 target）都是正整数。
+解集不能包含重复的组合。
+示例 1：
+
+输入：candidates = [2,3,6,7], target = 7,
+所求解集为：
+[
+  [7],
+  [2,2,3]
+]
+示例 2：
+
+输入：candidates = [2,3,5], target = 8,
+所求解集为：
+[
+  [2,2,2,2],
+  [2,3,3],
+  [3,5]
+]
+
+提示：
+
+1 <= candidates.length <= 30
+1 <= candidates[i] <= 200
+candidate 中的每个元素都是独一无二的。
+1 <= target <= 500
+
+第一次尝试，dfs+剪枝，但是有重复，比如：
+
+[2,3,6,7]
+7
+输出
+[[2,2,3],[2,3,2],[3,2,2],[7]]
+预期结果
+[[2,2,3],[7]]
+
+```c++
+class Solution {
+public:
+    vector<vector<int>> ans;
+    vector<vector<int>> combinationSum(vector<int>& candidates, int target) {
+        vector<int> path;
+        int pre = 0; // 为了不重复
+        dfs(candidates, path, pre, 0, target);
+        return ans;
+    }
+    void dfs(vector<int>& candidates, vector<int>& path, int pre, int sum, int target) {
+        if (sum == target) {
+            ans.push_back(path);
+            return;
+        }
+        if (sum > target) return;
+        for (int & candidate : candidates) {
+            path.push_back(candidate);
+            dfs(candidates, path, sum+candidate, target);
+            path.pop_back();
+        }
+    }
+};
+```
+
+重复的原因是在较深层的结点值考虑了之前考虑过的元素，因此我们需要设置“下一轮搜索的起点”即可
+
+在搜索的时候，需要设置搜索起点的下标 begin ，由于一个数可以使用多次，下一层的结点从这个搜索起点开始搜索；
+
+剪枝：
+
+- 如果一个数位搜索起点都不能搜索到结果，那么比它还大的数肯定搜索不到结果，基于这个想法，我们可以对输入数组进行排序，以减少搜索的分支；
+- 排序是为了提高搜索速度，非必要；
+- 搜索问题一般复杂度较高，能剪枝就尽量需要剪枝。把候选数组排个序，遇到一个较大的数，如果以这个数为起点都搜索不到结果，后面的数就更搜索不到结果了。
+
+```c++
+class Solution {
+public:
+    vector<vector<int>> ans;
+    vector<vector<int>> combinationSum(vector<int>& candidates, int target) {
+        sort(candidates.begin(), candidates.end());
+        vector<int> path;
+        dfs(candidates, path, 0, 0, target);
+        return ans;
+    }
+    void dfs(vector<int>& candidates, vector<int>& path, int start, int sum, int target) {
+        if (sum == target) {
+            ans.push_back(path);
+            return;
+        }
+        if (sum > target) return;
+        for (int i = start; i < candidates.size(); ++i) {
+            path.push_back(candidates[i]);
+            dfs(candidates, path, i, sum+candidates[i], target);
+            path.pop_back();
+        }
+    }
+};
+```
+
 ### 46. 全排列(Medium)
 
 给定一个 没有重复 数字的序列，返回其所有可能的全排列。
@@ -9410,6 +10352,112 @@ int main()
 ## 哈希表专题with闫学灿
 
 ### 1. 两数之和
+
+### 49. 字母异位词分组
+
+给定一个字符串数组，将字母异位词组合在一起。字母异位词指字母相同，但排列不同的字符串。
+
+示例:
+
+输入: ["eat", "tea", "tan", "ate", "nat", "bat"]
+输出:
+[
+  ["ate","eat","tea"],
+  ["nat","tan"],
+  ["bat"]
+]
+说明：
+
+所有输入均为小写字母。
+不考虑答案输出的顺序。
+
+哈希表，每个str排序后会作为相同的key，存入一个`map<string, vector<string>>`中，
+
+```c++
+class Solution {
+public:
+    vector<vector<string>> groupAnagrams(vector<string>& strs) {
+        vector<vector<string>> ans;
+        unordered_map<string, vector<string>> m;
+        for (const string& s : strs) {
+            string t = s; // t为单词的按顺序排列，作为key值
+            sort(t.begin(),t.end());
+            m[t].push_back(s);   // m[t]为异位词构成的vector
+        }
+        for (const auto& n : m)
+            ans.push_back(n.second);
+        return ans;
+    }
+};
+```
+
+自定义映射，好像是最慢的。。
+
+首先初始化 key = "0#0#0#0#0#"，数字分别代表 abcde 出现的次数，# 用来分割。
+
+这样的话，"abb" 就映射到了 "1#2#0#0#0"。
+
+"cdc" 就映射到了 "0#0#2#1#0"。
+
+"dcc" 就映射到了 "0#0#2#1#0"。
+
+```c++
+class Solution {
+public:
+    vector<vector<string>> groupAnagrams(vector<string>& strs) {
+        vector<vector<string>> ans;
+        unordered_map<string, vector<string>> m;
+        for (int i = 0; i < strs.size(); i++) {
+            vector<int> num(26, 0); //记录每个字符的次数
+            for (int j = 0; j < strs[i].size(); j++) {
+                num[strs[i][j] - 'a']++;
+            }
+            string key = ""; //转成 0#2#2# 类似的形式
+            for (int j = 0; j < num.size(); j++) {
+                key = key + to_string(num[j]) + '#';
+            }
+            if (m.count(key)) {
+                m[key].push_back(strs[i]);
+            } else {
+                vector<string> temp;
+                temp.push_back(strs[i]);
+                m[key] = temp;
+            }
+        }
+        for (const auto& p : m) {
+            ans.push_back(p.second);
+        }
+        return ans;
+    }
+};
+```
+
+最优解法，**算术基本定理**，又称为正整数的唯一分解定理，即：每个大于1的自然数，要么本身就是质数，要么可以写为2个以上的质数的积，而且这些质因子按大小排列之后，写法仅有一种方式。我们把每个字符串都映射到一个正数上。
+
+用一个数组存储质数 prime = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103}。然后每个字符串的字符减去 ' a ' ，然后取到 prime 中对应的质数。把它们累乘。
+
+例如 abc ，就对应 'a' - 'a'， 'b' - 'a'， 'c' - 'a'，即 0, 1, 2，也就是对应素数 2 3 5，然后相乘 `2 * 3 * 5 = 30`，就把 "abc" 映射到了 30。
+
+时间复杂度O(n*K) K是字符串最大长度，空间复杂度O(NK) ，用来存储结果，但这种方法有一定局限性，累乘可能会溢出，不过需要字符串长度很长才行，力扣OJ里没有这么刁难的case
+
+```c++
+class Solution {
+public:
+    vector<vector<string>> groupAnagrams(vector<string>& strs) {
+        vector<vector<string>> res;
+        unordered_map<double, vector<string>> m;
+        double a[26] = {2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71,73,79,83,89,97,101};
+        for (const string& s : strs) {
+            double t = 1;
+            for (char c : s) t *= a[c - 'a'];
+            m[t].push_back(s);
+        }
+        for(auto& n : m)
+            res.push_back(n.second);
+        return res;
+    }
+};
+```
 
 ### 454. 四数之和II
 
