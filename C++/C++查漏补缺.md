@@ -1184,6 +1184,103 @@ C++三大特性：封装、继承、多态，都需要C模拟
 
 ![C++查漏补缺-20200110160457.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/C%2B%2B%E6%9F%A5%E6%BC%8F%E8%A1%A5%E7%BC%BA-20200110160457.png)
 
+```c++
+typedef void (*Fun)();
+
+class Base
+{
+    public:
+        Base(){};
+        virtual void fun1()
+        {
+            cout << "Base::fun1()" << endl;
+        }
+        virtual void fun2()
+        {
+            cout << "Base::fun2()" << endl;
+        }
+        virtual void fun3(){}
+        ~Base(){};
+};
+
+class Derived: public Base
+{
+    public:
+        Derived(){};
+        void fun1()
+        {
+            cout << "Derived::fun1()" << endl;
+        }
+        void fun2()
+        {
+            cout << "DerivedClass::fun2()" << endl;
+        }
+        ~Derived(){};
+};
+/**
+ * 获取vptr地址与func地址,vptr指向的是一块内存，这块内存存放的是虚函数地址，这块内存就是我们所说的虚表
+ */
+Fun getAddr(void* obj,unsigned int offset)
+{
+    cout<<"======================="<<endl;
+    void* vptr_addr = (void *)*(unsigned long *)obj;  //64位操作系统，占8字节，通过*(unsigned long *)obj取出前8字节，即vptr指针
+    printf("vptr_addr:%p\n",vptr_addr);
+
+    /**
+     * 通过vptr指针访问virtual table，因为虚表中每个元素(虚函数指针)在64位编译器下是8个字节，因此通过*(unsigned long *)vptr_addr取出前8字节，
+     * 后面加上偏移量就是每个函数的地址！
+     */
+    void* func_addr = (void *)*((unsigned long *)vptr_addr+offset);
+    printf("func_addr:%p\n",func_addr);
+    return (Fun)func_addr;
+}
+int main(void)
+{
+    Base ptr;
+    Derived d;
+    Base *pt = new Derived(); // 基类指针指向派生类实例
+    Base &pp = ptr; // 基类引用指向基类实例
+    Base &p = d; // 基类引用指向派生类实例
+    cout<<"基类对象直接调用"<<endl;
+    ptr.fun1();
+    cout<<"基类对象调用基类实例"<<endl;
+    pp.fun1(); 
+    cout<<"基类指针指向派生类实例并调用虚函数"<<endl;
+    pt->fun1();
+    cout<<"基类引用指向派生类实例并调用虚函数"<<endl;
+    p.fun1();
+
+    // 手动查找vptr 和 vtable
+    Fun f1 = getAddr(pt, 0);
+    (*f1)();
+    Fun f2 = getAddr(pt, 1);
+    (*f2)();
+    delete pt;
+    return 0;
+}
+```
+
+运行结果：
+
+```shell
+基类对象直接调用
+Base::fun1()
+基类引用指向派生类实例
+Base::fun1()
+基类指针指向派生类实例并调用虚函数
+Derived::fun1()
+基类引用指向基类实例并调用虚函数
+Derived::fun1()
+=======================
+vptr_addr:0x401130
+func_addr:0x400ea8
+Derived::fun1()
+=======================
+vptr_addr:0x401130
+func_addr:0x400ed4
+DerivedClass::fun2()
+```
+
 ### sizeof(类对象)/字节对齐
 
 类型对齐方式（变量存放的起始地址相对于结构的起始地址的偏移量）
@@ -1333,6 +1430,54 @@ C++默认的析构函数不是虚函数，是因为虚函数需要额外的虚�
 由于类的构造顺序是先基类再派生类，所以在基类的构造函数中调用虚函数，派生类还没构造，所以没法呈现多态性
 
 由于类的析构顺序是先派生类再基类，所以在在基类的析构函数中调用虚函数，派生类已经析构完了，所以没法呈现多态性
+
+### 为什么重载流操作符时用友元函数
+
+- 如果把重载流操作符定义为成员函数，那么只能通过`complex1.operator<<(complex2)`这样去调用，这都没法与istream与ostream连接起来。
+- 因为流操作符左侧必须为cin或cout，即istream或ostream类，不是我们所能修改的类；或者说因为流操作符具有方向性。
+- 而流操作符又需要访问类的私有成员，所以得用友元函数，然后在类外重载。
+
+典型用法：
+
+```c++
+class complex{
+public:
+    complex(int x, int y): real(x), imag(y){}
+    complex():complex(0,0){}
+    ~complex(){}
+    friend ostream& operator << (ostream& cout, complex& par)；
+private:
+    int real;
+    int imag;
+}
+ostream& operator << (ostream& cout, complex& par)；{
+    cout << par.real << "+" << par.imag << "i" << endl;
+    return cout;
+}
+```
+
+但是使用友元函数会**破坏类的封装性**，因此好的解决方法是：使用一些成员函数来暴露对类成员的访问，然后使用类外的普通函数重载来进行类成员的输入输出。
+
+```c++
+class complex{
+public:
+    complex(int x, int y): real(x), imag(y){}
+    complex():complex(0,0){}
+    ~complex(){}
+    int getReal(){ return real;}    
+    int getImag(){ return imag;}    
+    void setReal(int parm){ real = parm;}    
+    void setImag(int parm){ imag = parm;}    
+private:
+    int real;
+    int imag;
+ 
+}
+ostream& operator << (ostream& cout, complex& par){
+    cout << par.getReal() << " + " << par.getImag() << "i" << endl;
+    return cout;
+}
+```
 
 ### 模板元编程(Template Meta Programming)
 
