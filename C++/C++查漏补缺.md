@@ -1760,7 +1760,7 @@ main()
 `void *malloc(size_t size)`在堆区分配一块大小为至少为size（可能要字节对齐）的连续内存，返回指向这块**未初始化**内存的起始位置的指针，分配失败返回NULL
 
 - malloc函数用于动态分配内存。为了减少内存碎片和系统调用的开销，malloc其采用**内存池**的方式，先申请大块内存作为堆区，然后将堆区分为多个内存块（block），以块作为内存管理的基本单位。当用户申请内存时，直接从堆区分配一块合适的空闲块。
-- malloc采用隐式链表结构将堆区分成连续的、大小不一的块，包含已分配块和未分配块；同时malloc采用**双线链表来管理所有的空闲块**，双向链表将空闲块连接起来，每一个空闲块记录了一个连续的、未分配的地址。
+- malloc采用隐式链表结构将堆区分成连续的、大小不一的块，包含已分配块和未分配块；同时malloc采用**双向链表来管理所有的空闲块**，双向链表将空闲块连接起来，每一个空闲块记录了一个连续的、未分配的地址。
 - malloc在申请内存时，一般会通过brk或者mmap系统调用进行申请。其中当申请内存小于128K时，会使用系统调用**brk在堆区**中分配；而当申请内存大于128K时，会使用系统调用**mmap在内存映射区**分配。mmap有一种用法是映射磁盘文件到内存中（进程间通信），如果是匿名映射，就不指定磁盘文件，也就相当于开辟了一块内存。
 
 `void *calloc(size_t numitems, size_t size)`给一组对象分配内存并且**初始化为0**，底层会调用malloc
@@ -2074,8 +2074,13 @@ mtrace是用来检查内存泄露的C函数，其原理是记录每一对malloc�
 
 Valgrind是个强大的调试工具，其中包括memcheck，可以发现访问未初始化的内存、访问数组时越界、忘记释放动态内存等问题，更为强大，注意在编译时要加上产生调试信息的命令行参数-g，然后输入`valgrind --tool=memcheck --leak-check=full  ./main_c`
 
-[使用 Valgrind 检测 C++ 内存泄漏
-](http://senlinzhan.github.io/2017/12/31/valgrind/)
+still reachable 是内存泄漏吗？
+
+- 其实，这种场景下的泄漏在严格意义上来讲也许并不能称之为内存泄漏，因为在进程运行过程中并没有泄漏问题。
+- 虽然内存在进程结束之前确实未被释放, 但是指向这块内存的指针是 reachable 的，操作系统会获取这些指针并帮助我们释放内存。
+- 但是，请注意，**still reachable 可能会掩盖真正的内存泄漏 definitely lost**，这就是作者为何强烈建议开启 reachable 命令行选项的原因。
+
+[使用 Valgrind 检测 C++ 内存泄漏](http://senlinzhan.github.io/2017/12/31/valgrind/)
 
 ### 野指针是什么/空悬指针是什么
 
@@ -2591,7 +2596,7 @@ C++11提供了单向链表forward_list
 - deque是双向开口的**分段连续线性空间**(简单理解为：双端队列)，可以在头尾端进行元素的插入和删除
 - 用户看起来deque使用的是连续空间，实际上是分段连续线性空间。为了管理分段空间deque容器引入了map，称之为**中控器**，map是一块连续的空间，其中每个元素是指向缓冲区的指针，缓冲区才是deque存储数据的主体。
 - deque不像vector，vector内存不够时需要重新分配内存-复制数据-释放原空间
-- deque的迭代器比vector复杂很多，除了一个指向具体数据的原生指针外，还有指向buffer头元素的指针，指向buffer尾元素的指针，指向中控器的指针
+- deque的迭代器比vector复杂很多，除了一个指向具体数据的原生指针外，还有指向buffer头元素的指针，指向buffer尾元素的指针，指向中控器的指针，这样才能让operator++与--正常工作
 
 deque头文件只包含deque
 
@@ -2603,12 +2608,12 @@ stack头文件包含deque、stack
 
 ### queue、stack
 
-- queue、stack、priority_queue不是容器，而是容器适配器
+- queue、stack、priority_queue**不是容器，而是容器适配器，都没有迭代器**
 - queue与stack底层使用了deque，但也可以用list
 
 queue缺省用deque实现，FIFO，具有如下特点：
 
-- 不能按下标访问（不是random access iterator）
+- 不能按下标访问
 - 没有begin()与end()
 - 唯一的访问接口是front()
 - 用emplace代替emplace_back，用push代替push_back，用pop代替pop_back，没有insert和erase
@@ -2616,7 +2621,7 @@ queue缺省用deque实现，FIFO，具有如下特点：
 stack缺省用deque实现，LIFO，具有如下特点：
 
 - 不能按下标访问
-- 没有begin()与end()
+- 没有begin()与end()，没有迭代器
 - 唯一的访问接口是top()
 - 用emplace代替emplace_back，用push代替push_back，用pop代替pop_back，没有insert和erase
 
@@ -2637,8 +2642,10 @@ queue与stack的pop()的**返回值是void**，而top()/front()可以返回**指
 ```c++
 template <class T, class Sequence = vector<T>, class Compare = less<typename Sequence::value_type> >
 
+// 声明示例
 priority_queue<pair<int, int>,vector<pair<int, int>>,greater<pair<int, int>>> q;
 
+// 声明示例
 auto my_comp = [](const ListNode* a, const ListNode* b){
     return a->val > b->val;
 }
@@ -2723,7 +2730,7 @@ void test(int a[8]){
 
 C++17提供了std::size()方法，可以提供数组长度，并且在数组退化成指针时编译失败（可以在编译阶段发现错误）
 
-用std::array，可以直接调用size成员函数，而且也不会退化成指针，这样更翻遍
+用std::array，可以直接调用size成员函数，而且也不会退化成指针，这样更方便
 
 ### tuple(C++11起)
 
@@ -2756,7 +2763,7 @@ vector
     ```c++
     auto end = vec.end();
     for(it = vec.begin(); it != end; ++it){
-        vec.push(back(0));
+        vec.push_back(0);
     }
     ```
 
@@ -2769,6 +2776,20 @@ vector
     auto it = vec.begin();
     it = vec.erase(it); // now it points to 1
     ```
+
+4. 如果想通过迭代器循环删除vector，可以利用vector.erase返回下一个元素的特性
+
+   ```c++
+      vector<int> vec = {0,1,2,3};
+      for (auto it = vec.begin(); it != vec.end();) {
+        it = vec.erase(it);
+      }
+      cout << vec.size() << endl; // 输出0
+      cout << vec.capacity() << endl; // 输出4
+      vec.shrink_to_fit();
+      cout << vec.size() << endl; // 输出0
+      cout << vec.capacity() << endl; // 输出0
+   ```
 
 list
 
@@ -2790,7 +2811,7 @@ set和map底层是以红黑树结构来实现的，而父子节点的连接只�
 
 unordered_set和unordered_map底层是用哈希表实现的，而一般哈希表是用开链法解决哈希冲突的，即散列到同一个bucket/slot上的元素，通过链表连接起来，所以这两个容器的迭代器，插入不影响其他迭代器，删除只影响删除节点的迭代器；但有一个例外，如果哈希表中元素过多，需要再散列（rehashing），所有原来的迭代器都会失效
 
-### STL中的一些常用技法
+### traits萃取
 
 typename告诉编译器：这是一个类型，typedef为这个类型定义别名
 
@@ -2860,11 +2881,11 @@ std::cout<<sizeof(ebo)<<std::endl; // 输出4，没有额外空间
 
 ### std::sort
 
-三数中值法选择pivot
+STL的sort算法是内省排序
 
-快排需要递归，当递归深度超过某阈值时，转为堆排序
-
-当子区间小于某阈值时，直接用插入排序
+- 三数中值法选择pivot
+- 快排需要递归，当递归深度超过某阈值时，转为堆排序
+- 当子区间小于某阈值时，直接用插入排序
 
 ## 操作系统
 
@@ -6141,7 +6162,7 @@ vector<int> selectSort(vector<int> vec){
 }
 ```
 
-归并排序是稳定的，不是原地排序的，空间复杂度O(n)，任何情况的时间复杂度都是O(nlogn)
+归并排序是稳定的，不是原地排序的，，比较次数几乎是最优的，空间复杂度O(n)，任何情况的时间复杂度都是O(nlogn)
 
 快排是一种原地、不稳定的，最坏情况的时间复杂度从O(nlogn)退化成了O(n2)，但是概率很低，所以平均时间复杂度就是O(nlogn)
 
@@ -6459,6 +6480,20 @@ T2 = "it is a banana"
 而且跳表的插入、删除操作的时间复杂度也是O(logn)，跳表可以用O(logn)找到待插入/删除的位置，然后用O(1)完成插入/删除
 
 可以想象，往跳表中不断地插入/删除，跳表可能会退化为单链表，所以要及时**更新索引**。类似红黑树/AVL树的平衡操作，更新索引就是维护索引和原始链表大小之间的平衡。跳表是通过**随机函数**来维护“平衡性”。往跳表中插入数据的时候，可以选择同时将这个数据插入到某个索引层中，随机函数决定到底是哪个索引层
+
+### 线索二叉树
+
+一个二叉树通过如下的方法 “穿起来”：所有原本为空的右 (孩子) 指针改为指向该节点在中序序列中的后继，所有原本为空的左 (孩子) 指针改为指向该节点的中序序列的后继
+
+线索二叉树能**线性地遍历**二叉树，从而**比递归的中序遍历更快**。使用线索二叉树也能够方便的找到一个节点的父节点，这比显式地使用父亲节点指针或者栈效率更高。这在栈空间有限，或者无法使用存储父节点的栈时很有作用（对于通过深度优先搜索来查找父节点而言)
+
+总之，线索二叉树既可以利用空指针，又可以加快特定顺序的遍历速度。如果所用的二叉树经常需要遍历或查找节点时需要某种遍历序列中的前驱和后继，那么线索二叉树是个不错的选择
+
+### 伸展树
+
+伸展树保证从空树开始任意连续M次对树的操作最多花费O(MlogN)时间，不过并不保证单次操作花费Θ(N)时间，一棵伸展树的每次操作的摊还代价是O(logN)
+
+伸展树的基本想法是,当一个节点被访问后,它就要经过一系列AVL树旋转向根推进。注意,如果一个节点很深,那么在其路径上就存在许多的节点也相对较深,通过重新构造可以使对所有这些节点的进一步访问所花费的时间变少。伸展树还不要求保留高度或平衡信息,因此它在某种程度上节省空间并简化代码
 
 ### Trie树
 
