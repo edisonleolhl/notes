@@ -3863,7 +3863,7 @@ public:
 
 优化：这题主要考察比较的问题，只需要按照某种规则将这个数组中的数字全部排序,之后再转换成为字符串加起来，就可以得到最小数（最大数）
 
-sort中的比较函数compare要声明为静态成员函数或全局函数，不能作为普通成员函数，否则会报错。因为：非静态成员函数是依赖于具体对象的，而std::sort这类函数是全局的，因此无法再sort中调用非静态成员函数。静态成员函数或者全局函数是不依赖于具体对象的, 可以独立访问，无须创建任何对象实例就可以访问。同时静态成员函数不可以调用类的非静态成员。
+sort中的比较函数compare要声明为静态成员函数或全局函数，不能作为普通成员函数，否则会报错。因为：非静态成员函数是依赖于具体对象的，而std::sort这类函数是全局的，因此无法在sort中调用非静态成员函数。静态成员函数或者全局函数是不依赖于具体对象的, 可以独立访问，无须创建任何对象实例就可以访问。同时静态成员函数不可以调用类的非静态成员。
 
 ```c++
 class Solution {
@@ -4250,7 +4250,7 @@ public:
 };
 ```
 
-后来看了[解答](https://www.acwing.com/video/186/)，终于知道了为什么，这其实就是三路归并，跟排序有关
+后来看了[解答](https://www.acwing.com/video/186/)，终于知道了为什么，这其实就是三路归并，跟排序有关，p1遍历所有2的倍数，p2遍历所有3的倍数，p3遍历所有5的倍数，然后三路归并
 
 ```c++
 class Solution {
@@ -4796,6 +4796,31 @@ public:
             return mid;
         }
         return binarySearch(nums, low, high);
+    }
+};
+```
+
+```c++
+class Solution {
+public:
+    int getNumberSameAsIndex(vector<int>& nums) {
+        if(nums.empty()) return -1;
+        int low = 0;
+        int high = nums.size() - 1;
+        while (low < high) {
+            int mid = (low + high) / 2;
+            if(nums[mid] > mid){
+                high = mid - 1;
+            }
+            else if(nums[mid] < mid){
+                low = mid + 1;
+            }
+            else{
+                return mid;
+            }
+        }
+        if (low != nums[low]) return -1;
+        return low;
     }
 };
 ```
@@ -5864,6 +5889,8 @@ public:
 
 ### 66：构建乘积数组
 
+同力扣238题
+
 [AcWing](https://www.acwing.com/problem/content/82/)
 
 给定一个数组A[0, 1, …, n-1]，请构建一个数组B[0, 1, …, n-1]，其中B中的元素B[i]=A[0]×A[1]×… ×A[i-1]×A[i+1]×…×A[n-1]。
@@ -5922,6 +5949,28 @@ public:
         for(int i = len - 2; i >= 0; --i){
             product *= A[i+1];
             ans[i] *= product; // B[1] = 1 * A[0] * (A[n-1]*A[n-2]*...A[2])
+        }
+        return ans;
+    }
+};
+```
+
+构造L数组和R数组，需要O(n)额外空间，复用ans数组只需要O(1)空间
+
+```c++
+class Solution {
+public:
+    vector<int> constructArr(vector<int>& nums) {
+        int n = nums.size();
+        vector<int> ans (n, 1); // L与R数组共用ans，额外空间为为O(1)
+        if (nums.empty() || nums.size() == 1) return ans;
+        for (int i = 1; i < n; ++i) { // 先把ans当L数组用
+            ans[i] = ans[i-1] * nums[i-1];
+        }
+        int rightProduct = 1; // 第一次进入：ans[n-1]=L[n-1]*1
+        for (int i = n-1; i >= 0; --i) {
+            ans[i] *= rightProduct;
+            rightProduct *= nums[i];
         }
         return ans;
     }

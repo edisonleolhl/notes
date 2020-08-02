@@ -1677,6 +1677,8 @@ public:
 
 ### 238. 除自身以外数组的乘积
 
+同剑指66题
+
 给你一个长度为 n 的整数数组 nums，其中 n > 1，返回输出数组 output ，其中 output[i] 等于 nums 中除 nums[i] 之外其余各元素的乘积。
 
 示例:
@@ -1893,6 +1895,37 @@ public:
 };
 ```
 
+### 340.至多包含k个不同字符的最长子串(Hard)
+
+这题需要会员，找了个题解
+
+[LeetCode 340. 至多包含 K 个不同字符的最长子串（滑动窗口）](https://blog.csdn.net/qq_21201267/article/details/107399576)
+
+哈希map对字符计数
+
+维持哈希map的size<=k，计数为0时，删除 key
+
+```c++
+int func(string s, int k) {
+    unordered_map<char, int> m;
+    int maxLen = 0;
+    int i = 0; // 快指针
+    int j = 0; // 慢指针
+    while (i < s.size()) {
+        if (m.size() <= k) m[s[i]]++;
+        while (m.size() > k) { // 当前区间不满足『至多包含k个不同字符』
+            if (--m[s[j]] == 0) {
+                m.erase(s[j]);
+            }
+            ++j; // 慢指针左移
+        }
+        maxLen = max(maxLen, i - j + 1);
+        ++i; // 快指针左移
+    }
+    return maxLen;
+}
+```
+
 ### 350.两个数组的交集 II
 
 给定两个数组，编写一个函数来计算它们的交集。
@@ -2040,6 +2073,63 @@ public:
             else{
                 ++it2;
             }
+        }
+        return res;
+    }
+};
+```
+
+### 438. 找到字符串中所有字母异位词(Medium)
+
+给定一个字符串 s 和一个非空字符串 p，找到 s 中所有是 p 的字母异位词的子串，返回这些子串的起始索引。
+
+字符串只包含小写英文字母，并且字符串 s 和 p 的长度都不超过 20100。
+
+说明：
+
+字母异位词指字母相同，但排列不同的字符串。
+不考虑答案输出的顺序。
+示例 1:
+
+输入:
+s: "cbaebabacd" p: "abc"
+
+输出:
+[0, 6]
+
+解释:
+起始索引等于 0 的子串是 "cba", 它是 "abc" 的字母异位词。
+起始索引等于 6 的子串是 "bac", 它是 "abc" 的字母异位词。
+ 示例 2:
+
+输入:
+s: "abab" p: "ab"
+
+输出:
+[0, 1, 2]
+
+解释:
+起始索引等于 0 的子串是 "ab", 它是 "ab" 的字母异位词。
+起始索引等于 1 的子串是 "ba", 它是 "ab" 的字母异位词。
+起始索引等于 2 的子串是 "ab", 它是 "ab" 的字母异位词。
+
+滑动窗口，如果len长度与p长度一致则命中，接下来收缩左边
+
+```c++
+class Solution {
+public:
+    vector<int> findAnagrams(string s, string p) {
+        vector<int> res;
+        int count[256] = {0};
+        int l = 0;
+        int r = 0;
+        int len = 0;
+        for (auto &e : p) ++count[e];
+        while (r < s.size()) {
+            if (--count[s[r++]] >= 0 && ++len == p.size()) {
+                res.push_back(l); // 匹配命中
+            }
+            if (r - l == p.size() && ++count[s[l++]] > 0) --len;
         }
         return res;
     }
@@ -9218,6 +9308,38 @@ public:
         return true;
     }
 };
+```
+
+如果没有【已访问的格子不能再访问】的限制，则不需要visited数组了
+
+```c++
+bool dfs(vector<vector<char>> &board, string &word, int wordIndex, int x, int y) {
+    if (board[x][y] != word[wordIndex]) {
+        return false;
+    }
+    if (word.size() - 1 == wordIndex) {
+        return true;
+    }
+    wordIndex++;
+    if ((x > 0 && dfs(board, word, wordIndex, x - 1, y))
+        || (y > 0 && dfs(board, word, wordIndex, x, y - 1))
+        || (x < board.size() - 1 && dfs(board, word, wordIndex, x + 1, y))
+        || (y < board[0].size() - 1 && dfs(board, word, wordIndex, x, y + 1))
+        ) {
+        return true;
+    }
+    return false;
+}
+bool exist(vector<vector<char>> &board, string word) {
+    for (int i = 0; i < board.size(); ++i) {
+        for (int j = 0; j < board[0].size(); ++j) {
+            if (dfs(board, word, 0, i, j)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
 ```
 
 ### 257. 二叉树的所有路径
