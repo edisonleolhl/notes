@@ -1114,19 +1114,12 @@ C++三大特性：封装、继承、多态，都需要C模拟
 ### 虚函数
 
 1. 多态，是指在继承层次中，父类的指针可以具有多种形态，当它指向某个子类对象时，通过它能够调用到子类的函数（必须是重写本父类的虚函数），而非父类的函数
-
 2. 每一个具有虚函数的类都有一个虚函数表，里面按在类中声明的虚函数的顺序存放着虚函数的地址，这个虚函数表是这个类的所有对象所共有的，只有一个。
-
 3. 虚函数表只是编译器在编译时设置的**静态数组**。虚拟表包含可由类的对象调用的每个虚函数的一个条目。此表中的每个条目只是一个**函数指针**，指向该类可访问的**最派生**函数。
-
 4. 为每个有虚函数的类插入一个指针（vptr），这个指针指向该类的虚函数表，一般为了效率考虑，指针位于该类的头部
-
 5. 子类继承父类时也会继承虚函数表/虚函数指针（都是新的），但是当子类**重写**继承的虚函数时，子类的虚函数表中的对应虚函数地址会**替换**为重写的虚函数地址。
-
 6. 如果有多继承，子类的vfptr虚函数指针不止一个，虚函数表也不止一个，子类自己定义的虚函数会放在继承自第一个（按照继承声明顺序）父类的虚函数表后面，若重写多个父类的同名虚函数，则继承自对应父类的虚函数表也会修改
-
 7. **默认参数是静态绑定的**，虚函数是动态绑定的。默认参数的使用需要看指针或者引用本身的类型，而不是对象的类型，即不会体现多态性。
-
 8. 虚函数可以是私有的，但是必须在在类中声明`friend int main();`
 
 ### 纯虚函数是什么
@@ -1137,12 +1130,16 @@ C++三大特性：封装、继承、多态，都需要C模拟
 - 包含纯虚函数的类就是抽象类
 - 派生类如果不覆盖纯虚函数，那么派生类也是抽象类
 
-### 虚继承/虚基类是什么，为什么可以解决菱形继承问题
+### 虚继承/菱形继承
 
 - 虚继承（Virtual Inheritance）/虚基类解决了从不同途径继承来的同名的数据成员在内存中有不同的拷贝造成数据不一致问题，将共同基类设置为虚基类。这时从不同的路径继承过来的同名数据成员在内存中就只有一个拷贝，同一个函数名也只有一个映射
 - 当在多条继承路径上有一个公共的基类，在这些路径中的某几条汇合处，这个公共的基类就会产生多个实例(或多个副本)，若只想保存这个基类的一个实例，可以将这个公共基类说明为虚基类。
-- 虚继承一般通过**vbptr虚基类指针**和vb虚基类表实现，每个虚继承的子类都有一个虚基类指针（占用一个指针的存储空间，4字节，放在虚函数表指针的后面，如果没有虚函数表指针，那就放在类实例的头部）和虚基类表（不占用类对象的存储空间）；当虚继承的子类被当做父类继承时，虚基类指针也会被继承。
+- 虚继承一般通过**vbptr虚基类指针**和vb虚基类表实现，每个虚继承的子类都有一个虚基类指针（占用一个指针的存储空间，放在虚函数表指针的后面，如果没有虚函数表指针，那就放在类实例的头部）和虚基类表（不占用类对象的存储空间）；当虚继承的子类被当做父类继承时，虚基类指针也会被继承。
 - 解决了二义性问题，解决了钻石继承/菱形继承/重复继承问题，也节省了内存，避免了数据不一致的问题。
+
+### 为什么虚函数表中有两个析构函数
+
+虚函数表中有两个析构函数，一个标志为deleting，一个标志为complete，因为对象有两种构造方式，**栈构造和堆构造**，所以对应的实现上，对象也有两种析构方式，其中堆上对象的析构和栈上对象的析构不同之处在于，栈内存的析构不需要执行 delete 函数，会自动被回收。
 
 ### 构造函数/析构函数的执行顺序
 
@@ -1155,7 +1152,7 @@ C++三大特性：封装、继承、多态，都需要C模拟
 
 析构以与构造**相反顺序**执行
 
-### 初始化列表/初始化列表成员构造顺序
+### 初始化列表成员初始化顺序
 
 - const成员的初始化只能在构造函数初始化列表中进行
 - 引用成员的初始化也只能在构造函数初始化列表中进行
@@ -1315,6 +1312,18 @@ struct s
     short b;
     double d;
 }; // sizeof(s) == 24
+struct Obj {
+    char a;
+    uint32_t b;
+    uint8_t c;
+    uint64_t d[0];
+};
+// sizeof(Obj) = 16
+// 如果没有第四个字段，应该是4+4+4=12，加上第四个字段是16，第四个字段不占空间，但会告诉编译器要按8字节对齐
+//这种用法在内核里经常用到，比如下面可以直接用下标访问
+Obj o1;
+uint64_t array[1024]; // 在内存中，array紧跟o1后面
+o1.d[123]; // 可以访问array的元素
 ```
 
 转自：[图说C++对象模型：对象内存布局详解](https://www.cnblogs.com/QG-whz/p/4909359.html)、[C++中虚函数工作原理和(虚)继承类的内存占用大小计算](https://blog.csdn.net/Hackbuteer1/article/details/7883531)
@@ -2116,7 +2125,7 @@ delete空指针是安全的，意义明确
 
 ### RTTI
 
-- RTTI(Run Time Type Identification)即通过**运行时类型识别**，程序能够使用基类的指针或引用来检查这些指针或引用所指的对象的实际派生类型，**必须定义虚函数**，实际上是通过vptr获取存储在虚函数表的type_info，type_info 类描述编译器在程序中生成的**类型信息**
+- RTTI(Run Time Type Identification)即通过**运行时类型识别**，程序能够使用基类的指针或引用来检查这些指针或引用所指的对象的实际派生类型，**必须定义虚函数**，实际上是通过vptr获取存储在**虚函数表的type_info**，type_info 类描述编译器在程序中生成的**类型信息**
 - C++是一种静态类型语言。其数据类型是在编译期就确定的，不能在运行时更改，然而C++又有多态性的需求，所以需要RTTI在运行时进行类型识别
 - RTTI提供了两个工具：
   - **type_id**：操作符，用来返回type_info对象的引用
@@ -2776,7 +2785,7 @@ vector
     it = vec.erase(it); // now it points to 1
     ```
 
-4. 如果想通过迭代器循环删除vector，可以利用vector.erase返回下一个元素的特性
+4. 如果想通过迭代器循环删除vector，可以利用vector.erase返回下一个元素的特性（其他STL容器也可以这样做）
 
    ```c++
       vector<int> vec = {0,1,2,3};
@@ -4512,7 +4521,7 @@ server没有收到ACK，超时重传，一定次数还没收到则关闭连接
 1. 第四次挥手的ACK报文可能丢失，B如没有收到ACK报文，则会不断重复发送FIN报文，所以A不能立即关闭，必须确认B收到了ACK，`2*MSL`正好是一个发送和一个回复的最大时间，如果A直到`2*MSL`还没收到B的重复FIN报文，则说明第四次挥手的ACK已经成功接收，于是可以放心的关闭TCP连接了。
 2. 第四次挥手的ACK报文之后，再经过2*MSL的时间，就是本次连接持续时间内产生的所有报文都从网络中消失，这样下一个新的TCP连接就不会出现旧的连接请求报文了。
 3. 2MSL 的时间是从客户端接收到 FIN 后发送 ACK 开始计时的。如果在 TIME-WAIT 时间内，因为客户端的 ACK 没有传输到服务端，客户端又接收到了服务端重发的 FIN 报文，那么 2MSL 时间将重新计时。
-4. **在 Linux 系统里 2MSL 默认是 60 秒**，那么一个 MSL 也就是 30 秒。Linux 系统停留在TIME_WAIT 的时间为固定的 60 秒。
+4. **在 Linux 系统里 2MSL 默认是 60 秒**，那么一个 MSL 也就是 30 秒。Linux 系统停留在TIME_WAIT 的时间为固定的 60 秒��
 
 [TCP漫谈之keepalive和time_wait](https://mp.weixin.qq.com/s/8wAjPNQGC_l4p-j8OIbPNQ)
 
@@ -5722,9 +5731,11 @@ where match (全文索引字段1,全文索引字段2,...) against (搜索关键
 
 #### B树与B+树
 
+[https://mp.weixin.qq.com/s/y3vDkEQfR5Pv1-rcWRZ7nQ](https://mp.weixin.qq.com/s/y3vDkEQfR5Pv1-rcWRZ7nQ)
+
 B+树作为数据库索引的特点，一个B+树需要说明是m阶的
 
-- 每个节点中子节点的个数不能超过m，也不能小于m/2;
+- 每个节点的子节点的个数不能超过m，也不能小于m/2;
 - 根节点的子节点个数可以不超过m/2，这是一个例外;
 - m叉树只存储索引，并不真正存储数据，这个有点类似跳表;
 - 通过链表将叶子节点串联在一起，这样可以方便按区间查找，为了升序和降序，一般是**双向链表**
@@ -5734,9 +5745,12 @@ B+树作为数据库索引的特点，一个B+树需要说明是m阶的
 
 B树也就是B-树（不是减号，是连接符），B树与B+树的差别如下
 
-1. B+树的**关键字**只是起到索引的作用
-2. B+树的**数据都存储在叶子节点**上，B树的数据存储在每个节点上
-3. B+树支持**区间访问**，叶子节点会按顺序建立指针
+1. B+树的中间节点**关键字**只是起到索引的作用，并不存储数据本身
+2. B+树的**数据都存储在叶子节点**上，B树的数据存储在每个节点上，可能会增加B树的层数，从而增大搜索时间，所以对于同样数量的记录，B+树更加“矮胖”，磁盘IO更少
+3. B+树支持**区间访问**，叶子节点会按顺序建立单链表
+4. B+树对于每次查询的磁盘IO次数都是固定的，即树的高度（因为要走到叶子节点），**B+树查询性能是稳定的**，而B树有可能只需要一次磁盘IO（只需要访问存储在根节点的数据），也有可能需要树的高度的磁盘IO次数，所以**B树的查询性能并不稳定**
+
+对于 B+树而言，树的高度一般不超过 4 层
 
 #### 索引常见数据结构
 
@@ -7410,7 +7424,7 @@ int main(){
 - 优点：减少了内存的开销；避免对资源的多重占用
 - 缺点：没有接口，不能继承
 
-### 单例模式的懒汉式
+#### 懒汉式
 
 [C++ 单例模式总结与剖析](https://www.cnblogs.com/sunchaothu/p/10389842.html)
 
@@ -7506,6 +7520,8 @@ main函数输出"c-tor called \n d-tor called"，达到了智能指针自动析�
 1. 单例类用了智能指针，用户（main函数）也得使用智能指针，这样比较繁琐
 2. 可能由于编译器的优化或操作系统的问题，双检锁会失效！C++11的atomic可以解决双检锁失效的问题，原子操作，获得和释放，内存屏障
 
+#### 局部静态变量（懒汉式最佳版本）
+
 懒汉式最佳版本——使用**局部静态变量**：
 
 ```c++
@@ -7517,8 +7533,8 @@ public:
         cout << "d-tor called" << endl;
     }
     static Singleton& getInstance(){ // 注意返回引用！
-        static Singleton instance_ptr;
-        return instance_ptr;
+        static Singleton t;
+        return t;
     }
 private:
     Singleton(){
@@ -7544,7 +7560,7 @@ int main()
 
 有可能C++11以前的编译器上线程不安全，因为用编译器用一个**全局标识**判断静态成员是否已初始化，这相当于先if再初始化，多线程可能就会在这里造成竞争条件。
 
-### 单例模式的饿汉式
+#### 饿汉式
 
 直接加载唯一实例，定义单例类时就进行实例化，所以天生没有多线程的问题
 
@@ -7612,42 +7628,69 @@ int main()
 }  
 ```
 
-### 单例模式的懒汉式加载，如果并发访问怎么办
+#### 懒汉式与并发访问
 
 使用锁机制，防止多次访问。具体做法，第一次判断为空不加锁，若为空，再进行加锁判断是否为空，若为空则生成对象。这叫double checked locking，但是双检锁在有些平台也会失效！
 
 ### 工厂模式
 
 - 工厂模式主要解决接口选择的问题。
-- 该模式下定义一个创建对象的接口，让其子类自己决定实例化哪一个工厂类，使其创建过程延迟到子类进行。
+- 创建对象时不向外部暴露创建逻辑，通过一个共同的接口指向新创建的对象，通过面向对象的**多态**，**将创建对象的工作延迟到子类执行**，由子类决定实例化哪个对象
 - 解耦，代码复用，更改功能容易。
 
 ```c++
-enum class shape_type {
-    circle,
-    triangle,
-    rectangle,
-    ...
+class Game {
+  public:
+    Game() {}
+    virtual ~Game() {}
+    virtual void Play() {
+      std::cout << "play game" << std::endl;
+    }
 };
-class shape { ... };
-class circle : public shape { ... };
-class triangle : public shape { ... };
-class rectangle : public shape { ... };
-shape* create_shape(shape_type type) {
-    switch (type) {
-        case shape_type::circle:
-            return new circle(...);
-        case shape_type::triangle:
-            return new triangle(...);
-        case shape_type::rectangle:
-            return new rectangle(...);
-    ...
-} }
+class BasketBall : public Game {
+    void Play() override { std::cout << "play basketball" << std::endl; }
+};
+class SocketBall : public Game {
+    void Play() override { std::cout << "play socketball" << std::endl; }
+};
+class GameFactory {
+    public:
+    GameFactory() {}
+    virtual ~GameFactory() {}
+    virtual Game* CreateGame() = 0;
+};
+class BasketBallFactory : public GameFactory {
+   public:
+    Game* CreateGame() override{
+        return new BasketBall();
+    };
+};
+class SocketBallFactory : public GameFactory {
+   public:
+    Game* CreateGame() override{
+        return new SocketBall();
+    };
+};
+
+int main() {
+    GameFactory* factory = new BasketBallFactory();
+    Game* game = factory->CreateGame();
+    game->Play(); // play basketball
+    delete factory;
+    delete game;
+
+    factory = new SocketBallFactory();
+    game = factory->CreateGame();
+    game->Play(); // play socketball
+    delete factory;
+    delete game;
+    return 0;
+}
 ```
 
 ### 观察者模式
 
-- 定义对象间的一种一对多的依赖关系
+- 定义对象间的一种**一对多**的依赖关系
 - 当一个对象的状态发生改变时，所有依赖于它的对象都得到通知并被自动更新。
 - 完美地将观察者与被观察者分离开
 
@@ -7678,7 +7721,7 @@ class Subject{
 ### 装饰器模式
 
 - 对**已经存在**的某些类进行装饰，以此来扩展一些功能，从而动态的为一个对象增加新的功能。
-- 装饰器模式是一种用于**代替继承**的技术，无需通过继承增加子类就能扩展对象的新功能。
+- 对于C++代码，当发现一个类**既继承了父类同时又持有父类的对象指针**，那这基本上就是装饰器模式
 - 使用场景：扩展一个类的功能；动态增加功能，动态撤销。
 - 优点：更加灵活，同时避免类型体系的快速膨胀。
 - 缺点：多层装饰比较复杂。
@@ -7690,6 +7733,92 @@ class Subject{
 ### 迭代器模式
 
 举例：iterator
+
+### 策略模式
+
+定义一系列的算法，将它们一个个封装，使得他们可以相互替换，一般为了解决多个if-else带来的复杂性，在多种算法相似的情况下，通过策略模式可减少if-else带来的复杂性和难以维护性，一般在项目中发现多个if-else并且预感将来还会在此增加if-else分支，那基本上就需要使用策略模式。
+
+先举一个不使用策略模式的例子，拿计算来说，下面代码定义了加法操作和减法操作，以后如果需要增加乘法除法等计算，那就需要在枚举里添加新类型，并且增加if-else分支，这违反了开放关闭原则。
+
+```c++
+enum class CalOperation {
+    add,
+    sub
+};
+int NoStragegy(CalOperation ope) {
+    if (ope == CalOperation::add) {
+        std::cout << "this is add operation" << std::endl;
+    } else if (ope == CalOperation::sub) {
+        std::cout << "this is sub operation" << std::endl;
+    } // 如何将来需要增加乘法或者除法或者其它运算，还需要增加if-else
+    return 0;
+}
+```
+
+下例为使用策略模式，定义一个基类Calculation，包含虚函数operation()，若想增加运算操作，直接继承基类，然后重写operation()即可
+
+```c++
+class Calculation {
+   public:
+    Calculation() {}
+    virtual ~Calculation() {}
+    virtual void operation() { std::cout << "base operation" << std::endl; }
+};
+class Add : public Calculation {
+    void operation() override { std::cout << "this is add operation" << std::endl; }
+};
+class Sub : public Calculation {
+    void operation() override { std::cout << "this is sub operation" << std::endl; }
+};
+// 可以继续添加各种运算操作，定义新类然后继承Calculation重写operation()即可
+int Stragegy() {
+    Calculation *cal = new Add();
+    cal->operation();
+    delete cal;
+    Calculation *cal2 = new Sub(); // 这里将来都可以用工厂模式改掉，不会违反开放封闭原则
+    cal2->operation();
+    delete cal2;
+    return 0;
+}
+```
+
+### 原型模式
+
+- 用于创建重复的对象，定义一个clone接口，通过调用clone接口创建出与原来类型相同的对象
+- 比如下面的例子，单纯看game不知道它是什么类型，它可能是篮球游戏也可能是足球游戏等，可以使用原型模式实现
+- 当然，拷贝构造函数也可以实现，但如果拷贝构造函数比较复杂或者程序员不想使用拷贝构造函数就可以使用原型模式
+- 
+
+```c++
+class Game {
+    public:
+      virtual Game* clone() = 0;
+
+      virtual void Play() = 0;
+};
+class BasketBall : public Game {
+    virtual Game* clone() override {
+        return new BasketBall();
+    }
+    virtual void Play() override {
+      std::cout << "basketball" << std::endl;
+    }
+};
+int main() {
+    Game *game = new BasketBall();
+    game->Play();
+    Game* new_game = game->clone();
+    new_game->Play();
+
+    delete game;
+    delete new_game;
+    return 0;
+}
+```
+
+### 建造者模式
+
+用于构建一个复杂的大的对象，一个复杂的对象通常需要一步步才可以构建完成，建造者模式强调的是**一步步创建对象**，并通过相同的构建过程可以获得不同的结果对象，一般来说建造者对象不是直接返回的，与抽象工厂方法区别是抽象工厂方法用于创建多个系列的对象，而建造者模式强调一步步构建对象，并且构建步骤固定
 
 ## 其他
 
@@ -8712,6 +8841,17 @@ Elasticsearch 是面向文档的，意味着它存储整个对象或文档。Ela
 
 副本与分片的关系：**副本是乘法，越多越浪费，但也越保险。分片是除法，分片越多，单分片数据就越少也越分散。**
 
+#### 为什么es快
+
+[Elasticsearch－基础介绍及索引原理分析](https://www.cnblogs.com/dreamroute/p/8484457.html)
+
+1. es建立倒排索引，生成term与对应的posting list，会对term进行排序，然后通过二分查找形成term dictionary
+2. 为了减少磁盘IO，需要将一些数据缓存到内存中，但因为term dictionary太大，于是根据term dictionary建立term index，**term index在内存中是以FST形式保存的**，大大节省了空间
+3. 对posting list也可以进一步压缩，**增量编码压缩**，将大数变小数，按字节存储
+4. 对posting list还可以用**roaring bitmap**压缩
+5. 如果是联合索引，用**跳表**检索posting list会更快
+6. MySQL只有term dictionary这一层，是以B+树存储的，检索一个term需要若干次random access的磁盘IO，而Lucene在term dictionary的基础上添加了term index来加速检索
+
 ### RAID
 
 RAID是英文Redundant Array of Independent Disks的缩写，中文简称为独立冗余磁盘阵列。简单的说，RAID是一种把多块独立的硬盘（物理硬盘）按不同的方式组合起来形成一个硬盘组（逻辑硬盘），从而提供比单个硬盘更高的**存储性能**和提供**数据备份**技术。
@@ -8867,3 +9007,14 @@ TODO
 - 方案2：使用**LRU本地缓存**，空间换时间，使用固定大小的LRU缓存，存储最近N次的映射结果，这样，如果某一个链接生成的非常频繁，则可以在LRU缓存中找到结果直接返回，这是存储空间和性能方面的折中。
 
 分布式解决方案：在以上描述的系统架构中，如果发号器用Redis实现，则Redis是系统的瓶颈与单点，因此，利用数据库分片的设计思想，可部署多个发号器实例，每个实例负责特定号段的发号，比如部署10台Redis，每台分别负责号段尾号为0-9的发号，注意此时发号器的步长则应该设置为10（实例个数）。
+
+## 链路跟踪
+
+Google Dapper是在生产环境下的分布式跟踪系统，**低损耗、应用透明的、大范围部署**。
+
+植入点是少量通用组件库的改造
+
+低采样率可能会丢弃掉部分追踪信息。不过由于动态采样机制，低采样率对应的是高频的服务，所以一些标志性的事件在高频率访问的情况下仍然会反复出现而被捕捉到。
+
+日志系统主要分为三大类tracing、logging、Metrics。集团内EagleEye就是Dapper在阿里的实现，主要定位在tracing。
+
