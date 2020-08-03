@@ -5370,7 +5370,7 @@ public:
 
 ### 59-1：滑动窗口的最大值
 
-[AcWing](https://www.acwing.com/problem/content/75/)
+同力扣239题，[AcWing](https://www.acwing.com/problem/content/75/)
 
 给定一个数组和滑动窗口的大小，请找出所有滑动窗口里的最大值。
 
@@ -5411,35 +5411,33 @@ public:
 
 1. 窗口向右滑动的过程实际上就是将处于窗口的第一个数字删除，同时在窗口的末尾添加一个新的数字，这就可以用双向队列来模拟，每次把尾部的数字弹出，再把新的数字压入到头部，然后找队列中最大的元素即可。
 2. 为了更快地找到最大的元素，我们可以在队列中只保留那些可能成为窗口最大元素的数字，去掉那些不可能成为窗口中最大元素的数字。考虑这样一个情况，如果队列中进来一个较大的数字，那么队列中比这个数更小的数字就不可能再成为窗口中最大的元素了，因为这个大的数字是后进来的，一定会比之前早进入窗口的小的数字要晚离开窗口，那么那些早进入且比较小的数字就“永无出头之日”，所以就可以弹出队列。
-3. 于是我们维护一个双向单调队列，队列放的是元素的下标。我们假设该双端队列的队头是整个队列的最大元素所在下标，至队尾下标代表的元素值依次降低。初始时单调队列为空。随着对数组的遍历过程中，每次插入元素前，首先需要看队头是否还能留在队列中，如果当前下标距离队头下标超过了k，则应该出队。同时需要维护队列的单调性，如果nums[i]大于或等于队尾元素下标所对应的值，则当前队尾再也不可能充当某个滑动窗口的最大值了，故需要队尾出队，直至队列为空或者队尾不小于nums[i]。
+3. 于是我们维护一个**双向单调队列**，队列放的是元素的下标。我们假设该双端队列的队头是整个队列的最大元素所在下标，至队尾下标代表的元素值依次降低。初始时单调队列为空。随着对数组的遍历过程中，每次插入元素前，首先需要看队头是否还能留在队列中，如果当前下标距离队头下标超过了k，则应该出队。同时需要维护队列的单调性，如果nums[i]大于或等于队尾元素下标所对应的值，则当前队尾再也不可能充当某个滑动窗口的最大值了，故需要队尾出队，直至队列为空或者队尾不小于nums[i]。
 4. 始终保持队中元素从队头到队尾单调递减。依次遍历一遍数组，每次队头就是每个滑动窗口的最大值所在下标。
 
 ```c++
 class Solution {
 public:
     vector<int> maxInWindows(vector<int>& nums, int k) {
-        if(nums.empty() || k < 1) return vector<int>();
-        vector<int> maxVec;
-        deque<int> dq;
-        dq.push_back(0);
-        for(int i = 1; i < k; ++i){
-            while(!dq.empty() && nums[i] > nums[dq.back()]){
+        vector<int> res;
+        deque<int> dq; // 双向单调递增队列，存放的是元素的下标
+        for (int i = 0; i < k; ++i) {
+            while (!dq.empty() && nums[i] > nums[dq.back()]) {
                 dq.pop_back();
             }
             dq.push_back(i);
         }
-        maxVec.push_back(nums[dq.front()]);
-        for(int i = k; i < nums.size(); ++i){
-            if(!dq.empty() && i - dq.front() >= k){
+        res.push_back(nums[dq.front()]);
+        for (int i = k; i < nums.size(); ++i) {
+            if (!dq.empty() && i - dq.front() >= k) { // 左侧元素滑出
                 dq.pop_front();
             }
-            while(!dq.empty() && nums[i] > nums[dq.back()]){
+            while (!dq.empty() && nums[i] > nums[dq.back()]) { // 右侧元素滑入
                 dq.pop_back();
             }
             dq.push_back(i);
-            maxVec.push_back(nums[dq.front()]);
+            res.push_back(nums[dq.front()]);
         }
-        return maxVec;
+        return res;
     }
 };
 ```

@@ -1739,6 +1739,74 @@ public:
 };
 ```
 
+### 239. 滑动窗口最大值(Hard)
+
+同力扣59-1
+
+给定一个数组 nums，有一个大小为 k 的滑动窗口从数组的最左侧移动到数组的最右侧。你只可以看到在滑动窗口内的 k 个数字。滑动窗口每次只向右移动一位。
+
+返回滑动窗口中的最大值。
+
+进阶：
+
+你能在线性时间复杂度内解决此题吗？
+
+示例:
+
+输入: nums = [1,3,-1,-3,5,3,6,7], 和 k = 3
+输出: [3,3,5,5,6,7]
+解释:
+
+  滑动窗口的位置                最大值
+---------------               -----
+[1  3  -1] -3  5  3  6  7       3
+ 1 [3  -1  -3] 5  3  6  7       3
+ 1  3 [-1  -3  5] 3  6  7       5
+ 1  3  -1 [-3  5  3] 6  7       5
+ 1  3  -1  -3 [5  3  6] 7       6
+ 1  3  -1  -3  5 [3  6  7]      7
+
+提示：
+
+1 <= nums.length <= 10^5
+-10^4 <= nums[i] <= 10^4
+1 <= k <= nums.length
+
+优化：时间复杂度为O(n)，空间复杂度为O(1)，用到了双端队列（STL容器deque）
+
+1. 窗口向右滑动的过程实际上就是将处于窗口的第一个数字删除，同时在窗口的末尾添加一个新的数字，这就可以用双向队列来模拟，每次把尾部的数字弹出，再把新的数字压入到头部，然后找队列中最大的元素即可。
+2. 为了更快地找到最大的元素，我们可以在队列中只保留那些可能成为窗口最大元素的数字，去掉那些不可能成为窗口中最大元素的数字。考虑这样一个情况，如果队列中进来一个较大的数字，那么队列中比这个数更小的数字就不可能再成为窗口中最大的元素了，因为这个大的数字是后进来的，一定会比之前早进入窗口的小的数字要晚离开窗口，那么那些早进入且比较小的数字就“永无出头之日”，所以就可以弹出队列。
+3. 于是我们维护一个**双向单调队列**，队列放的是元素的下标。我们假设该双端队列的队头是整个队列的最大元素所在下标，至队尾下标代表的元素值依次降低。初始时单调队列为空。随着对数组的遍历过程中，每次插入元素前，首先需要看队头是否还能留在队列中，如果当前下标距离队头下标超过了k，则应该出队。同时需要维护队列的单调性，如果nums[i]大于或等于队尾元素下标所对应的值，则当前队尾再也不可能充当某个滑动窗口的最大值了，故需要队尾出队，直至队列为空或者队尾不小于nums[i]。
+4. 始终保持队中元素从队头到队尾单调递减。依次遍历一遍数组，每次队头就是每个滑动窗口的最大值所在下标。
+
+```c++
+class Solution {
+public:
+    vector<int> maxSlidingWindow(vector<int>& nums, int k) {
+        vector<int> res;
+        deque<int> dq; // 双向单调递增队列，存放的是元素的下标
+        for (int i = 0; i < k; ++i) {
+            while (!dq.empty() && nums[i] > nums[dq.back()]) {
+                dq.pop_back();
+            }
+            dq.push_back(i);
+        }
+        res.push_back(nums[dq.front()]);
+        for (int i = k; i < nums.size(); ++i) {
+            if (!dq.empty() && i - dq.front() >= k) { // 左侧元素滑出
+                dq.pop_front();
+            }
+            while (!dq.empty() && nums[i] > nums[dq.back()]) { // 右侧元素滑入
+                dq.pop_back();
+            }
+            dq.push_back(i);
+            res.push_back(nums[dq.front()]);
+        }
+        return res;
+    }
+};
+```
+
 ### 240. 搜索二维矩阵 II
 
 同剑指第24题
@@ -1895,37 +1963,6 @@ public:
 };
 ```
 
-### 340.至多包含k个不同字符的最长子串(Hard)
-
-这题需要会员，找了个题解
-
-[LeetCode 340. 至多包含 K 个不同字符的最长子串（滑动窗口）](https://blog.csdn.net/qq_21201267/article/details/107399576)
-
-哈希map对字符计数
-
-维持哈希map的size<=k，计数为0时，删除 key
-
-```c++
-int func(string s, int k) {
-    unordered_map<char, int> m;
-    int maxLen = 0;
-    int i = 0; // 快指针
-    int j = 0; // 慢指针
-    while (i < s.size()) {
-        if (m.size() <= k) m[s[i]]++;
-        while (m.size() > k) { // 当前区间不满足『至多包含k个不同字符』
-            if (--m[s[j]] == 0) {
-                m.erase(s[j]);
-            }
-            ++j; // 慢指针左移
-        }
-        maxLen = max(maxLen, i - j + 1);
-        ++i; // 快指针左移
-    }
-    return maxLen;
-}
-```
-
 ### 350.两个数组的交集 II
 
 给定两个数组，编写一个函数来计算它们的交集。
@@ -2079,62 +2116,33 @@ public:
 };
 ```
 
-### 438. 找到字符串中所有字母异位词(Medium)
+### 480. 滑动窗口中位数(Hard)
 
-给定一个字符串 s 和一个非空字符串 p，找到 s 中所有是 p 的字母异位词的子串，返回这些子串的起始索引。
+中位数是有序序列最中间的那个数。如果序列的大小是偶数，则没有最中间的数；此时中位数是最中间的两个数的平均数。
 
-字符串只包含小写英文字母，并且字符串 s 和 p 的长度都不超过 20100。
+例如：
 
-说明：
+[2,3,4]，中位数是 3
+[2,3]，中位数是 (2 + 3) / 2 = 2.5
+给你一个数组 nums，有一个大小为 k 的窗口从最左端滑动到最右端。窗口中有 k 个数，每次窗口向右移动 1 位。你的任务是找出每次窗口移动后得到的新窗口中元素的中位数，并输出由它们组成的数组。
 
-字母异位词指字母相同，但排列不同的字符串。
-不考虑答案输出的顺序。
-示例 1:
+示例：
 
-输入:
-s: "cbaebabacd" p: "abc"
+给出 nums = [1,3,-1,-3,5,3,6,7]，以及 k = 3。
 
-输出:
-[0, 6]
+窗口位置                      中位数
+---------------               -----
+[1  3  -1] -3  5  3  6  7       1
+ 1 [3  -1  -3] 5  3  6  7      -1
+ 1  3 [-1  -3  5] 3  6  7      -1
+ 1  3  -1 [-3  5  3] 6  7       3
+ 1  3  -1  -3 [5  3  6] 7       5
+ 1  3  -1  -3  5 [3  6  7]      6
+ 因此，返回该滑动窗口的中位数数组 [1,-1,-1,3,5,6]。
 
-解释:
-起始索引等于 0 的子串是 "cba", 它是 "abc" 的字母异位词。
-起始索引等于 6 的子串是 "bac", 它是 "abc" 的字母异位词。
- 示例 2:
+类似剑指的数据流中位数，或者用multiset
 
-输入:
-s: "abab" p: "ab"
-
-输出:
-[0, 1, 2]
-
-解释:
-起始索引等于 0 的子串是 "ab", 它是 "ab" 的字母异位词。
-起始索引等于 1 的子串是 "ba", 它是 "ab" 的字母异位词。
-起始索引等于 2 的子串是 "ab", 它是 "ab" 的字母异位词。
-
-滑动窗口，如果len长度与p长度一致则命中，接下来收缩左边
-
-```c++
-class Solution {
-public:
-    vector<int> findAnagrams(string s, string p) {
-        vector<int> res;
-        int count[256] = {0};
-        int l = 0;
-        int r = 0;
-        int len = 0;
-        for (auto &e : p) ++count[e];
-        while (r < s.size()) {
-            if (--count[s[r++]] >= 0 && ++len == p.size()) {
-                res.push_back(l); // 匹配命中
-            }
-            if (r - l == p.size() && ++count[s[l++]] > 0) --len;
-        }
-        return res;
-    }
-};
-```
+todo
 
 ### 496. 下一个更大元素 I(Easy)
 
@@ -3020,6 +3028,69 @@ public:
 };
 ```
 
+### 76. 最小覆盖子串(Hard)
+
+给你一个字符串 S、一个字符串 T 。请你设计一种算法，可以在 O(n) 的时间复杂度内，从字符串 S 里面找出：包含 T 所有字符的最小子串。
+
+示例：
+
+输入：S = "ADOBECODEBANC", T = "ABC"
+输出："BANC"
+
+提示：
+
+如果 S 中不存这样的子串，则返回空字符串 ""。
+如果 S 中存在这样的子串，我们保证它是唯一的答案。
+
+[滑动窗口通用思想](https://leetcode-cn.com/problems/minimum-window-substring/solution/hua-dong-chuang-kou-suan-fa-tong-yong-si-xiang-by-/)
+
+把索引左闭右开区间 [left, right) 称为一个「窗口」。
+
+- 如果一个字符进入窗口，应该增加 window 计数器；
+- 如果一个字符将移出窗口的时候，应该减少 window 计数器；
+- 当 valid 满足 need 时应该收缩窗口；
+- 应该在收缩窗口的时候更新最终结果。
+
+```c++
+class Solution {
+public:
+    string minWindow(string s, string t) {
+        unordered_map<char, int> need, window;
+        for(char &c : t) ++need[c];
+        int l = 0, r = 0;
+        int len = INT_MAX;
+        int start;
+        int valid = 0; // 记录在滑动窗口内有多少个满足出现次数的字符
+        char c, d;
+        while (r < s.size()) {
+            c = s[r];
+            ++r;
+            if (need.count(c)) {
+                ++window[c];
+                if (need[c] == window[c]) {
+                    ++valid;
+                }
+            }
+            while (valid == need.size()) { // 窗口符合条件，可以收缩左侧边界了
+                if (r - l < len) {
+                    start = l;
+                    len = r -l;
+                }
+                d = s[l];
+                ++l;
+                if (need.count(d)) {
+                    if (need[d] == window[d]) {
+                        --valid;
+                    }
+                    --window[d];
+                }
+            }
+        }
+        return len == INT_MAX ? "" : s.substr(start, len); // substr接收一个起始值和长度值作为参数
+    }
+};
+```
+
 ### 125.验证回文字符串
 
 给定一个字符串，验证它是否是回文串，只考虑字母和数字字符，可以忽略字母的大小写。
@@ -3324,6 +3395,37 @@ public:
 };
 ```
 
+### 340.至多包含k个不同字符的最长子串(Hard)
+
+这题需要会员，找了个题解
+
+[LeetCode 340. 至多包含 K 个不同字符的最长子串（滑动窗口）](https://blog.csdn.net/qq_21201267/article/details/107399576)
+
+哈希map对字符计数
+
+维持哈希map的size<=k，计数为0时，删除 key
+
+```c++
+int func(string s, int k) {
+    unordered_map<char, int> m;
+    int maxLen = 0;
+    int i = 0; // 快指针
+    int j = 0; // 慢指针
+    while (i < s.size()) {
+        if (m.size() <= k) m[s[i]]++;
+        while (m.size() > k) { // 当前区间不满足『至多包含k个不同字符』
+            if (--m[s[j]] == 0) {
+                m.erase(s[j]);
+            }
+            ++j; // 慢指针左移
+        }
+        maxLen = max(maxLen, i - j + 1);
+        ++i; // 快指针左移
+    }
+    return maxLen;
+}
+```
+
 ### 344.反转字符串
 
 编写一个函数，其作用是将输入的字符串反转过来。输入字符串以字符数组 `char[]` 的形式给出。
@@ -3426,6 +3528,139 @@ public:
 };
 ```
 
+### 438. 找到字符串中所有字母异位词(Medium,based on 567)
+
+给定一个字符串 s 和一个非空字符串 p，找到 s 中所有是 p 的字母异位词的子串，返回这些子串的起始索引。
+
+字符串只包含小写英文字母，并且字符串 s 和 p 的长度都不超过 20100。
+
+说明：
+
+字母异位词指字母相同，但排列不同的字符串。
+不考虑答案输出的顺序。
+示例 1:
+
+输入:
+s: "cbaebabacd" p: "abc"
+
+输出:
+[0, 6]
+
+解释:
+起始索引等于 0 的子串是 "cba", 它是 "abc" 的字母异位词。
+起始索引等于 6 的子串是 "bac", 它是 "abc" 的字母异位词。
+ 示例 2:
+
+输入:
+s: "abab" p: "ab"
+
+输出:
+[0, 1, 2]
+
+解释:
+起始索引等于 0 的子串是 "ab", 它是 "ab" 的字母异位词。
+起始索引等于 1 的子串是 "ba", 它是 "ab" 的字母异位词。
+起始索引等于 2 的子串是 "ab", 它是 "ab" 的字母异位词。
+
+相当于，输入一个串 S，一个串 T，找到 S 中所有 T 的排列，返回它们的起始索引。
+
+滑动窗口，参考力扣567题
+
+```c++
+class Solution {
+public:
+    vector<int> findAnagrams(string s, string p) {
+        vector<int> res;
+        unordered_map<char, int> need, window;
+        for (char c : p) need[c]++;
+        int l = 0, r = 0;
+        int valid = 0;
+        char ch;
+        while (r < s.size()) {
+            ch = s[r];
+            r++;
+            if (need.count(ch)) { // 进入窗口的数据更新
+                window[ch]++;
+                if (need[ch] == window[ch]) {
+                    valid++;
+                }
+            }
+            while (r - l >= p.size()) {
+                if (valid == need.size()) { // 窗口符合条件
+                    res.push_back(l);
+                }
+                ch = s[l];
+                l++;
+                if (need.count(ch)) { // 移出窗口的数据更新
+                    if (window[ch] == need[ch]) {
+                        valid--;
+                    }
+                    window[ch]--; // 得和进入窗口时反着来
+                }
+            }
+        }
+        return res;
+    }
+};
+```
+
+### 424. 替换后的最长重复字符(Medium)
+
+给你一个仅由大写英文字母组成的字符串，你可以将任意位置上的字符替换成另外的字符，总共可最多替换 k 次。在执行上述操作后，找到包含重复字母的最长子串的长度。
+
+注意:
+字符串长度 和 k 不会超过 104。
+
+示例 1:
+
+输入:
+s = "ABAB", k = 2
+
+输出:
+4
+
+解释:
+用两个'A'替换为两个'B',反之亦然。
+示例 2:
+
+输入:
+s = "AABABBA", k = 1
+
+输出:
+4
+
+解释:
+将中间的一个'A'替换为'B',字符串变为 "AABBBBA"。
+子串 "BBBB" 有最长重复字母, 答案为 4。
+
+滑动窗口，这题关键是maxCount的理解。不需要保存每一个窗口内的字母出现的最大值，因为字母一定是从右边新添的字符里出现，而且只有当窗口内出现了比历史更多的字母数时，答案才会更新，也就是maxCnt不需要是实时的最大字母数。
+
+```c++
+class Solution {
+public:
+    int characterReplacement(string s, int k) {
+        unordered_map<char, int> window;
+        int res = 0;
+        int l = 0, r = 0;
+        char c, d;
+        int maxCount = 0;
+        while (r < s.size()) {
+            c = s[r];
+            ++r;
+            ++window[c];
+            maxCount = max(maxCount, window[c]);
+            while (maxCount + k < r-l) {
+                d = s[l];
+                ++l;
+                --window[d];
+            }
+            res = max(res, r-l);
+        }
+        return res;
+    }
+};
+```
+
 ### 557. 反转字符串中的单词 III(Easy)
 
 给定一个字符串，你需要反转字符串中每个单词的字符顺序，同时仍保留空格和单词的初始顺序。
@@ -3458,9 +3693,192 @@ public:
 };
 ```
 
+### 567. 字符串的排列(Medium,based on 76)
+
+给定两个字符串 s1 和 s2，写一个函数来判断 s2 是否包含 s1 的排列。
+
+换句话说，第一个字符串的排列之一是第二个字符串的子串。
+
+示例1:
+
+输入: s1 = "ab" s2 = "eidbaooo"
+输出: True
+解释: s2 包含 s1 的排列之一 ("ba").
+
+示例2:
+
+输入: s1= "ab" s2 = "eidboaoo"
+输出: False
+
+注意：
+
+输入的字符串只包含小写字母
+两个字符串的长度都在 [1, 10,000] 之间
+
+滑动窗口，相当给你一个 S 和一个 T，请问你 S 中是否存在一个子串，包含 T 中所有字符且不包含其他字符？
+
+对于这道题的解法代码，基本上和力扣76题最小覆盖子串一模一样，只需要改变两个地方：
+
+1、本题移动 left 缩小窗口的时机是窗口大小大于 t.size() 时，应为排列嘛，显然长度应该是一样的。
+
+2、当发现 valid == need.size() 时，就说明窗口中就是一个合法的排列，所以立即返回 true。
+
+至于如何处理窗口的扩大和缩小，和最小覆盖子串完全相同。
+
+```c++
+class Solution {
+public:
+    bool checkInclusion(string s1, string s2) {
+        bool res = false;
+        unordered_map<char, int> need, window;
+        for (char c : s1) need[c]++;
+        int l = 0, r = 0;
+        int valid = 0;
+        char ch;
+        while (r < s2.size()) {
+            ch = s2[r];
+            ++r;
+            if (need.count(ch)) {
+                ++window[ch];
+                if (window[ch] == need[ch]) {
+                    ++valid;
+                }
+            }
+            // 判断左侧窗口是否要收缩
+            while (r - l >= s1.size()) { // 窗口大小大于s1时，肯定要收缩，因为排列肯定是长度一样的
+                if (valid == need.size()) {
+                    return true;
+                }
+                ch = s2[l];
+                ++l;
+                if (need.count(ch)) {
+                    if (window[ch] == need[ch]) {
+                        --valid;
+                    }
+                    --window[ch];
+                }
+            }
+        }
+        return res;
+    }
+};
+```
+
+### 1004. 最大连续1的个数 III(Medium,based on 1208)
+
+给定一个由若干 0 和 1 组成的数组 A，我们最多可以将 K 个值从 0 变成 1 。
+
+返回仅包含 1 的最长（连续）子数组的长度。
+
+示例 1：
+
+输入：A = [1,1,1,0,0,0,1,1,1,1,0], K = 2
+输出：6
+解释：
+[1,1,1,0,0,1,1,1,1,1,1]
+粗体数字从 0 翻转到 1，最长的子数组长度为 6。
+示例 2：
+
+输入：A = [0,0,1,1,0,0,1,1,1,0,1,1,0,0,0,1,1,1,1], K = 3
+输出：10
+解释：
+[0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1]
+粗体数字从 0 翻转到 1，最长的子数组长度为 10。
+
+提示：
+
+1 <= A.length <= 20000
+0 <= K <= A.length
+A[i] 为 0 或 1
+
+滑动窗口，其实就是对于1208的稍微修改，这题还是把它放在字符串专题吧，因为跟数字关系不大，0和1看成两个字符
+
+```c++
+class Solution {
+public:
+    int longestOnes(vector<int>& A, int K) {
+        int l = 0, r = 0;
+        int res = 0;
+        int c;
+        while (r < A.size()) {
+            c = A[r];
+            ++r;
+            if (c == 0) --K;
+            while (K < 0) {
+                c = A[l];
+                ++l;
+                if (c == 0) ++K;
+            }
+            res = max(res, r-l);
+        }
+        return res;
+    }
+};
+```
+
 ### 1081. 不同字符的最小子序列
 
 同力扣316题
+
+### 1208. 尽可能使字符串相等(Medium)
+
+给你两个长度相同的字符串，s 和 t。
+
+将 s 中的第 i 个字符变到 t 中的第 i 个字符需要 |s[i] - t[i]| 的开销（开销可能为 0），也就是两个字符的 ASCII 码值的差的绝对值。
+
+用于变更字符串的最大预算是 maxCost。在转化字符串时，总开销应当小于等于该预算，这也意味着字符串的转化可能是不完全的。
+
+如果你可以将 s 的子字符串转化为它在 t 中对应的子字符串，则返回可以转化的最大长度。
+
+如果 s 中没有子字符串可以转化成 t 中对应的子字符串，则返回 0。
+
+示例 1：
+
+输入：s = "abcd", t = "bcdf", cost = 3
+输出：3
+解释：s 中的 "abc" 可以变为 "bcd"。开销为 3，所以最大长度为 3。
+示例 2：
+
+输入：s = "abcd", t = "cdef", cost = 3
+输出：1
+解释：s 中的任一字符要想变成 t 中对应的字符，其开销都是 2。因此，最大长度为 1。
+示例 3：
+
+输入：s = "abcd", t = "acde", cost = 0
+输出：1
+解释：你无法作出任何改动，所以最大长度为 1。
+
+提示：
+
+1 <= s.length, t.length <= 10^5
+0 <= maxCost <= 10^6
+s 和 t 都只含小写英文字母。
+
+这题看着很麻烦，但是可以直接用**滑动窗口**一把梭
+
+```c++
+class Solution {
+public:
+    int equalSubstring(string s, string t, int maxCost) {
+        int l = 0, r = 0;
+        int res = 0;
+        int cost = 0;
+        char c, d;
+        while (r < s.size()) {
+            c = s[r], d = t[r];
+            ++r;
+            cost += abs(c-d);
+            while (cost > maxCost) {
+                c = s[l], d = t[l];
+                ++l;
+                cost -= abs(c-d);
+            }
+            res = max(res, r-l);
+        }
+        return res;
+    }
+};
+```
 
 ## 链表
 
@@ -6717,6 +7135,33 @@ public:
             longest = cur > longest ? cur : longest;
         }
         return longest;
+    }
+};
+```
+
+这题也可以用滑动窗口做
+
+```c++
+class Solution {
+public:
+    int lengthOfLongestSubstring(string s) {
+        int res = 0;
+        unordered_map<char, int> window;
+        int l = 0, r = 0;
+        char ch, d;
+        while (r < s.size()) {
+            ch = s[r];
+            ++r;
+            ++window[ch];
+            // 判断左侧窗口是否要收缩
+            while (window[ch] > 1) { // 此时window内有重复字符，收缩左侧窗口
+                d = s[l];
+                ++l;
+                --window[d];
+            }
+            res = max(res, r-l);
+        }
+        return res;
     }
 };
 ```
