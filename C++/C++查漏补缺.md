@@ -6529,7 +6529,7 @@ T2 = "it is a banana"
 
 ### Trie树
 
-在计算机科学中，trie，又称前缀树或字典树，是一种有序树，用于保存关联数组，其中的键通常是字符串，属**于多模式串匹配算法**
+在计算机科学中，trie，又称前缀树或字典树，是一种有序树，用于保存关联数组，其中的键通常是字符串，属于**多模式串匹配算法**
 
 - 根节点不包含字符，除根节点意外每个节点只包含一个字符。
 - 从根节点到某一个节点，路径上经过的字符连接起来，为该节点对应的字符串。
@@ -6541,6 +6541,48 @@ T2 = "it is a banana"
 - 字符串的前缀要尽量重合，否则空间消耗大
 
 使用场景：Trie树只是**不适合精确匹配查找**，这种问题更适合用散列表或者红黑树来解决。Trie树比较适合的是**查找前缀匹配的字符串**。比如**搜索引擎**的搜索关键词提示
+
+1、自动补全（单词自动补全）
+2、拼写检查（检查单词是否拼写正确）
+3、IP路由（最长前缀匹配）
+4、九宫格打字预测（根据前缀预测单词）
+
+```c++
+class Trie {
+public:
+    Trie() {}
+
+    void insert(string word) {
+        auto root = this;
+        for (const char &w : word) {
+            if (!root->next[w-'a']) root->next[w-'a'] = new Trie();
+            root = root->next[w-'a'];
+        }
+        root->is_end = true; // 最后一个节点的标记
+    }
+
+    bool search(string word) {
+        auto root = this;
+        for (const char &w : word) {
+            if (!root->next[w-'a']) return false;
+            root = root->next[w-'a'];
+        }
+        return root->is_end;
+    }
+
+    bool startsWith(string prefix) {
+        auto root = this;
+        for (const char &w : prefix) {
+            if (!root->next[w-'a']) return false;
+            root = root->next[w-'a'];
+        }
+        return true;
+    }
+private:
+    Trie* next[26] = {nullptr};
+    bool is_end = false;
+};
+```
 
 ### LSM树
 
