@@ -3517,6 +3517,87 @@ private:
  */
  ```
 
+### 212. 单词搜索 II
+
+给定一个二维网格 board 和一个字典中的单词列表 words，找出所有同时在二维网格和字典中出现的单词。
+
+单词必须按照字母顺序，通过相邻的单元格内的字母构成，其中“相邻”单元格是那些水平相邻或垂直相邻的单元格。同一个单元格内的字母在一个单词中不允许被重复使用。
+
+示例:
+
+输入: 
+words = ["oath","pea","eat","rain"] and board =
+[
+  ['o','a','a','n'],
+  ['e','t','a','e'],
+  ['i','h','k','r'],
+  ['i','f','l','v']
+]
+
+输出: ["eat","oath"]
+说明:
+你可以假设所有输入都由小写字母 a-z 组成。
+
+提示:
+
+你需要优化回溯算法以通过更大数据量的测试。你能否早点停止回溯？
+如果当前单词不存在于所有单词的前缀中，则可以立即停止回溯。什么样的数据结构可以有效地执行这样的操作？散列表是否可行？为什么？ 前缀树如何？如果你想学习如何实现一个基本的前缀树，请先查看这个问题： 实现Trie（前缀树）。
+
+前缀树+dfs，一种结合稍微紧密的写法，不需要visited数组，注意一些细节，比如去重，比如一个单词内不允许重复使用同一个单元格
+
+```c++
+class Trie {
+public:
+    void insert(const string &word) {
+        Trie* root = this;
+        for (const char &w : word) {
+            if (!root->next[w-'a']) root->next[w-'a'] = new Trie();
+            root = root->next[w-'a'];
+        }
+        root->is_end = true;
+        root->word = word;
+    }
+public:
+    Trie* next[26] = {nullptr};
+    string word = "";
+    bool is_end;
+};
+class Solution {
+public:
+    vector<string> res;
+    void dfs(vector<vector<char>>& board, Trie *root, int rows, int cols, int i, int j) {
+        if (root->is_end) {
+            root->is_end = 0; // 去重
+            res.push_back(root->word);
+        }
+        if (i < 0 || j < 0 || i >= rows || j >= cols) return;
+        if (board[i][j] == '#') return;
+        if (root->next[board[i][j]-'a'] == nullptr) return; // 判断当前字符串是否是某一单词的前缀
+        root = root->next[board[i][j]-'a'];
+        char cur = board[i][j];
+        board[i][j] = '#'; // 当前节点已访问，下面的dfs不能再访问它，因为同一个单元格在一个单词中不允许被重复使用
+        dfs(board, root, rows, cols, i-1, j);
+        dfs(board, root, rows, cols, i+1, j);
+        dfs(board, root, rows, cols, i, j-1);
+        dfs(board, root, rows, cols, i, j+1);
+        board[i][j] = cur; // 复原当前节点
+    }
+    vector<string> findWords(vector<vector<char>>& board, vector<string>& words) {
+        if (board.empty() || board[0].empty() || words.empty()) return res;
+        int rows = board.size();
+        int cols = board[0].size();
+        Trie *trie = new Trie();
+        for (const string &word : words) trie->insert(word);
+        for (int i = 0; i < rows; ++i) {
+            for (int j = 0; j < cols; ++j) {
+                dfs(board, trie, rows, cols, i, j);
+            }
+        }
+        return res;
+    }
+};
+```
+
 ## 滑动窗口
 
 ### 76. 最小覆盖子串(Hard)
