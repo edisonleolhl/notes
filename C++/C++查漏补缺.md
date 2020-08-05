@@ -7590,7 +7590,7 @@ int main()
 {  
     Singleton& instance = Singleton::getInstance(); // 注意用引用！
     Singleton& instance2 = Singleton::getInstance();  
-    return 0;  
+    return 0;
 }
 ```
 
