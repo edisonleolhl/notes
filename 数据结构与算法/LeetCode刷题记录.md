@@ -3404,7 +3404,7 @@ public:
             if (!root->next[w-'a']) root->next[w-'a'] = new Trie();
             root = root->next[w-'a'];
         }
-        root->is_end = true; // 最后一个节点的标记
+        root->is_string = true; // 最后一个节点的标记
     }
 
     bool search(string word) {
@@ -3413,7 +3413,7 @@ public:
             if (!root->next[w-'a']) return false;
             root = root->next[w-'a'];
         }
-        return root->is_end;
+        return root->is_string;
     }
 
     bool startsWith(string prefix) {
@@ -3426,7 +3426,7 @@ public:
     }
 private:
     Trie* next[26] = {nullptr};
-    bool is_end = false;
+    bool is_string = false;
 };
 
 /**
@@ -3465,7 +3465,7 @@ search("b..") -> true
 
 下层的每个可行节点，继续调用search函数，但是传入的参数是word的substr。
 
-在search函数开头会判断word的大小，如果为空，则说明到头了，返回当前节点的is_end变量。
+在search函数开头会判断word的大小，如果为空，则说明到头了，返回当前节点的is_string变量。
 
 ```c++
 class WordDictionary {
@@ -3479,14 +3479,14 @@ public:
             if (!root->next[w-'a']) root->next[w-'a'] = new WordDictionary;
             root = root->next[w-'a'];
         }
-        root->is_end = true;
+        root->is_string = true;
     }
 
     /** Returns if the word is in the data structure. A word could contain the dot character '.' to represent any one letter. */
     bool search(string word) {
         WordDictionary *root = this;
         int n = word.size();
-        if (n == 0) return root->is_end;
+        if (n == 0) return root->is_string;
         for (int i = 0; i < n; ++i) {
             if (word[i] == '.') {
                 // 尝试下层的每个可行节点
@@ -3502,11 +3502,11 @@ public:
                 root = root->next[word[i]-'a'];
             }
         }
-        return root->is_end;
+        return root->is_string;
     }
 private:
     WordDictionary* next[26] = {nullptr};
-    bool is_end = false;
+    bool is_string = false;
 };
 
 /**
@@ -3517,7 +3517,7 @@ private:
  */
  ```
 
-### 212. 单词搜索 II
+### 212. 单词搜索 II(Hard)
 
 给定一个二维网格 board 和一个字典中的单词列表 words，找出所有同时在二维网格和字典中出现的单词。
 
@@ -3554,20 +3554,20 @@ public:
             if (!root->next[w-'a']) root->next[w-'a'] = new Trie();
             root = root->next[w-'a'];
         }
-        root->is_end = true;
+        root->is_string = true;
         root->word = word;
     }
 public:
     Trie* next[26] = {nullptr};
     string word = "";
-    bool is_end;
+    bool is_string;
 };
 class Solution {
 public:
     vector<string> res;
     void dfs(vector<vector<char>>& board, Trie *root, int rows, int cols, int i, int j) {
-        if (root->is_end) {
-            root->is_end = 0; // 去重
+        if (root->is_string) {
+            root->is_string = 0; // 去重
             res.push_back(root->word);
         }
         if (i < 0 || j < 0 || i >= rows || j >= cols) return;
@@ -3595,6 +3595,430 @@ public:
         }
         return res;
     }
+};
+```
+
+### 336. 回文对(Hard)
+
+给定一组唯一的单词， 找出所有不同 的索引对(i, j)，使得列表中的两个单词， words[i] + words[j] ，可拼接成回文串。
+
+示例 1:
+
+输入: ["abcd","dcba","lls","s","sssll"]
+输出: [[0,1],[1,0],[3,2],[2,4]] 
+解释: 可拼接成的回文串为 ["dcbaabcd","abcddcba","slls","llssssll"]
+示例 2:
+
+输入: ["bat","tab","cat"]
+输出: [[0,1],[1,0]] 
+解释: 可拼接成的回文串为 ["battab","tabbat"]
+
+本题使用**hashmap代替手动实现前缀树**，建立hashmap用来存放<单词，下标>，建立set表用来存放单词单词（方便马拉车算法用的），换言之，本题使用的**前缀树+马拉车算法**。
+
+题解：
+
+第一步：将<单词，下标>存放在hashmap中（使用hashmap代替前缀树），将单词的长度存放在set中。
+
+第二步：遍历单词数组，将遍历的到的单词先进行反转：
+
+1）第一种情况：单词数组中存在两个长度相等且互为回文的单词。比如：abcd和dcba，当我们遍历到abcd时，将其反转为dcba，然后我们判断dcba是否在map中，并且dcba的下标要和abcd的下标不一致。（因为类似bb这种单个字符重复的字符串，在反转之后得到的字符串的下标任然是它自己。）
+2）第二种情况：单词数组中两个长度不一的单词构造回文对。比如abcdd、dbc或aabcd、bcd，先说abcdd、dbc，abcdd反转后得到的字符串为ddabc，那我们就需要在set表中找到长度为3的单词，然后截掉长度为3的子字符串后判断剩下的dd是否回文，并且还需要判断长度为3的字符串abc是否在map表中。然后我们再说说aabcd、bcd，aabcd反转后得到的字符串为bcdaa，那我们也需要在set表中找到长度为3的单词，截掉长度为3的子字符串后判断剩下的aa是否回文，并且还需要判断长度为3的字符串bcd是否在map表中。
+
+```c++
+class Solution {
+public:
+    vector<vector<int>> palindromePairs(vector<string>& words) {
+        if(words.empty())return {};
+        vector<vector<int>> result;
+        unordered_map<string,int> m; // 单词->下标
+        set<int> s; // 记录单词的长度，红黑树升序
+        
+        //第一次遍历：建立map表和set表
+        for (int i=0;i<words.size();++i) {
+            m[words[i]]=i;
+            s.insert(words[i].size());
+        }
+        
+        //第二次遍历：寻找回文对
+        for (int i = 0; i < words.size(); ++i) {
+            string word = words[i];
+            int size = word.size();
+            reverse(word.begin(),word.end()); //反转单词
+            //第一种情况：回文对就是两个长度相等的单词互为反转字符串,比如abcd与dcba,但是要排除bb这种反转后依旧是自己的字符串
+            if(m.count(word) != 0 && m[word] != i) result.push_back({i, m[word]});
+            //第二种情况：回文对是两个长度不一的单词，比如lls,反转后为sll,我们在set中找到长度为1的单词，减去长度1的后ll是否为回文对
+            auto a=s.find(size);
+            for(auto it = s.begin(); it!=a; ++it){
+                int d = *it;//set中长度为d的单词
+                //处理str=回文对+字母，比如ddcba,我们找到长度为3的单词，就判断dd是否回文，然后判断减去dd后的cba是否在map中
+                if(isValid(word, 0, size-d-1) && m.count(word.substr(size-d)))
+                    result.push_back({i,m[word.substr(size-d)]});
+                //处理str=字母+回文对，比如bcdaa,我们找到长度为3的单词，就判断aa是否回文，然后就判断减去aa后的bcd是否在map中
+                if(isValid(word, d, size-1) && m.count(word.substr(0, d)))
+                    result.push_back({m[word.substr(0, d)], i});
+            }
+        } 
+        return result;
+    }
+    
+    bool isValid(string word,int left,int right) { //判断word是否为回文对
+        while(left<right){
+            if(word[left++]!=word[right--])
+                return false;
+        }
+        return true;
+    }
+};
+```
+
+### 421. 数组中两个数的最大异或值(Medium)
+
+给定一个非空数组，数组中元素为 a0, a1, a2, … , an-1，其中 0 ≤ ai < 231 。
+
+找到 ai 和aj 最大的异或 (XOR) 运算结果，其中0 ≤ i,  j < n 。
+
+你能在O(n)的时间解决这个问题吗？
+
+示例:
+
+输入: [3, 10, 5, 25, 2, 8]
+
+输出: 28
+
+解释: 最大的结果是 5 ^ 25 = 28.
+
+首先把所有num存进前缀树中，高位放前缀树的高层，低位放前缀树的低层，然后对于每一个num，从前缀树中寻找和它异或后最大的值。
+
+寻找过程如下：
+
+- 若num当前位为1，则看前缀树在本层有没有0的指针，若有则走0，这样才能在当前位异或取到1
+- 若num当前位为0，则看前指数在本层有没有1的指针，若有则走1，，这样才能在当前位异或取到1
+
+```c++
+class Trie {
+public:
+    Trie() {}
+    void insert(int num) {
+        auto root = this;
+        for (int i = 31; i >= 0; --i) {
+            int bit = num >> i & 1;
+            if (!root->next[bit]) root->next[bit] = new Trie();
+            root = root->next[bit];
+        }
+        root->value = num;
+    }
+   
+public:
+    Trie* next[2] = {nullptr};
+    int value = -1; // 最底层节点存储32位长度的路径
+};
+class Solution {
+public:
+    int findMaximumXOR(vector<int>& nums) {
+        int res = 0;
+        Trie *trie = new Trie();
+        Trie *cur = trie;
+        for (int &num : nums) trie->insert(num);
+        // 逐一访问每个数的32位
+        // 贪心：从高位开始，若当前位为1，则看有没有本位为0的，若有则优先走这条路
+        // 贪心策略：走与本位异或后为1的路
+        for (int &num : nums) {
+            cur = trie;
+            for (int i = 31; i >= 0; --i) {
+                int bit = num >> i & 1;
+                if (bit == 0) {
+                    if (cur->next[1]) {
+                        cur = cur->next[1];
+                    } else {
+                        cur = cur->next[0];
+                    }
+                } else {
+                    if (cur->next[0]) {
+                        cur = cur->next[0];
+                    } else {
+                        cur = cur->next[1];
+                    }
+                }
+            }
+            int temp = cur->value;
+            res = max(res, temp ^ num);
+        }
+        return res;
+    }
+};
+```
+
+### 472. 连接词(Hard)
+
+给定一个不含重复单词的列表，编写一个程序，返回给定单词列表中所有的连接词。
+
+连接词的定义为：一个字符串完全是由至少两个给定数组中的单词组成的。
+
+示例:
+
+输入: ["cat","cats","catsdogcats","dog","dogcatsdog","hippopotamuses","rat","ratcatdogcat"]
+
+输出: ["catsdogcats","dogcatsdog","ratcatdogcat"]
+
+解释: "catsdogcats"由"cats", "dog" 和 "cats"组成; 
+     "dogcatsdog"由"dog", "cats"和"dog"组成; 
+     "ratcatdogcat"由"rat", "cat", "dog"和"cat"组成。
+说明:
+
+给定数组的元素总数不超过 10000。
+给定数组中元素的长度总和不超过 600000。
+所有输入字符串只包含小写字母。
+不需要考虑答案输出的顺序。
+
+主要利用前缀树解题，先建树，然后进行搜索操作。
+这里简单讲解一下搜索单词，例如寻找catsdogcats，当i为2时，我们在前缀树发现cat是一个子单词，然后开始search(sdogcats)，然而发现这个并不是子单词，那就证明以cat作为分界词就错了。我们继续for循环，然后匹配到cats时，在递归匹配dogcats，直到for循环结束！
+
+```c++
+class Trie {
+public:
+    Trie() {}
+
+    void insert(string &word) {
+        auto root = this;
+        for (const char &w : word) {
+            if (!root->next[w-'a']) root->next[w-'a'] = new Trie();
+            root = root->next[w-'a'];
+        }
+        root->is_string = true; // 最后一个节点的标记
+    }
+
+    // param: index指示word的下标
+    // param: count表示当前已匹配的小字符串数目
+    bool search(string &word, int index, int count){
+        Trie *root = this;
+        for(int i = index; i < word.size(); ++i){
+            if(root->next[word[i]-'a'] == nullptr) return false; // word的某个字符不在前缀树中
+            root = root->next[word[i]-'a'];
+            if(root->is_string){ //到达某个单词尾
+                if(i == word.size() - 1) return count >= 1; //count的数量至少为2才是连接词，也就是说走到终点时count必须大于等于1
+                // 当前位的字符已匹配，所以i+1
+                // 当前已匹配一个单词，所以count+1
+                // 进入下一层时，已经有count个的单词是已匹配的小字符串了
+                // 继续匹配下一个小字符串，递归层层返回为true，说明已找到连接词，返回true
+                // 若返回false，则以当前位结尾的小字符串不能构成word的一部分，继续探索前缀树，看更低层的小字符串能否构成word的一部分
+                if(search(word, i+1, count+1)) return true;
+            }
+        }
+        return false;
+    }
+
+private:
+    Trie* next[26] = {nullptr};
+    bool is_string = false;
+};
+class Solution {
+public:
+    vector<string> findAllConcatenatedWordsInADict(vector<string>& words) {
+        vector<string> res;
+        Trie *trie = new Trie();
+        for (string &word : words) trie->insert(word);
+        for (string &word : words) {
+            if (trie->search(word, 0, 0)) { // 判断当前word是否是连接词
+                res.push_back(word);
+            }
+        }
+        return res;
+    }
+};
+```
+
+### 648. 单词替换(Medium)
+
+在英语中，我们有一个叫做 词根(root)的概念，它可以跟着其他一些词组成另一个较长的单词——我们称这个词为 继承词(successor)。例如，词根an，跟随着单词 other(其他)，可以形成新的单词 another(另一个)。
+
+现在，给定一个由许多词根组成的词典和一个句子。你需要将句子中的所有继承词用词根替换掉。如果继承词有许多可以形成它的词根，则用最短的词根替换它。
+
+你需要输出替换之后的句子。
+
+示例：
+
+输入：dict(词典) = ["cat", "bat", "rat"] sentence(句子) = "the cattle was rattled by the battery"
+输出："the cat was rat by the bat"
+ 
+
+提示：
+
+输入只包含小写字母。
+1 <= dict.length <= 1000
+1 <= dict[i].length <= 100
+1 <= 句中词语数 <= 1000
+1 <= 句中词语长度 <= 1000
+
+```c++
+class Trie {
+public:
+    Trie() {}
+
+    void insert(string word) {
+        auto root = this;
+        for (const char &w : word) {
+            if (!root->next[w-'a']) root->next[w-'a'] = new Trie();
+            root = root->next[w-'a'];
+        }
+        root->is_string = true; // 最后一个节点的标记
+    }
+
+public:
+    Trie* next[26] = {nullptr};
+    bool is_string = false;
+};
+class Solution {
+public:
+    string replaceWords(vector<string>& dict, string sentence) {
+        Trie *trie = new Trie();
+        Trie *cur = trie;
+        for (string &root : dict) trie->insert(root);
+        string res;
+        for (int i = 0; i < sentence.size(); ++i)  {
+            if (sentence[i] == ' ') continue;
+            cur = trie;
+            string word_root;
+            int j = i; // i指示一个单词的左端点，j往右扩展，直到这个单词的右端点后的空格或到句子结束
+            while (j < sentence.size() && sentence[j] != ' ') {
+                if (cur->is_string) {
+                    word_root = sentence.substr(i, j - i);
+                    break;
+                } else if (!cur->next[sentence[j]-'a']) {
+                    break;
+                } else {
+                    cur = cur->next[sentence[j]-'a'];
+                }
+                ++j;
+            }
+            while (j < sentence.size() && sentence[j] != ' ') ++j;
+            if (word_root.empty()) {
+                res += " " + sentence.substr(i, j - i);
+            } else {
+                res += " " + word_root;
+            }
+            i = j;
+        }
+        return res.substr(1); // 去掉第0位的空格
+    }
+};
+```
+
+更快的解法是不用前缀树，只需要一一对比dict中各词根即可
+
+```c++
+class Solution {
+public:
+    string replaceWords(vector<string>& dict, string sentence) {
+        istringstream line(sentence);
+        string word, result = "";
+        while(line >> word){
+            int i = 0;
+            for(; i < dict.size(); ++i) {
+                //找到前缀词，将前缀词加到result中
+                if(dict[i][0] == word[0] && word.substr(0, dict[i].size()) == dict[i]) {
+                    result += dict[i] + " ";
+                    break;
+                }
+            }
+            //没有找到前缀词，将原有的单词添加到result中
+            if(i == dict.size()) result += word +" ";
+        }
+        if(result.size() > 0) result.resize(result.size() - 1); //删除最后一个空格
+        return result;
+    }
+};
+```
+
+但是这个题解通过125/126，没通过的case如下：
+
+```shell
+  vector<string> A = {"catt", "cat","bat", "rat"};
+  string str = "the cattle was rattled by the battery";
+
+Answer:
+    the catt was rat by the bat
+
+Expected Answer:
+    the cat was rat by the bat
+```
+
+解决办法：在开头对dict按string长度升序排列
+
+```c++
+        auto cmp = [](string &s1, string &s2) {
+            return s1.size() < s2.size();
+        };
+        sort(dict.begin(), dict.end(), cmp); // 排序，优先匹配词根cat而不是词根catt
+```
+
+### 676. 实现一个魔法字典
+
+实现一个带有buildDict, 以及 search方法的魔法字典。
+
+对于buildDict方法，你将被给定一串不重复的单词来构建一个字典。
+
+对于search方法，你将被给定一个单词，并且判定能否只将这个单词中一个字母换成另一个字母，使得所形成的新单词存在于你构建的字典中。
+
+示例 1:
+
+Input: buildDict(["hello", "leetcode"]), Output: Null
+Input: search("hello"), Output: False
+Input: search("hhllo"), Output: True
+Input: search("hell"), Output: False
+Input: search("leetcoded"), Output: False
+注意:
+
+你可以假设所有输入都是小写字母 a-z。
+为了便于竞赛，测试所用的数据量很小。你可以在竞赛结束后，考虑更高效的算法。
+请记住重置MagicDictionary类中声明的类变量，因为静态/类变量会在多个测试用例中保留。 请参阅这里了解更多详情。
+
+自己尝试前缀树，用布尔变量记录是否改变过，首先写出了一版有bug的代码，可以通过一部分case，但是如果魔法字典中是hello,hallo，输入hello返回false（因为匹配了hello），但其实是可以匹配hallo的，应该返回true
+
+```c++
+class MagicDictionary {
+public:
+    /** Initialize your data structure here. */
+    MagicDictionary() {}
+    
+    /** Build a dictionary through a list of words */
+    void buildDict(vector<string> dict) {
+        for (string &word : dict) {
+            auto root = this;
+            for (const char &w : word) {
+                if (!root->next[w-'a']) root->next[w-'a'] = new MagicDictionary();
+                root = root->next[w-'a'];
+            }
+            root->is_string = true;
+        }
+    }
+    
+    /** Returns if there is any word in the MagicDictionary that equals to the given word after modifying exactly one character */
+    bool search(string word) {
+        return searchHelper(word, 0, this, false);
+    }
+
+    bool searchHelper(string &word, int index, MagicDictionary* root, bool isModified) {
+        for (int i = index; i < word.size(); ++i) {
+            if (!root->next[word[i]-'a']) {
+                if (isModified) return false;
+                else {
+                    for (int j = 0; j < 26; ++j) {
+                        if (root->next[j]) {
+                            if (searchHelper(word, i+1, root->next[j], true)) {
+                                return true;
+                            }
+                        }
+                    }
+                    return false;
+                }
+            }
+            root = root->next[word[i]-'a'];
+        }
+        return isModified && root->is_string;
+    }
+private:
+    MagicDictionary* next[26] = {nullptr};
+    bool is_string = false;
 };
 ```
 
@@ -7635,7 +8059,7 @@ public:
 };
 ```
 
-### 5.最长回文子串
+### 5.最长回文子串(Medium)
 
 给定一个字符串 s，找到 s 中最长的回文子串。你可以假设 s 的最大长度为 1000。
 
@@ -7839,6 +8263,10 @@ public:
 103/103 cases passed (496 ms)
 Your runtime beats 6.83 % of cpp submissions
 Your memory usage beats 39.16 % of cpp submissions (18.8 MB)
+
+还有一个复杂度为 O(n)O(n) 的 Manacher（马拉车） 算法。然而本算法十分复杂，一般不作为面试内容。
+
+[Manacher's Algorithm 马拉车算法](https://www.cnblogs.com/grandyang/p/4475985.html)
 
 ### 53.最大子数组/最大连续子序列/最大子段和
 
