@@ -2024,6 +2024,21 @@ void* memset(void *dst, int val, unsigned int count){
 33. }  
 ```
 
+split的函数的一种优雅实现
+
+```c++
+void split(const string& s, vector<string>& tokens, const string& delimiters = " ")
+{
+    string::size_type lastPos = s.find_first_not_of(delimiters, 0);
+    string::size_type pos = s.find_first_of(delimiters, lastPos);
+    while (string::npos != pos || string::npos != lastPos) {
+        tokens.push_back(s.substr(lastPos, pos - lastPos)); //use emplace_back after C++11
+        lastPos = s.find_first_not_of(delimiters, pos);
+        pos = s.find_first_of(delimiters, lastPos);
+    }
+}
+```
+
 ### 深拷贝和浅拷贝
 
 当没有定义拷贝构造函数时，编译器自动合成默认拷贝构造函数，假设A类有指针数据成员，调用默认拷贝构造函数后，两个类对象的指针数据成员指向同一块内存空间，这就是**浅拷贝**。
