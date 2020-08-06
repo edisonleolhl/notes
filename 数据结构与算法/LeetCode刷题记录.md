@@ -4074,6 +4074,694 @@ public:
 };
 ```
 
+### 677. 键值映射(Medium)
+
+实现一个 MapSum 类里的两个方法，insert 和 sum。
+
+对于方法 insert，你将得到一对（字符串，整数）的键值对。字符串表示键，整数表示值。如果键已经存在，那么原来的键值对将被替代成新的键值对。
+
+对于方法 sum，你将得到一个表示前缀的字符串，你需要返回所有以该前缀开头的键的值的总和。
+
+示例 1:
+
+输入: insert("apple", 3), 输出: Null
+输入: sum("ap"), 输出: 3
+输入: insert("app", 2), 输出: Null
+输入: sum("ap"), 输出: 5
+
+```c++
+struct Trie {
+    Trie* next[256] = {nullptr};
+    bool is_string = false;
+    int val = 0;
+};
+class MapSum {
+public:
+    Trie *trie;
+    /** Initialize your data structure here. */
+    MapSum() {
+        trie = new Trie();
+    }
+
+    void insert(string key, int val) {
+        auto root = trie;
+        for (const char &w : key) {
+            if (!root->next[w]) root->next[w] = new Trie();
+            root = root->next[w];
+        }
+        root->is_string = true;
+        root->val = val;
+    }
+
+    int sum(string prefix) {
+        int res = 0;
+        auto root = trie;
+        for (const char &w : prefix) {
+            if (!root->next[w]) return 0;
+            root = root->next[w];
+        }
+        dfs(root, res);
+        return  res;
+    }
+
+    void dfs(Trie *root, int &res) {
+        if (root->is_string) res += root->val;
+        for (int i = 0; i < 256; ++i) {
+            if (root->next[i]) {
+                dfs(root->next[i], res);
+            }
+        }
+    }
+};
+
+/**
+ * Your MapSum object will be instantiated and called as such:
+ * MapSum* obj = new MapSum();
+ * obj->insert(key,val);
+ * int param_2 = obj->sum(prefix);
+ */
+```
+
+还有一种很妙的方法，利用map来代替前缀树，利用红黑树升序的特点查找前缀
+
+```c++
+class MapSum{
+private:
+    map<string, int> record;
+public:
+    MapSum() {}
+
+    void insert(string key, int val) {
+        record[key]=val;
+    }
+
+    int sum(string prefix) {
+        int result = 0;
+        for(auto iter : record){
+            string str = iter.first;
+            if(str.find(prefix) == 0) // prefix是str的前缀
+                result += iter.second;
+        }
+        return result;
+    }
+};
+```
+
+### 692. 前K个高频单词(Medium)
+
+给一非空的单词列表，返回前 k 个出现次数最多的单词。
+
+返回的答案应该按单词出现频率由高到低排序。如果不同的单词有相同出现频率，按字母顺序排序。
+
+示例 1：
+
+输入: ["i", "love", "leetcode", "i", "love", "coding"], k = 2
+输出: ["i", "love"]
+解析: "i" 和 "love" 为出现次数最多的两个单词，均为2次。
+    注意，按字母顺序 "i" 在 "love" 之前。
+
+示例 2：
+
+输入: ["the", "day", "is", "sunny", "the", "the", "the", "sunny", "is", "is"], k = 4
+输出: ["the", "is", "sunny", "day"]
+解析: "the", "is", "sunny" 和 "day" 是出现次数最多的四个单词，
+    出现次数依次为 4, 3, 2 和 1 次。
+
+注意：
+
+假定 k 总为有效值， 1 ≤ k ≤ 集合元素数。
+输入的单词均由小写字母组成。
+
+扩展练习：
+
+尝试以 O(n log k) 时间复杂度和 O(n) 空间复杂度解决。
+
+第一次尝试，感觉可以用map<string, int>， 然后对map的value进行排序。map虽然可以自定义比较规则，但只能比较key，不能比较value，而且sort泛型算法要求顺序容奇而不是关联容奇。所以只能把map的pair存储到一个vector，再调用sort对vector进行排序，自定义排序规则即可。
+
+时间复杂度O(nlogn)，空间复杂度O(n)
+
+```c++
+class Solution {
+public:
+    vector<string> topKFrequent(vector<string>& words, int k) {
+        vector<string> res;
+        if (words.empty() || k < 1) return res;
+        map<string, int> map;
+        for (const string &word : words) {
+            ++map[word];
+        }
+        vector<pair<string, int>> vec(map.begin(), map.end());
+        auto cmp = [](const pair<string, int> &p1, const pair<string, int> &p2) {
+            if (p1.second != p2.second) return p1.second > p2.second;
+            return p1.first < p2.first;
+            // return p1.first.compare(p2.first) < 0; // 也可以
+        };
+        sort(vec.begin(), vec.end(), cmp);
+        for (auto it = vec.begin(); it != vec.end() && it != vec.begin() + k; ++it) {
+            res.push_back(it->first);
+        }
+        return res;
+    }
+};
+```
+
+仔细想想，刚才把pair放进vector，再对vector进行了排序，这需要O(nlogn)的时间，这可以用最小堆的思想，维护一个大小为k的最小堆即可。这题挺考验STL功底的，还挺有意思的。
+
+```c++
+class Solution {
+public:
+    struct Compare {
+        bool operator() (const pair<string, int> &p1, const pair<string, int> &p2) {
+            if (p1.second != p2.second) return p1.second > p2.second;
+            return p1.first < p2.first;
+            // return p1.first.compare(p2.first) < 0; // 也可以
+        };
+    };
+    vector<string> topKFrequent(vector<string>& words, int k) {
+        map<string, int> map;
+        for (const string &word : words) {
+            ++map[word];
+        }
+        // 维护一个最小堆
+        priority_queue<pair<string, int>, vector<pair<string, int>>, Compare> pq;
+        auto it = map.begin();
+        for (int cnt = 0; it != map.end() && cnt != k; ++it, ++cnt) {
+            pq.push(*it);
+        }
+        Compare cmp;
+        for (; it != map.end(); ++it) {
+            if (cmp(*it, pq.top())) { // 新元素比最小堆的堆顶要『大』
+                pq.pop();
+                pq.push(*it);
+            }
+        }
+        vector<string> res;
+        int n = min(k, (int)map.size());
+        res.resize(n);
+        for (int i = n - 1; i >= 0; --i) {
+            res[i] = pq.top().first;
+            pq.pop();
+        }
+        return res;
+    }
+};
+```
+
+### 720. 词典中最长的单词(Easy)
+
+给出一个字符串数组words组成的一本英语词典。从中找出最长的一个单词，该单词是由words词典中其他单词逐步添加一个字母组成。若其中有多个可行的答案，则返回答案中字典序最小的单词。
+
+若无答案，则返回空字符串。
+
+示例 1：
+
+输入：
+words = ["w","wo","wor","worl", "world"]
+输出："world"
+解释：
+单词"world"可由"w", "wo", "wor", 和 "worl"添加一个字母组成。
+示例 2：
+
+输入：
+words = ["a", "banana", "app", "appl", "ap", "apply", "apple"]
+输出："apple"
+解释：
+"apply"和"apple"都能由词典中的单词组成。但是"apple"的字典序小于"apply"。
+
+提示：
+
+所有输入的字符串都只包含小写字母。
+words数组长度范围为[1,1000]。
+words[i]的长度范围为[1,30]。
+
+```c++
+class Trie {
+public:
+    void insert(string &word) {
+       auto root = this;
+       for (const char &w : word) {
+           if (!root->next[w-'a']) root->next[w-'a'] = new Trie();
+           root = root->next[w-'a'];
+       }
+       root->is_string = true;
+       root->str = word;
+    }
+    Trie* next[26] = {nullptr};
+    bool is_string = false;
+    string str;
+};
+class Solution {
+public:
+    string ans = "";
+    void dfs(Trie *trie) {
+        if (!trie->is_string) return;
+        if (trie->str.size() > ans.size()) ans = trie->str;
+        else if(trie->str.size() == ans.size() && trie->str < ans) ans = trie->str; // 字典序更小
+        for (int i = 0; i < 26; ++i) {
+            if (trie->next[i]) dfs(trie->next[i]);
+        }
+    }
+    string longestWord(vector<string>& words) {
+        Trie *trie = new Trie();
+        for (string &word : words) trie->insert(word);
+        for (int i = 0; i < 26; ++i) {
+            if (trie->next[i]) dfs(trie->next[i]);
+        }
+        return ans;
+    }
+};
+```
+
+### 745. 前缀和后缀搜索(Hard)
+
+给定多个 words，words[i] 的权重为 i 。
+
+设计一个类 WordFilter 实现函数WordFilter.f(String prefix, String suffix)。这个函数将返回具有前缀 prefix 和后缀suffix 的词的最大权重。如果没有这样的词，返回 -1。
+
+例子:
+
+输入:
+WordFilter(["apple"])
+WordFilter.f("a", "e") // 返回 0
+WordFilter.f("b", "") // 返回 -1
+注意:
+
+words的长度在[1, 15000]之间。
+对于每个测试用例，最多会有words.length次对WordFilter.f的调用。
+words[i]的长度在[1, 10]之间。
+prefix, suffix的长度在[0, 10]之前。
+words[i]和prefix, suffix只包含小写字母。
+
+首次尝试，构造前缀树和后缀树，根据前缀和后缀搜寻所有有有可能的word及其weight，再根据哈希表判重，最后输出最大的weight。
+
+但是超时了
+
+```c++
+class PreTrie {
+public:
+    void insert(string &word, int weight) {
+        auto root = this;
+        for (char &w : word) {
+            if (!root->pre_next[w-'a']) root->pre_next[w-'a'] = new PreTrie();
+            root = root->pre_next[w-'a'];
+        }
+        root->pre_is_string = true;
+        root->pre_str = word;
+        root->weight = weight;
+    }
+    vector<pair<string, int>> searchPrefix(string &word) {
+        vector<pair<string, int>> res;
+        auto root = this;
+        for (char &w : word) {
+            if (!root->pre_next[w-'a']) return res;
+            root = root->pre_next[w-'a'];
+        }
+        dfs(root, res);
+        return res;
+    }
+    void dfs(PreTrie *root, vector<pair<string, int>> &res) {
+        if (root->pre_is_string) {
+            res.push_back({root->pre_str, root->weight});
+        }
+        for (int i = 0; i < 26; ++i) {
+            if (root->pre_next[i]) dfs(root->pre_next[i], res);
+        }
+    }
+public:
+    PreTrie* pre_next[26] = {nullptr};
+    bool pre_is_string = false;
+    string pre_str = "";
+    int weight = -1;
+};
+class SufTrie {
+public:
+    void insert(string &word, int weight) {
+        auto root = this;
+        for (char &w : word) {
+            if (!root->suf_next[w-'a']) root->suf_next[w-'a'] = new SufTrie();
+            root = root->suf_next[w-'a'];
+        }
+        root->suf_is_string = true;
+        root->suf_str = word;
+        root->weight = weight;
+    }
+    vector<pair<string, int>> searchSuffix(string &word) {
+        vector<pair<string, int>> res;
+        auto root = this;
+        for (char &w : word) {
+            if (!root->suf_next[w-'a']) return res;
+            root = root->suf_next[w-'a'];
+        }
+        dfs(root, res);
+        return res;
+    }
+    void dfs(SufTrie *root, vector<pair<string, int>> &res) {
+        if (root->suf_is_string) {
+            string tmp = root->suf_str;
+            reverse(tmp.begin(), tmp.end());
+            res.push_back({tmp, root->weight});
+        }
+        for (int i = 0; i < 26; ++i) {
+            if (root->suf_next[i]) dfs(root->suf_next[i], res);
+        }
+    }
+public:
+    SufTrie* suf_next[26] = {nullptr};
+    bool suf_is_string = false;
+    string suf_str = "";
+    int weight = -1;
+};
+class WordFilter {
+public:
+    PreTrie *pre_trie;
+    SufTrie *suf_trie;
+    WordFilter(vector<string>& words) {
+        pre_trie = new PreTrie();
+        suf_trie = new SufTrie();
+        for (int i = 0; i < words.size(); ++i) {
+            string tmp = words[i];
+            reverse(tmp.begin(), tmp.end());
+            pre_trie->insert(words[i], i);
+            suf_trie->insert(tmp, i);
+        }
+    }
+
+    int f(string prefix, string suffix) {
+        reverse(suffix.begin(), suffix.end());
+        vector<pair<string, int>> res1 = pre_trie->searchPrefix(prefix); // 前缀匹配的所有单词及其权重
+        vector<pair<string, int>> res2 = suf_trie->searchSuffix(suffix); // 后缀匹配的所有单词及其权重
+        // 找出同时匹配的单词及其权重
+        // 利用哈希表快速判定是否同时存在
+        unordered_map<string, int> map;
+        for (auto &p : res1) {
+            map[p.first] = p.second;
+        }
+        vector<pair<string, int>> satisfied;
+        for (auto &p : res2) {
+            if (map.count(p.first)) {
+                satisfied.push_back(p);
+            }
+        }
+        int ans = -1;
+        for (auto &p : satisfied) {
+            ans = max(ans, p.second);
+        }
+        return ans;
+    }
+};
+```
+
+优化：
+
+- 可以利用指针，而不用拷贝vector
+- 哈希表判重逻辑太慢了，只需要找到两个vector交集的最大权重即可
+- 可以在前缀/后缀树中的每一个节点都保存`vector<int>`数组，保持着到该层为前缀的所有word的权重，因为权重是输入数组的下标，所以越大的权重越晚压入，本身就是升序的
+- 只需要定义一个Trie类即可，创建Trie类对象时再决定是前缀树还是后缀树
+
+```c++
+class Trie{
+private:
+    vector<int> subs;
+    Trie* next[26] = {nullptr};
+public:
+    Trie(){}
+    //插入单词
+    void insert(string& word,int i){
+        Trie* root=this;
+        for(const auto& w:word){
+            if(root->next[w-'a']==nullptr)root->next[w-'a']=new Trie();
+            root=root->next[w-'a'];
+            // 在构造前缀/后缀树时，直接把当前word的权重存入每一个节点的vector中
+            // 根据push_back顺序，越大权重的会越晚压入
+            root->subs.push_back(i);
+        }
+    }
+
+    vector<int>* startsWith(string& prefix){
+        Trie* root=this;
+        for(const auto& p:prefix){
+            if(root->next[p-'a']==nullptr)return nullptr;
+            root=root->next[p-'a'];
+        }
+        return &root->subs; // 前缀/后缀搜寻完，返回当前节点的权重数组，代表着匹配到的单词的所有权重可能
+    }
+};
+class WordFilter {
+private:
+    Trie* pre;//建立前缀树
+    Trie* suf;//建立后缀树
+    int size=0;
+public:
+    WordFilter(vector<string>& words) {
+        pre=new Trie();suf=new Trie();
+        for(int i=0;i<words.size();++i){
+            pre->insert(words[i],i);
+            string temp=words[i];//正向插入单词到前缀树
+            reverse(temp.begin(),temp.end());
+            suf->insert(temp,i);//反向插入单词到后缀树
+        }
+        int size=words.size()-1;
+    }
+
+    int f(string prefix, string suffix) {
+        //前缀字符串和后缀字符串都为空，最大权重就是words的大小了
+        if(prefix.empty()&&suffix.empty())return size;
+        vector<int>* v1=pre->startsWith(prefix);
+        reverse(suffix.begin(),suffix.end());
+        vector<int>* v2=suf->startsWith(suffix);
+        if(v1==nullptr||v2==nullptr)return -1;//前缀或后缀有一个为空，就表示没有这样的单词
+        if(prefix.size()==0)return *(v2->end()-1);//前缀字符串为空，返回后缀字典树中的最大权重
+        if(suffix.size()==0)return *(v1->end()-1);//后缀字符串为空，返回前缀字典树中的最大权重
+        auto it1=v1->end()-1;
+        auto it2=v2->end()-1;
+        while(it1>=v1->begin()&&it2>=v2->begin())//查找的时候排除边缘条件后对比权值就行
+        {
+            if(*it1==*it2)return *it1;
+            if(*it1>*it2)it1--;
+            else it2--;
+        }
+        return -1;
+    }
+};
+```
+
+### 1023. 驼峰式匹配(Medium)
+
+如果我们可以将小写字母插入模式串 pattern 得到待查询项 query，那么待查询项与给定模式串匹配。（我们可以在任何位置插入每个字符，也可以插入 0 个字符。）
+
+给定待查询列表 queries，和模式串 pattern，返回由布尔值组成的答案列表 answer。只有在待查项 queries[i] 与模式串 pattern 匹配时， answer[i] 才为 true，否则为 false。
+
+示例 1：
+
+输入：queries = ["FooBar","FooBarTest","FootBall","FrameBuffer","ForceFeedBack"], pattern = "FB"
+输出：[true,false,true,true,false]
+示例：
+"FooBar" 可以这样生成："F" + "oo" + "B" + "ar"。
+"FootBall" 可以这样生成："F" + "oot" + "B" + "all".
+"FrameBuffer" 可以这样生成："F" + "rame" + "B" + "uffer".
+示例 2：
+
+输入：queries = ["FooBar","FooBarTest","FootBall","FrameBuffer","ForceFeedBack"], pattern = "FoBa"
+输出：[true,false,true,false,false]
+解释：
+"FooBar" 可以这样生成："Fo" + "o" + "Ba" + "r".
+"FootBall" 可以这样生成："Fo" + "ot" + "Ba" + "ll".
+示例 3：
+
+输出：queries = ["FooBar","FooBarTest","FootBall","FrameBuffer","ForceFeedBack"], pattern = "FoBaT"
+输入：[false,true,false,false,false]
+解释：
+"FooBarTest" 可以这样生成："Fo" + "o" + "Ba" + "r" + "T" + "est".
+
+提示：
+
+1 <= queries.length <= 100
+1 <= queries[i].length <= 100
+1 <= pattern.length <= 100
+所有字符串都仅由大写和小写英文字母组成。
+
+直接匹配就好了，双指针法，不需要前缀树
+
+```c++
+class Solution {
+public:
+    bool match(string &query, string &pattern) {
+        int i = 0, j = 0;
+        while (i < query.size()) {
+            if (j < pattern.size() && query[i] == pattern[j]) ++i, ++j;
+            else if (query[i] >= 'A' && query[i] <= 'Z') break; // 有不匹配的大写字母
+            else ++i; // 可以插入小写字母
+        }
+        if (i >= query.size() && j >= pattern.size()) return true; // 两者同时到头才是匹配
+        return false;
+    }
+    vector<bool> camelMatch(vector<string>& queries, string pattern) {
+        vector<bool> res;
+        for (string &query : queries) {
+            res.push_back(match(query, pattern));
+        }
+        return res;
+    }
+};
+```
+
+前缀树思路
+
+- 将 patternpattern 插入字典树，标记出末尾字符
+- 对 queriesqueries 中的每个字符串，逐个字符进行匹配
+- 若小写字母不能匹配，直接忽略
+- 若大写字母不能匹配，返回 falsefalse
+- 最后检查是否到达末尾
+
+### 1032. 字符流(Hard)
+
+按下述要求实现 StreamChecker 类：
+
+StreamChecker(words)：构造函数，用给定的字词初始化数据结构。
+query(letter)：如果存在某些 k >= 1，可以用查询的最后 k个字符（按从旧到新顺序，包括刚刚查询的字母）拼写出给定字词表中的某一字词时，返回 true。否则，返回 false。
+
+示例：
+
+StreamChecker streamChecker = new StreamChecker(["cd","f","kl"]); // 初始化字典
+streamChecker.query('a');          // 返回 false
+streamChecker.query('b');          // 返回 false
+streamChecker.query('c');          // 返回 false
+streamChecker.query('d');          // 返回 true，因为 'cd' 在字词表中
+streamChecker.query('e');          // 返回 false
+streamChecker.query('f');          // 返回 true，因为 'f' 在字词表中
+streamChecker.query('g');          // 返回 false
+streamChecker.query('h');          // 返回 false
+streamChecker.query('i');          // 返回 false
+streamChecker.query('j');          // 返回 false
+streamChecker.query('k');          // 返回 false
+streamChecker.query('l');          // 返回 true，因为 'kl' 在字词表中。
+
+提示：
+
+1 <= words.length <= 2000
+1 <= words[i].length <= 2000
+字词只包含小写英文字母。
+待查项只包含小写英文字母。
+待查项最多 40000 个。
+
+解题思路：
+
+1）从words中提取word，将word反向，建立后缀树。
+2）在查询的时候，我们将每个字符保存在一个字符串中，每次每个字符都插入到该字符串的首部。然后我们直接在后缀树中查找该字符串的最短前缀能否表示成一个字符串就行了。
+
+AC发现时间很慢。。
+
+```c++
+class Trie{
+private:
+    bool is_string = false;
+    Trie* next[26] = {nullptr};
+public:
+    Trie(){}
+    void insert(string &word) {
+        Trie* root = this;
+        for (const auto &w : word){
+            if (!root->next[w-'a']) root->next[w-'a'] = new Trie();
+            root = root->next[w-'a'];
+        }
+        root->is_string = true;
+    }
+    bool startsWith(string &word) {
+        Trie* root = this;
+        for (const auto &w : word) {
+            if (root->next[w-'a'] != nullptr) {
+                root = root->next[w-'a'];
+                if (root->is_string) return true;
+            } else {
+                return false;
+            }
+        }
+        return false;
+    }
+};
+class StreamChecker {
+public:
+    Trie* trie;
+    string word;
+    StreamChecker(vector<string>& words) {
+        trie = new Trie();
+        for (string &word : words) {
+            reverse(word.begin(), word.end());
+            trie->insert(word);
+        }
+    }
+
+    bool query(char letter) {
+        word.insert(word.begin(), letter);
+        return trie->startsWith(word);
+    }
+};
+
+/**
+ * Your StreamChecker object will be instantiated and called as such:
+ * StreamChecker* obj = new StreamChecker(words);
+ * bool param_1 = obj->query(letter);
+ */
+```
+
+优化：
+
+- 每次加入letter时，加在string的前面，这很耗时，改为加在后面，在内部startsWith搜索时反向搜索即可
+- 同理，在构建后缀树时，在内部insert时反向插入即可
+- 时间从1680ms（击败5%）优化到了548ms（击败85%）
+
+```c++
+class Trie{
+private:
+    bool is_string = false;
+    Trie* next[26] = {nullptr};
+public:
+    Trie(){}
+    void insert(string &word) {
+        Trie* root = this;
+        for (int i = word.size()-1; i >= 0; --i){
+            if (!root->next[word[i]-'a']) root->next[word[i]-'a'] = new Trie();
+            root = root->next[word[i]-'a'];
+        }
+        root->is_string = true;
+    }
+    bool startsWith(string &word) {
+        Trie* root = this;
+        for (int i = word.size()-1; i >= 0; --i) {
+            if (root->next[word[i]-'a'] != nullptr) {
+                root = root->next[word[i]-'a'];
+                if (root->is_string) return true;
+            } else {
+                return false;
+            }
+        }
+        return false;
+    }
+};
+class StreamChecker {
+public:
+    Trie* trie;
+    string word;
+    StreamChecker(vector<string>& words) {
+        trie = new Trie();
+        for (string &word : words) {
+            trie->insert(word);
+        }
+    }
+
+    bool query(char letter) {
+        word += letter;
+        return trie->startsWith(word); // 在内部反向搜索
+    }
+};
+
+/**
+ * Your StreamChecker object will be instantiated and called as such:
+ * StreamChecker* obj = new StreamChecker(words);
+ * bool param_1 = obj->query(letter);
+ */
+ ```
+
 ## 滑动窗口
 
 ### 76. 最小覆盖子串(Hard)
