@@ -3525,7 +3525,7 @@ private:
 
 示例:
 
-输入: 
+输入:
 words = ["oath","pea","eat","rain"] and board =
 [
   ['o','a','a','n'],
@@ -3605,12 +3605,12 @@ public:
 示例 1:
 
 输入: ["abcd","dcba","lls","s","sssll"]
-输出: [[0,1],[1,0],[3,2],[2,4]] 
+输出: [[0,1],[1,0],[3,2],[2,4]]
 解释: 可拼接成的回文串为 ["dcbaabcd","abcddcba","slls","llssssll"]
 示例 2:
 
 输入: ["bat","tab","cat"]
-输出: [[0,1],[1,0]] 
+输出: [[0,1],[1,0]]
 解释: 可拼接成的回文串为 ["battab","tabbat"]
 
 本题使用**hashmap代替手动实现前缀树**，建立hashmap用来存放<单词，下标>，建立set表用来存放单词单词（方便马拉车算法用的），换言之，本题使用的**前缀树+马拉车算法**。
@@ -3632,13 +3632,13 @@ public:
         vector<vector<int>> result;
         unordered_map<string,int> m; // 单词->下标
         set<int> s; // 记录单词的长度，红黑树升序
-        
+
         //第一次遍历：建立map表和set表
         for (int i=0;i<words.size();++i) {
             m[words[i]]=i;
             s.insert(words[i].size());
         }
-        
+
         //第二次遍历：寻找回文对
         for (int i = 0; i < words.size(); ++i) {
             string word = words[i];
@@ -3657,10 +3657,10 @@ public:
                 if(isValid(word, d, size-1) && m.count(word.substr(0, d)))
                     result.push_back({m[word.substr(0, d)], i});
             }
-        } 
+        }
         return result;
     }
-    
+
     bool isValid(string word,int left,int right) { //判断word是否为回文对
         while(left<right){
             if(word[left++]!=word[right--])
@@ -3707,7 +3707,7 @@ public:
         }
         root->value = num;
     }
-   
+
 public:
     Trie* next[2] = {nullptr};
     int value = -1; // 最底层节点存储32位长度的路径
@@ -3760,8 +3760,8 @@ public:
 
 输出: ["catsdogcats","dogcatsdog","ratcatdogcat"]
 
-解释: "catsdogcats"由"cats", "dog" 和 "cats"组成; 
-     "dogcatsdog"由"dog", "cats"和"dog"组成; 
+解释: "catsdogcats"由"cats", "dog" 和 "cats"组成;
+     "dogcatsdog"由"dog", "cats"和"dog"组成;
      "ratcatdogcat"由"rat", "cat", "dog"和"cat"组成。
 说明:
 
@@ -3839,7 +3839,6 @@ public:
 
 输入：dict(词典) = ["cat", "bat", "rat"] sentence(句子) = "the cattle was rattled by the battery"
 输出："the cat was rat by the bat"
- 
 
 提示：
 
@@ -3951,7 +3950,7 @@ Expected Answer:
         sort(dict.begin(), dict.end(), cmp); // 排序，优先匹配词根cat而不是词根catt
 ```
 
-### 676. 实现一个魔法字典
+### 676. 实现一个魔法字典(Medium)
 
 实现一个带有buildDict, 以及 search方法的魔法字典。
 
@@ -3979,7 +3978,7 @@ class MagicDictionary {
 public:
     /** Initialize your data structure here. */
     MagicDictionary() {}
-    
+
     /** Build a dictionary through a list of words */
     void buildDict(vector<string> dict) {
         for (string &word : dict) {
@@ -3991,7 +3990,7 @@ public:
             root->is_string = true;
         }
     }
-    
+
     /** Returns if there is any word in the MagicDictionary that equals to the given word after modifying exactly one character */
     bool search(string word) {
         return searchHelper(word, 0, this, false);
@@ -4019,6 +4018,59 @@ public:
 private:
     MagicDictionary* next[26] = {nullptr};
     bool is_string = false;
+};
+```
+
+优化后的代码，AC了
+
+```c++
+struct Trie{
+    bool is_string=false;
+    Trie *next[26]={nullptr};
+};
+class MagicDictionary {
+private:
+    Trie *root;
+public:
+    /** Initialize your data structure here. */
+    MagicDictionary() {
+        root=new Trie();
+    }
+
+    /** Build a dictionary through a list of words */
+    void buildDict(vector<string> dict) {
+        for(const auto& word:dict){
+            Trie* note=root;
+            for(const auto& w:word){
+                if(note->next[w-'a']==nullptr)note->next[w-'a']=new Trie();
+                note=note->next[w-'a'];
+            }
+            note->is_string=true;
+        }
+    }
+
+    /** Returns if there is any word in the trie that equals to the given word after modifying exactly one character */
+    bool search(string word) {
+        return dfs(word,root,0,false);
+    }
+
+    bool dfs(string word,Trie* note,int index,bool isMod)
+    {
+        if(note==nullptr)return false;
+        //此时搜索完成，note也指向单词尾端，单个字符也替换了
+        if(word.size()==index)return isMod&&note->is_string;
+        for(int i=0;i<26;++i){//搜索note的26个节点,若遍历完26个节点依旧没有找到节点字符与index对象的字符相等或idMod为true已替换一个字符了，则直接返回false了
+            if(note->next[i]!=nullptr){//找到一个节点值
+                if(i+'a'==word[index]){//找到的节点字符与index对应的字符相等，继续匹配下一个字符
+                    if(dfs(word,note->next[i],index+1,isMod))return true;
+                }
+                //如果'a'+i!=word[index],则使用替换字母的机会（在此之前替换字母的机会是没有使用的，因为只能使用一次）
+                else if(isMod==false&&dfs(word,note->next[i],index+1,true))
+                    return true;
+            }
+        }
+        return false;
+    }
 };
 ```
 
