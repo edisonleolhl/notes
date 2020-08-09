@@ -12890,6 +12890,42 @@ public:
 };
 ```
 
+### 325. 和为k的最长子数组(Meiudm)
+
+描述：给了一个数组，一个数字k，问数组中子序列中，相加等于k的最长子序列的长度。
+
+Input: nums = [1, -1, 5, -2, 3], k = 3
+Output: 4
+Explanation: The subarray [1, -1, 5, -2] sums to 3 and is the longest.
+
+Input: nums = [-2, -1, 2, 1], k = 1
+Output: 2
+Explanation: The subarray [-1, 2] sums to 1 and is the longest.
+
+使用一个字典，建立到当前位置的元素累加和与元素位置的一个映射，即dict：sum -> i。然后在寻找最长子数组的过程时，就是找k-sum是否作为key存在于字典当中。代码如下
+
+```c++
+class Solution {
+    int masSubArrayLen(vector<int> nums, int k) {
+        int res = 0;
+        if (nums.empty()) return res;
+        unordered_map<int, int> map;
+        map[0] = -1;
+        int sum = 0;
+        for (int i = 0; i < nums.size(); ++i) {
+            sum += val;
+            if (map.count(sum - k)) {
+                res = max(res, i - map[sum-k]);
+            }
+            if (map.count(sum)) {
+                map[sum] = i;
+            }
+        }
+        return res;
+    }
+};
+```
+
 ### 454. 四数之和II
 
 前面两题都很简单，用哈希表，空间换取时间
