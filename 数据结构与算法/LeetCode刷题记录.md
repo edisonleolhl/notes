@@ -7177,6 +7177,27 @@ public:
 };
 ```
 
+二刷
+
+```c++
+class Solution {
+public:
+    bool isValidBST(TreeNode* root) {
+        if (!root) return true;
+        long long pre_val = (long long)INT_MIN - 1;
+        return inorder(root, pre_val);
+    }
+    bool inorder(TreeNode* root, long long &pre_val) {
+        if (!root) return true;
+        if (!inorder(root->left, pre_val)) return false;
+        if (root->val <= pre_val) return false;
+        else pre_val = root->val;
+        if (!inorder(root->right, pre_val)) return false;
+        return true;
+    }
+};
+```
+
 ### 101.对称二叉树(medium,based on 98)
 
 给定一个二叉树，检查它是否是镜像对称的。
@@ -7689,7 +7710,7 @@ public:
 };
 ```
 
-### 108.将有序数组转换为二叉搜索树
+### 108.将有序数组转换为二叉搜索树(Easy)
 
 将一个按照升序排列的有序数组，转换为一棵高度平衡二叉搜索树。
 
@@ -7759,6 +7780,8 @@ public:
 最后发现，AC的代码几乎跟我这个差不多，这题是独立完成的，耗时1h左右吧，我自己竟然也可以写出这么简洁高效的代码了！
 
 2020.7.16二刷，一次性AC，15min？有进步
+
+三刷，速度提上来了
 
 ### 110. 平衡二叉树
 
@@ -8194,6 +8217,43 @@ public:
  */
 ```
 
+二刷，跟标准答案不太一样，先用中序遍历把整棵树遍历下来，然后转换为双向链表，感觉只有这样，hasNext与next方法的时间复杂度才是O(1)
+
+```c++
+class BSTIterator {
+public:
+    TreeNode* cur  = new TreeNode(INT_MIN);
+    BSTIterator(TreeNode* root)  {
+        if (!root) return;
+        vector<TreeNode*> inorder;
+        inorderTraversal(root, inorder);
+        for (int i = 0; i < inorder.size()-1; ++i) {
+            inorder[i]->right = inorder[i+1];
+            inorder[i+1]->left = inorder[i];
+        }
+        cur->right = inorder.front();
+    }
+    void inorderTraversal(TreeNode* root, vector<TreeNode*> &inorder) {
+        if (!root) return;
+        inorderTraversal(root->left, inorder);
+        inorder.push_back(root);
+        inorderTraversal(root->right, inorder);
+    }
+
+    /** @return the next smallest number */
+    int next() {
+        cur = cur->right;
+        return cur->val;
+    }
+
+    /** @return whether we have a next smallest number */
+    bool hasNext() {
+        if (cur->right) return true;
+        return false;
+    }
+};
+```
+
 ### 199. 二叉树的右视图(Medium)
 
 给定一棵二叉树，想象自己站在它的右侧，按照从顶部到底部的顺序，返回从右侧所能看到的节点值。
@@ -8348,7 +8408,30 @@ public:
 
 在题解区看到进阶的讨论，感觉有点复杂，就先不看了
 
-### 235. 235. 二叉搜索树的最近公共祖先(Medium)
+二刷
+
+```c++
+class Solution {
+public:
+    int kthSmallest(TreeNode* root, int k) {
+        stack<TreeNode*> st;
+        TreeNode* cur = root;
+        while (cur || !st.empty()) {
+            while(cur) {
+                st.push(cur); // 如果有左孩子，则压栈
+                cur = cur->left;
+            }
+            cur = st.top();
+            st.pop();
+            if (--k == 0) return cur->val;
+            cur = cur->right;
+        }
+        return 0; // never reach
+    }
+};
+```
+
+### 235. 二叉搜索树的最近公共祖先(Medium)
 
 给定一个二叉搜索树, 找到该树中两个指定节点的最近公共祖先。
 
@@ -8392,6 +8475,38 @@ public:
         if (p->val < root->val && q->val < root->val) return lowestCommonAncestor(root->left, p, q);
         else return lowestCommonAncestor(root->right, p, q);
         return nullptr; // never reached
+    }
+};
+```
+
+二刷，直接做成236题的题解了，完全没用到BST的性质
+
+```c++
+class Solution {
+public:
+    TreeNode* lowestCommonAncestor(TreeNode* root, TreeNode* p, TreeNode* q) {
+        if (!root || root == p || root == q) return root;
+        auto l = lowestCommonAncestor(root->left, p, q);
+        auto r = lowestCommonAncestor(root->right, p, q);
+        if (!l && !r) return nullptr;
+        if (!l) return r;
+        if (!r) return l;
+        return root;
+    }
+};
+```
+
+用到BST性质的二刷，感觉比一刷的代码还有优雅一点
+
+```c++
+class Solution {
+public:
+    TreeNode* lowestCommonAncestor(TreeNode* root, TreeNode* p, TreeNode* q) {
+        if (!root) return root;
+        if (p->val > q->val) swap(p, q);
+        if (root->val > p->val && root->val > q->val) return lowestCommonAncestor(root->left, p, q);
+        if (root->val < p->val && root->val < q->val) return lowestCommonAncestor(root->right, p, q);
+        return root;
     }
 };
 ```
@@ -8606,6 +8721,131 @@ public:
 };
 ```
 
+### 501. 二叉搜索树中的众数(Medium)
+
+给定一个有相同值的二叉搜索树（BST），找出 BST 中的所有众数（出现频率最高的元素）。
+
+假定 BST 有如下定义：
+
+结点左子树中所含结点的值小于等于当前结点的值
+结点右子树中所含结点的值大于等于当前结点的值
+左子树和右子树都是二叉搜索树
+例如：
+给定 BST [1,null,2,2],
+
+   1
+    \
+     2
+    /
+   2
+返回[2].
+
+提示：如果众数超过1个，不需考虑输出顺序
+
+进阶：你可以不使用额外的空间吗？（假设由递归产生的隐式调用栈的开销不被计算在内）
+
+思路：二叉搜索树的中序遍历是一个升序序列，逐个比对当前结点(root)值与前驱结点（pre)值。更新当前节点值出现次数(curTimes，初始化为1)及最大出现次数(maxTimes)，更新规则：若curTimes=maxTimes,将root->val添加到结果向量(res)中；若curTimes>maxTimes,清空res,将root->val添加到res,并更新maxTimes为curTimes。
+
+```c++
+/**
+ * Definition for a binary tree node.
+ * struct TreeNode {
+ *     int val;
+ *     TreeNode *left;
+ *     TreeNode *right;
+ *     TreeNode(int x) : val(x), left(NULL), right(NULL) {}
+ * };
+ */
+class Solution {
+public:
+    vector<int> findMode(TreeNode* root) {
+        if (!root) return {};
+        vector<int> res;
+        int cnt = 0;
+        int max_cnt = 0;
+        int pre = root->val;
+        inorderTraversal(root, res, pre, cnt, max_cnt);
+        return res;
+    }
+    void inorderTraversal(TreeNode* root, vector<int> &res, int &pre, int &cnt, int &max_cnt) {
+        if (!root) return;
+        inorderTraversal(root->left, res, pre, cnt, max_cnt);
+        if (root->val == pre) {
+            ++cnt;
+        }
+        else {
+            pre = root->val;
+            cnt = 1;
+        }
+        if (cnt > max_cnt) {
+            res.clear();
+            res.push_back(root->val);
+            max_cnt = cnt;
+        } else if (cnt == max_cnt && ((!res.empty() && root->val != res.back()) || res.empty())) {
+            res.push_back(root->val);
+        }
+        inorderTraversal(root->right, res, pre, cnt, max_cnt);
+    }
+};
+```
+
+### 530. 二叉搜索树的最小绝对差(Easy)
+
+同783题
+
+给你一棵所有节点为非负值的二叉搜索树，请你计算树中任意两节点的差的绝对值的最小值。
+
+示例：
+
+输入：
+
+   1
+    \
+     3
+    /
+   2
+
+输出：
+1
+
+解释：
+最小绝对差为 1，其中 2 和 1 的差的绝对值为 1（或者 2 和 3）。
+
+提示：
+
+树中至少有 2 个节点。
+
+中序遍历一把梭，记录一下pre就好了，当然第一次进入循环时是没有pre的，pre不太好设置初始值，可能会溢出
+
+```c++
+class Solution {
+public:
+    int getMinimumDifference(TreeNode* root) {
+        int res = INT_MAX;
+        stack<TreeNode*> st;
+        int pre = INT_MIN;
+        TreeNode* cur = root;
+        bool first = true;
+        while (cur || !st.empty()) {
+            while (cur) {
+                st.push(cur);
+                cur = cur->left;
+            }
+            cur = st.top();
+            st.pop();
+            if (first) {
+                first = false;
+            } else {
+                res = min(res, abs(pre - cur->val));
+            }
+            pre = cur->val;
+            cur = cur->right;
+        }
+        return res;
+    }
+};
+```
+
 ### 543. 二叉树的直径(medium)
 
 给定一棵二叉树，你需要计算它的直径长度。一棵二叉树的直径长度是任意两个结点路径长度中的最大值。这条路径可能穿过也可能不穿过根结点。
@@ -8649,6 +8889,12 @@ public:
 };
 ```
 
+### 783. 二叉搜索树节点最小距离(Easy)
+
+给定一个二叉搜索树的根节点 root，返回树中任意两节点的差的最小值。
+
+同530题
+
 ### 958. 二叉树的完全性检验(Medium)
 
 给定一个二叉树，确定它是否是一个完全二叉树。
@@ -8681,6 +8927,57 @@ public:
             q.pop();
         }
         return true;
+    }
+};
+```
+
+### 1305. 两棵二叉搜索树中的所有元素(Medium)
+
+给你 root1 和 root2 这两棵二叉搜索树。
+
+请你返回一个列表，其中包含 两棵树 中的所有整数并按 升序 排序。.
+
+示例 1：
+
+输入：root1 = [2,1,4], root2 = [1,0,3]
+输出：[0,1,1,2,3,4]
+示例 2：
+
+输入：root1 = [0,-10,10], root2 = [5,1,7,0,2]
+输出：[-10,0,0,1,2,5,7,10]
+示例 3：
+
+输入：root1 = [], root2 = [5,1,7,0,2]
+输出：[0,1,2,5,7]
+示例 4：
+
+输入：root1 = [0,-10,10], root2 = []
+输出：[-10,0,10]
+示例 5：
+
+输入：root1 = [1,null,8], root2 = [8,1]
+输出：[1,1,8,8]
+
+提示：
+
+每棵树最多有 5000 个节点。
+每个节点的值在 [-10^5, 10^5] 之间。
+
+```c++
+class Solution {
+public:
+    vector<int> getAllElements(TreeNode* root1, TreeNode* root2) {
+        vector<int> res;
+        helper(root1, res);
+        helper(root2, res);
+        sort(res.begin(), res.end());
+        return  res;
+    }
+    void helper(TreeNode* root, vector<int>& result){
+        if(root == nullptr) return;
+        result.push_back(root->val);
+        helper(root->left, result);
+        helper(root->right, result);
     }
 };
 ```
