@@ -3130,24 +3130,23 @@ int main(int argc, char **argv)
 
 ### Linux文件系统
 
-#### VFS
-
-VFS（Virtual File System）虚拟文件系统是一种软件机制，更确切的说扮演着文件系统管理者的角色，与它相关的数据结构只存在于物理内存当中。它的作用是：屏蔽下层具体文件系统操作的差异，为上层的操作提供一个统一的接口。
-
-VFS 中包含着向物理文件系统转换的一系列数据结构：
-
-- 超级块（Super Block）：超级块对象表示一个文件系统。它存储一个已安装的文件系统的控制信息，包括文件系统名称（比如 Ext2）、文件系统的大小和状态、块设备的引用和元数据信息（比如空闲列表等等）。
-- 索引结点（Inode）：索引结点对象存储了文件的相关元数据信息，例如：文件大小、设备标识符、用户标识符、用户组标识符等等。
-- 目录项（Dentry）：引入目录项对象的概念主要是出于方便查找文件的目的。不同于前面的两个对象，目录项对象没有对应的磁盘数据结构，只存在于内存中。
-- 文件对象（File）：文件对象描述的是进程已经打开的文件。
-
-#### Page Cache 层
-
-- 引入 Cache 层的目的是为了提高 Linux 操作系统对磁盘访问的性能。Cache 层在内存中缓存了磁盘上的部分数据。
-- 在 Linux 的实现中，文件 Cache 分为两个层面，Page Cache主要是对文件的缓存；Buffer Cache则主要是对块设备的缓存，
-- cache两大功能：预读（局部性原理）和回写（数据暂存buffer，然后统一异步落盘）
-
 #### 基础
+
+Linux 文件系统会为每个文件分配两个数据结构：索引节点（index node）和目录项（directory entry），它们主要用来记录文件的元信息和目录层次结构。
+
+- 索引节点(inode)：用来记录文件的**元信息**，比如 inode 编号、文件大小、访问权限、创建时间、修改时间、数据在磁盘的位置等等。索引节点是文件的唯一标识，它们之间一一对应，也同样都会被**存储在硬盘**中，所以索引节点同样占用磁盘空间。
+- 目录项(dentry)：用来记录文件的名字、索引节点指针以及与其他目录项的层级关联关系。多个目录项关联起来，就会形成目录结构，但它与索引节点不同的是，目录项是由内核维护的一个数据结构，不存放于磁盘，而是**缓存在内存**。
+
+目录与目录项：
+
+- **目录也是文件**，也是用索引节点唯一标识，和普通文件不同的是，普通文件在磁盘里面保存的是文件数据，而目录文件在磁盘里面保存子目录或文件。
+- 目录持久化**存储在磁盘**，而目录项是内核一个数据结构，**缓存在内存**
+
+磁盘被分成三个存储区域，分别是超级块、索引节点区和数据块区。
+
+- 超级块，用来存储文件系统的详细信息，比如块个数、块大小、空闲块等等（当文件系统挂载时进入内存）
+- 索引节点区，用来存储索引节点（当文件被访问时进入内存）
+- 数据块区，用来存储文件或目录数据；
 
 /etc/passwd的权限为 `-rw-r--r--` 也就是说：
 
@@ -3155,17 +3154,67 @@ VFS 中包含着向物理文件系统转换的一系列数据结构：
 - 用户组成员只有查看权限
 - 其它成员只有查看的权限。
 
-setuid的作用是“让执行该命令的用户以该命令拥有者的权限去执行”
+#### VFS
 
-UNIX 系统中除进程之外的**一切皆是文件**，Linux又多了目录的概念，文件分为用户数据和元数据（附加属性，如大小、创建时间、创建者）
+VFS（Virtual File System）虚拟文件系统扮演着文件系统管理者的角色，与它相关的数据结构只存在于物理内存当中。它的作用是：屏蔽下层具体文件系统操作的差异，为上层的操作提供一个统一的接口。
 
-元数据中的 inode 号才是文件的唯一标识而非文件名。文件名仅是为了方便人们的记忆和使用，系统或程序通过 inode 号寻找正确的文件数据块。
+Linux 支持的文件系统也不少，根据存储位置的不同，可以把文件系统分为三类：
+
+- 磁盘的文件系统，它是直接把数据存储在磁盘中，比如 Ext 2/3/4、XFS 等都是这类文件系统。
+- 内存的文件系统，这类文件系统的数据不是存储在硬盘的，而是占用内存空间，我们经常用到的 /proc 和 /sys 文件系统都属于这一类，读写这类文件，实际上是读写内核中相关的数据数据。
+- 网络的文件系统，用来访问其他计算机主机数据的文件系统，比如 NFS、SMB 等等。
+
+#### 文件的使用
+
+系统调用：open系统调用打开文件返回fd，write向fd写数据，最后close这个fd
+
+用户空间write()--》虚拟文件系统sys_write()--》文件系统的写方法--》磁盘
+
+fd是文件描述符，操作系统会跟踪进程打开的所有文件
+
+#### 文件的存储
+
+连续空间存放方式：
+
+- 优点：读写效率高，文件头需要指定起始块位置与长度，linux的inode就支持
+- 缺点：磁盘碎片、文件长度不易扩展
+
+非连续空间存放方式：
+
+- 链表：可消除磁盘碎片，文件长度可扩展。
+  - 隐式链接：文件头包含第一个数据块和最后一个数据块，缺点是得遍历查找以及指针也占空间
+  - 显式链接：取出每个数据块的指针，存放在内存的**文件分配表**里，缺点是不适合大磁盘
+- 索引：可消除磁盘碎片，文件长度可扩展，也适合大磁盘
+  - 为每个文件创建一个「索引数据块」，里面存放的是指向文件数据块的指针列表，就想书的目录一样
+  - 文件头需要包含指向『索引数据块』的指针
+  - 创建文件时，索引块的所有指针都设为空。当首次写入第 i 块时，先从空闲空间中取得一个块，再将其地址写到索引块的第 i 个条目。
+  - 优点：文件的创建、增大、缩小很方便；不会有碎片问题；支持随机读写
+- 链表+索引：『链式索引块』
+  - 在索引数据块留出一个存放下一个索引数据块的指针，，于是当一个索引数据块的索引信息用完了，就可以通过指针的方式，找到下一个索引数据块的信息（感觉有点像跳表）
+- 索引+索引：『多级索引块』
+  - 通过一个索引块来存放多个索引数据块，一层套一层索引，像极了俄罗斯套娃
+
+#### 空闲空间管理
+
+空闲表法就是为所有空闲空间建立一张表，表内容包括空闲区的第一个块号和该空闲区的块个数，注意，这个方式是连续分配的，缺点也是显而易见的，如果有大量的小的空闲区，则空闲表就会变得很大
+
+空闲链表可以应付连续的小空闲区，但是不能随机访问
+
+位图是利用二进制的一位来表示磁盘中一个盘块的使用情况，磁盘上所有的盘块都有一个二进制位与之对应。当值为 0 时，表示对应的盘块空闲，值为 1 时，表示对应的盘块已分配。
+
+Linux 文件系统就采用了位图的方式来管理空闲空间，不仅用于数据空闲块的管理，还用于 inode 空闲块的管理
+
+#### Page Cache 层
+
+- 引入 Cache 层的目的是为了提高 Linux 操作系统对磁盘访问的性能。Cache 层在内存中缓存了磁盘上的部分数据。
+- 在 Linux 的实现中，文件 Cache 分为两个层面，Page Cache主要是对文件的缓存；Buffer Cache则主要是对块设备的缓存，
+- cache两大功能：预读（局部性原理）和回写（数据暂存buffer，然后统一异步落盘）
 
 #### 软链接与硬链接
 
 **为解决文件的共享使用**，Linux系统引入了两种链接：硬链接与软链接（又称符号链接）。链接为Linux系统解决了文件的共享使用，还带来了隐藏文件路径、增加权限安全及节省存储等好处。
 
-- 若一个inode号对应多个文件名，则称这些文件为硬链接。
+- 若一个inode号对应多个目录项的『索引节点』，则称这些文件为硬链接。
   - 文件有相同的inode及data block；
   - **只能对已存在的文件进行创建**；
   - 不能对目录进行创建，只可对文件创建；
@@ -3183,9 +3232,40 @@ UNIX 系统中除进程之外的**一切皆是文件**，Linux又多了目录的
 - 引用就是别名（硬链接也是别名），指针是对象的地址（软链接是另一文件的路径名的指向）
 - 引用不是对象（硬链接的inode与data block相同），指针是对象（软链接的inode独立）
 
-ln -s / /home/good/linkname 链接根目录 / 到 /home/good/linkname
+`ln -s / /home/good/linkname`：链接根目录到 `/home/good/linkname`
 
 加参数-s就是软链接，不加参数-s就是硬链接
+
+#### 文件IO
+
+标准库缓冲
+
+- 缓冲IO：利用的是标准库的缓存实现文件的加速访问，而标准库再通过系统调用访问文件。
+- 非缓冲 I/O，直接通过系统调用访问文件，不经过标准库缓存。
+- 缓冲特指**标准库**内部实现的缓冲，程序遇到换行才输出，这就是被标准库暂时缓存了起来，这样可以减少系统调用的次数
+
+操作系统缓冲
+
+- 直接 I/O，不会发生内核缓存和用户程序之间数据复制，而是直接经过文件系统访问磁盘。
+- 非直接 I/O，读操作时，数据从内核缓存中拷贝给用户程序，写操作时，数据从用户程序拷贝给内核缓存，再由内核决定什么时候写入数据到磁盘。
+- 我们都知道磁盘 I/O 是非常慢的，所以 Linux 内核为了减少磁盘 I/O 次数，在系统调用后，会把用户数据拷贝到内核中缓存起来，这个内核缓存空间也就是「**页缓存**」，只有当缓存满足某些条件的时候，才发起磁盘 I/O 的请求。
+- 如果你在使用文件操作类的系统调用函数时，指定了 O_DIRECT 标志，则表示使用直接 I/O。如果没有设置过，默认使用的是非直接 I/O。
+- 以下几种场景会触发内核缓存的数据写入磁盘：
+  - 在调用 write 的最后，当发现内核缓存的数据太多的时候，内核会把数据写到磁盘上；
+  - 用户主动调用 sync，内核缓存会刷到磁盘上；
+  - 当内存十分紧张，无法再分配页面时，也会把内核缓存的数据刷到磁盘上；
+  - 内核缓存的数据的缓存时间超过某个时间时，也会把数据刷到磁盘上；
+
+阻塞与非阻塞
+
+- 阻塞 I/O，例如当用户程序执行 read ，线程会被阻塞，一直等到内核数据准备好，并把数据从内核缓冲区拷贝到应用程序的缓冲区中，当拷贝过程完成，read 才会返回。（注意，阻塞等待的是「内核数据准备好」和「数据从内核态拷贝到用户态」这两个过程
+- 非阻塞 I/O，非阻塞的 read 请求在数据未准备好的情况下立即返回，可以继续往下执行，此时应用程序不断轮询内核，直到数据准备好，内核将数据拷贝到应用程序缓冲区，read 调用才可以获取到结果
+- 每次轮询有点低效，IO多路复用的技术就出来了，当内核数据准备好时，再以事件通知应用程序进行操作，可以极大地改善CPU的利用率，应用进程可以使用CPU做其他事
+
+同步与异步
+
+- 之前说的都是同步，因为在最后一次read系统调用时，应用进程必须等待内核将数据从内核空间拷贝到进程自己的虚拟地址空间，这个过程是**同步**的
+- 真正的异步：『内核数据准备好」和「数据从内核态拷贝到用户态」这两个过程都不用等待，当发起aio_read，立即返回，内核自动将数据从内核空间拷贝到应用程序空间，这个拷贝过程同样是异步的，内核自动完成的，和前面的同步操作不一样，应用程序并不需要主动发起拷贝动作
 
 ### 进程与线程
 
@@ -3882,7 +3962,7 @@ BUT，如果一个函数是线程安全的，并不能说明对**信号处理程
 
 TODO
 
-### std::mutex(C++11起)
+### std::mutex
 
 std::mutex是C++11中最基本的互斥量，std::mutex 对象提供了**独占所有权**的特性——即**不支持递归**地对 std::mutex 对象上锁，而 std::recursive_lock 则可以递归地对互斥量对象上锁。还有一些允许锁定超时互斥量就不介绍了
 
@@ -3900,11 +3980,12 @@ std::mutex不允许拷贝构造，初始是unlock状态
     2. 如果该mutex被其他线程锁住，则**当前线程返回false**，直至其他线程解锁
     3. 如果该mutex被当前线程锁住（递归上锁），则产生死锁
 
-### std::thread(C++11起)
+### std::thread
 
 - thread 的构造函数的第一个参数是函数(对象)，后面跟的是这个函数所需的参数。
-- thread 要求在析构之前要么 join(阻塞直到线程退出)，要么 detach(放弃对线程的管理)，否则 程序会异常退出。
+- thread 要求在析构之前要么 join(阻塞直到线程退出)，要么 detach(放弃对线程的管理)，否则程序会异常退出。
 - 只有joinable(已经join的、已经detach的或者空的线程对象都不满足joinable)的thread才可以对其调用 join 成员函数，否则会引发异常
+- c++11还提供了获取线程id，或者系统cpu个数，获取thread native_handle，使得线程休眠等功能
 
 下面的代码执行如下流程：
 
@@ -3912,6 +3993,7 @@ std::mutex不允许拷贝构造，初始是unlock状态
 2. 两个线程分别休眠100毫秒
 3. 使用互斥量(mutex)锁定cout，然后输出一行信息
 4. 主线程等待这两个线程退出后程序结束
+5. 用lambda匿名函数
 
 ```c++
 #include <chrono>
@@ -3919,35 +4001,48 @@ std::mutex不允许拷贝构造，初始是unlock状态
 #include <mutex>
 #include <thread>
 using namespace std;
-mutex output_lock;
+mutex mtx;
 void func(const char *name)
 {
     this_thread::sleep_for(100ms);
-    lock_guard<mutex> guard{
-        output_lock};
-    cout << "I am thread " << name
-         << '\n';
+    lock_guard<mutex> guard(mtx);
+    cout << "I am thread " << name << '\n';
 }
 int main()
 {
-    thread t1{func, "A"};
-    thread t2{func, "B"};
+    thread t1(func, "A");
+    thread t2(func, "B");
     t1.join();
     t2.join();
+    auto func1 = [](int k) {
+        for (int i = 0; i < k; ++i) {
+            cout << i << " ";
+        }
+        cout << endl;
+    };
+    std::thread tt(func1, 20);
+    if (tt.joinable()) { // 检查线程可否被join
+        tt.join();
+    }
+    cout << "当前线程ID " << tt.get_id() << endl;
+    cout << "当前cpu个数 " << std::thread::hardware_concurrency() << endl;
+    auto handle = tt.native_handle();// handle可用于pthread相关操作
+    std::this_thread::sleep_for(std::chrono::seconds(1));
 }
 ```
 
 thread不能在析构时自动join，感觉不是很自然，但是在C++20的jthread到来之前，只能这样用着，附近的笔记参考现代C++实战30讲，用到了自定义的scoped_thread，可以简单认为更智能的std::thread
 
-### unique_lock与lock_guard区别（C++11）
+### unique_lock与lock_guard区别
 
-两者都包含于头文件`<mutex>`中
+两者都包含于头文件`<mutex>`中，C++11
 
 这两个都是类模板，用RAII的思想来处理锁，不用手动mutex.lock()、mutex.unlock()
 
 - lock_guard只有构造函数，直接构造即可，在整个区域内有效，在块内`{}`作为局部变量，自动析构
 - unique_lock更加灵活，还提供lock()、try_lock()、unlock()等函数，所以可以在必要时加锁和解锁，不必像lock_guard一样非得在构造和析构时加锁和解锁
 - unique_lock在效率上差一点，内存占用多一点。
+- 条件变量cond_variable的接收参数是unique_lock
 
 ```c++
 std::mutex mtx;
@@ -3958,7 +4053,7 @@ void some_func() {
 }
 ```
 
-### 条件变量与虚假唤醒（C++11）
+### 条件变量与虚假唤醒
 
 当条件不满足时，相关线程被一直阻塞，直到某种条件出现，这些线程才会被唤醒
 
@@ -4004,9 +4099,9 @@ while (!pred()) //while循环，解决了虚假唤醒的问题
 
 pthread_cond_signal()也可能唤醒多个线程，而如果你同时只允许一个线程访问的话，就必须要使用while来进行条件判断，以保证临界区内只有一个线程在处理。
 
-### 两个线程交替打印（C++11）
+### 手撕两个线程交替打印
 
-用到了unique_lock来管理mutex，还有条件变量condition_variable来通知另一个线程，注意下面的代码会一直循环下去
+用到了unique_lock来管理mutex，还有条件变量condition_variable来通知另一个线程，
 
 ```c++
 #include <iostream>
@@ -4017,6 +4112,7 @@ using namespace std;
 mutex mtx;
 condition_variable cond_var;
 bool flag = true;
+int maxIter = 10;
 void printA(){
     while(1){
         unique_lock<std::mutex> ulock(mtx);
@@ -4024,6 +4120,7 @@ void printA(){
         cout << "threadA: " << flag << endl;
         flag = false;
         cond_var.notify_one();
+        if (--maxIter <= 0) break;
     }
 }
 void printB(){
@@ -4033,28 +4130,169 @@ void printB(){
         cout << "threadB: " << flag << endl;
         flag = true;
         cond_var.notify_one();
+        if (--maxIter <= 0) break;
     }
 }
 int main()  
 {  
-    thread t1(&printA);
-    thread t2(&printB);
+    thread t1(printA);
+    thread t2(printB);
     t1.join();
     t2.join();
-  
-    return 0;  
-}  
+}
+```
+
+### 手撕生产者消费者模型
+
+多生产者多消费者，利用互斥锁、条件变量、阻塞队列实现
+
+```c++
+#include <iostream>
+#include <queue>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+using namespace std;
+mutex mtx;
+condition_variable produce, consume; // 条件变量是一种同步机制，要和mutex以及lock一起使用
+queue<int> q; // shared value by producers and consumers, which is the critical section
+int maxSize = 20;
+int maxConsume = 100;
+int maxProduce = 100;
+void consumer() {
+    while (true) {
+        unique_lock<mutex> lck(mtx); // RAII
+        consume.wait(lck, [] {return q.size() != 0; }); // wait(block) consumer until q.size() != 0 is true
+        cout << "consumer " << this_thread::get_id() << ": ";
+        q.pop();
+        cout << q.size() << '\n';
+        produce.notify_all(); // notify(wake up) producer when q.size() != maxSize is true
+        if (--maxConsume <= 0) break;
+    }
+}
+
+void producer(int id) {
+    while (true) {
+        unique_lock<mutex> lck(mtx);
+        produce.wait(lck, [] {return q.size() != maxSize; }); // wait(block) producer until q.size() != maxSize is true
+        cout << "-> producer " << this_thread::get_id() << ": ";
+        q.push(id);
+        cout << q.size() << '\n';
+        consume.notify_all(); // notify(wake up) consumer when q.size() != 0 is true
+        if (--maxProduce <= 0) break;
+    }
+}
+int main()
+{
+    thread consumers[2], producers[2];
+    for (int i = 0; i < 2; ++i) {
+        consumers[i] = thread(consumer);
+        producers[i] = thread(producer, i + 1);
+    }
+    // 结束时必须要调用join，不然会异常退出
+    for (int i = 0; i < 2; ++i) {
+        producers[i].join();
+        consumers[i].join();
+    }
+}
+```
+
+### 手撕线程池
+
+线程池中线程，在线程池中等待并执行分配的任务，用条件变量实现等待与通知机制
+
+[基于C++11实现线程池的工作原理](https://www.cnblogs.com/ailumiyana/p/10016965.html)
+
+```c++
+class ThreadPool{
+public:
+  static const int kInitThreadsSize = 3;
+  enum taskPriorityE { level0, level1, level2, }; // 优先级
+  typedef std::function<void()> Task;
+  typedef std::pair<taskPriorityE, Task> TaskPair;
+
+private:
+  typedef std::vector<std::thread*> Threads;
+  typedef std::priority_queue<TaskPair, std::vector<TaskPair>, TaskPriorityCmp> Tasks;
+
+  Threads m_threads;
+  Tasks m_tasks;
+
+  std::mutex m_mutex;
+  Condition m_cond;
+  bool m_isStarted;
+
+public:
+  ThreadPool() : m_mutex(), m_cond(m_mutex), m_isStarted(false) {}
+  ~ThreadPool() { if(m_isStarted) stop();}
+
+  void start() {
+    m_isStarted = true;
+    m_threads.reserve(kInitThreadsSize);
+    for (int i = 0; i < kInitThreadsSize; ++i) {
+      m_threads.push_back(new std::thread(std::bind(&threadLoop, this)));
+    }
+  }
+  void stop() {
+    {
+      std::unique_lock<std::mutex> lock(m_mutex);
+      m_isStarted = false;
+      m_cond.notifyAll();
+    }
+    for (auto it = m_threads.begin(); it != m_threads.end(); ++it) {
+      (*it)->join();
+      delete *it;
+    }
+    m_threads.clear();
+  }
+  void addTask(const Task&) {
+    std::unique_lock<std::mutex> lock(m_mutex);
+    TaskPair taskPair(level2, task);
+    m_tasks.push(taskPair);
+    m_cond.notify();
+  }
+
+private:
+  ThreadPool(const ThreadPool&);//禁止复制拷贝.
+  const ThreadPool& operator=(const ThreadPool&);
+
+  struct TaskPriorityCmp {
+    bool operator() (const ThreadPool::TaskPair p1, const ThreadPool::TaskPair p2) {
+        return p1.first > p2.first; // first的小值优先
+    }
+  };
+
+  void threadLoop() {
+    while (m_isStarted) {
+      Task task = take();
+      if (task) {
+        task();
+      }
+    }
+  }
+  Task take() {
+    std::unique_lock<std::mutex> lock(m_mutex);
+    while(m_tasks.empty() && m_isStarted) { // 避免虚假唤醒
+      m_cond.wait(lock);
+    }
+    Task task;
+    auto size = m_tasks.size();
+    if (!m_tasks.empty() && m_isStarted) {
+      task = m_tasks.top().second;
+      m_tasks.pop();
+    }
+    return task;
+  }
+};
 ```
 
 ### future/async/promise
 
-头文件`<future>`就包括了这三者。
-
-future与async配合使用,可以从**异步任务**中获取结果，std::async用于创建异步任务，实际上就是创建一个线程执行相应任务。
-
-注意一个future上只能调用一个get函数，第二次会导致程序崩溃，所以要想在多线程调用future，得用future.share()方法生成shared_future，当然底层还是只用了一次get函数。
-
-没有future与async的做法，非常冗余，定义了一堆变量
+- 头文件`<future>`就包括了这三者，C++11
+- future与async配合使用,可以从**异步任务**中获取结果，std::async用于创建异步任务，实际上就是创建一个线程执行相应任务。
+- std::future作为异步结果的传输通道，通过get()可以很方便的获取线程函数的返回值，std::promise用来包装一个值，将数据和future绑定起来，而std::packaged_task则用来包装一个调用对象，将函数和future绑定起来，方便异步调用。而std::future是不可以复制的，如果需要复制放到容器中可以使用std::shared_future。
+- 注意一个future上只能调用一个get函数，第二次会导致程序崩溃，所以要想在多线程调用future，得用future.share()方法生成shared_future，当然底层还是只用了一次get函数。
+- 没有future与async的做法，非常冗余，定义了一堆变量
 
 ```c++
 void work(condition_variable& cv, int& result)
@@ -4103,9 +4341,9 @@ int main() {
     cout << "I am waiting now\n"; cout << "Answer: " << fut.get();
 ```
 
-### std::atomic(C++11起)
+### std::atomic
 
-头文件`<atomic>`定义了原子量和内存序，用atomic_int/atomic_bool/...代替int/bool/...，即可保证这些操作都是原子性的，比mutex对资源加锁解锁要快
+头文件`<atomic>`定义了原子量和内存序(C++11起)，用atomic_int/atomic_bool/...代替int/bool/...，即可保证这些操作都是原子性的，比mutex对资源加锁解锁要快
 
 编译器提供了一个原子对象的成员函数 is_lock_free，可以检查这个原子对象上的操作是否是无锁的
 
@@ -4118,6 +4356,45 @@ atomic规定了内存序，这样就有了内存屏障，防止编译器优化
 - 读‐修改‐写：读取内存、修改数值、然后写回内存，整个操作的过程中间不会有其他写入操作插入，其他执行线程不会看到部分写入的结果。
 
 可以用于单例模式中双检锁失效的问题
+
+```c++
+
+struct OriginCounter { // 普通的计数器
+   int count;
+   std::mutex mutex_;
+   void add() {
+       std::lock_guard<std::mutex> lock(mutex_);
+       ++count;
+  }
+
+   void sub() {
+       std::lock_guard<std::mutex> lock(mutex_);
+       --count;
+  }
+
+   int get() {
+       std::lock_guard<std::mutex> lock(mutex_);
+       return count;
+  }
+};
+
+struct NewCounter { // 使用原子变量的计数器
+   std::atomic<int> count;
+   void add() {
+       ++count;
+       // count.store(++count);这种方式也可以
+  }
+
+   void sub() {
+       --count;
+       // count.store(--count);
+  }
+
+   int get() {
+       return count.load();
+  }
+};
+```
 
 ### 无锁队列怎么实现
 
@@ -7001,6 +7278,42 @@ public:
         return ans;
     }
 };
+```
+
+### 汉诺塔问题
+
+[汉诺塔的图解递归算法](https://www.cnblogs.com/dmego/p/5965835.html)
+
+实现这个算法可以简单分为三个步骤：
+
+　　　　（1）     把n-1个盘子由A 移到 B；
+
+　　　　（2）     把第n个盘子由 A移到 C；
+
+　　　　（3）     把n-1个盘子由B 移到 C；
+
+从这里入手，在加上上面数学问题解法的分析，我们不难发现，移到的步数必定为奇数步：
+
+　　　　（1）中间的一步是把最大的一个盘子由A移到C上去；
+
+　　　　（2）中间一步之上可以看成把A上n-1个盘子通过借助辅助塔（C塔）移到了B上，
+
+　　　　（3）中间一步之下可以看成把B上n-1个盘子通过借助辅助塔（A塔）移到了C上；
+
+```c++
+int cnt = 0;
+void hanoi(int n, char A, char B, char C) {
+    if (n == 1) { // 当前最大的圆盘，从A移动到C
+        cout << "The " << ++cnt << "th move: plate " << n << ", from " << A << ", to " << C << endl;
+    } else {
+        hanoi(n-1, A, C, B); // 递归，把n-1个圆盘移动到B上，B是辅助塔
+        cout << "The " << ++cnt << "th move: plate " << n << ", from " << A << ", to " << C << endl; // 把A塔上编号为n的圆盘移动到C上
+        hanoi(n-1, B, A, C); // 递归，把B塔上n-1个圆盘移动到C上，A是辅助塔
+    }
+}
+int main() {
+    hanoi(3, 'A', 'B', 'C');
+}
 ```
 
 ### 数学算法
