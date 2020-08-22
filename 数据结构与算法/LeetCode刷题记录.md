@@ -15906,6 +15906,50 @@ public:
 };
 ```
 
+### 367. 有效的完全平方数
+
+给定一个正整数 num，编写一个函数，如果 num 是一个完全平方数，则返回 True，否则返回 False。
+
+说明：不要使用任何内置的库函数，如  sqrt。
+
+最快的是用一个公式：1+3+5+7+ ... + (2n-1) = n^2
+
+```c++
+class Solution
+{
+public:
+    bool isPerfectSquare(int num) {
+        int num1 = 1;
+        while(num > 0) {
+            num -= num1;
+            num1 += 2;
+        }
+        return num == 0;
+    }
+};
+```
+
+也可以用二分法或牛顿法不断减小平方根的范围，最后判断离平方根最近的整数，其平方是否等于num来判断num是否是完全平方数
+
+```c++
+class Solution {
+public:
+    bool isPerfectSquare(int num) {
+        if (num <= 1) return true;
+        int l = 1, h = num / 2;
+        while (l < h) {
+            int mid = l + (h - l >> 1);
+            if (mid >= num / mid) { // mid * mid >= num
+                h = mid;
+            } else {
+                l = mid + 1;
+            }
+        }
+        return (long)l * l == num;
+    }
+};
+```
+
 ### 374. 猜数字大小(easy≈)
 
 我们正在玩一个猜数字游戏。 游戏规则如下：
