@@ -2874,12 +2874,13 @@ public:
 
 输入一棵二叉搜索树，将该二叉搜索树转换成一个排序的双向链表。要求不能创建任何新的结点，只能调整树中结点指针的指向。
 
+leetcode的这题是排序的循环双向链表
+
 思路：
 
 1. 画图举例时发现一个规律，当前节点转换后的节点的前驱是BST中的左子树的最右节点，后驱是BST中的右子树的最左节点，那么只需要递归即可，每次递归时找到当前节点的前驱和后继，转换成双向链表；
 2. 注意：对左右儿子的递归一定要放在双向链表的转换之前，不然会产生死循环，因为双向链表的转换会使得某个叶子节点的left/right指向非空；
 3. 转换后，节点的left指前驱，right指后驱；
-4. 这题的思想其实是中序遍历，每个节点的前驱就是在中序遍历序列其前驱
 
 这题是自己想的，第一次把左右儿子的递归放在了后面，牛客网提交超时，在本地debug时才发现，不然就一次AC了！
 
@@ -2921,6 +2922,35 @@ public:
             temp->left = root;
             root->right = temp;
         }
+    }
+};
+```
+
+中序遍历的做法，用一个pre节点来做
+
+```c++
+class Solution {
+public:
+    TreeNode* head;
+    TreeNode* pre = nullptr;
+    TreeNode* Convert(TreeNode* pRootOfTree)
+    {
+        if(!pRootOfTree) return nullptr;
+        helper(pRootOfTree);
+        return head;
+    }
+    void helper(TreeNode* root){
+        if(!root) return;
+        TreeNode* cur;
+        helper(root->left);
+        if (!pre) {
+            head = root;
+        } else {
+            pre->right = root;
+        }
+        root->left = pre;
+        pre = root;
+        helper(root->right);
     }
 };
 ```
