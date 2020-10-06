@@ -167,7 +167,7 @@ using V2 = vector<int>;
 ### union数据类型是什么
 
 - union是C语言里面的共用体/联合体，这些数据**共享同一段内存**，以达到节省空间的目的
-- union变量所占用的内存长度等于**最长**的成员的内存长度
+- union变量所占用的内存长度等于**最长**的成员的内存长度（但需要满足最长的成员的倍数，字节对齐）
 - 因为union里面的变量共享内存，所以不能使用静态、引用
 - C++中使用union时，尽量保持C语言中使用union的风格，尽量不要让union带有对象
   - 默认访问控制符为 public
@@ -175,7 +175,44 @@ using V2 = vector<int>;
   - 不能含有引用类型的成员
   - 不能继承自其他类，不能作为基类
   - 不能含有虚函数
-- union可以用来测试CPU是大端模式还是小端模式
+- union可以用来测试CPU是大端模式（big endian, 所见即所得，高字节放低地址）还是小端模式（little endian, 低字节放低地址）
+
+union字节数：
+
+```c++
+union A{
+    int a[5];
+    char b;
+    double c;
+};
+sizeof(A) = ?
+// 答案是24
+// 最长的成员是int a[5]，所以5*4=20byte，但是需要内存字节对齐，最长的数据类型是double（8byte）
+// 所以字节对齐后的字节数是24byte
+```
+
+面试题：x86机器输出什么
+
+```c++
+#include <stdio.h>
+typedef union un{
+ int i;
+ char ch[2];
+} un;
+int main()
+{
+    un u;
+    u.ch[0] = 10;
+    u.ch[1] = 1;
+    printf("%d", (short)u.i);   //原题没有强转为short，题是错误的，因为另外两个字节是垃圾数
+    return 0;
+}
+```
+
+10 相当于 0000 1010     低地址
+1   相当于 0000 0001     高地址
+如果是小端模式，低地址存放高位，高地址存放低位，那么该值按照正常顺序书写就是： 0000 0001 0000 1010，结果为266。
+由于X86都是小端，所以在计算机上运行输出266；
 
 ### struct位域是什么
 
@@ -267,7 +304,27 @@ p_buffer = NULL;
 
 ### enum数据类型是什么
 
-enum是枚举
+```c++
+enum 枚举类型名 {枚举常量列表};
+
+enum weekday {sun, mon, tue, wed, thu, fri, sat};// 先声明后定义
+enum weekday a, b, c;
+
+enum weekday {sun, mon, tue, wed, thu, fri, sat} a, b, c;// 同时声明定义
+
+sun = 5; // 错误，枚举值是常量
+sun = mon; // 错误，同上
+a = sum; // 正确
+b = mon; // 正确
+a = 0; // 错误
+b = 1; // 错误
+a = (enum weekday)2; // 正确，强转，相当于 a = tue;
+
+
+enum weather {sunny, cloudy, rainy, windy}; // 默认赋值，sunny = 0, ...
+enum fruits {apple=3, orange, banana=7, bear}; // 显式赋值，每个枚举子取值是前一个加一，orange=4, bear=8
+enum big_cities{guangzhou=1, shenzhen=3, beijing=1, shanghai=2}; // 枚举子取值可以重复
+```
 
 传统方法有三个特点，或者说缺点
 
@@ -537,7 +594,108 @@ const char crr[] = "123";   // 数组，在栈上，长度是4（包括结尾的
 char drr[] = "123";         // 另一个数组，drr与crr指向的地址不同，长度也是4
 ```
 
-### 宏定义常量与const常量的区别
+### 预处理
+
+#### 宏定义
+
+只是替换文本，需要加上括号，这里很容易掉入坑中，因为**先替换后计算**
+
+```c++
+// 变量case
+#define N 2+9
+int a = N*N; // 预期输出121
+cout << a << endl; // 输出29，因为a=2+9*2+9=29，可见只是简单的替换，应更改为#define N (2+9)
+
+// 函数case
+#define area(x) x*x
+int y = area(2+2); // 预期输出16
+cout << y << endl; // 输出8，因为y=2+2*2+2=8
+
+// 尝试解决函数case
+#define area(x) (x)*(x)
+int yy = area(2+2); // 预期输出16
+cout << yy << endl; // 输出16，因为yy=(2+2)*(2+2)=16
+int yyy = area(2+2)/area(2+2); // 预期输出1
+cout << yyy << endl; // 输出16，因为yyy=(2+2)*(2+2)/(2+2)*(2+2)=16
+
+// 唯一解
+#define area(x) ((x)*(x))
+int yyyy = area(2+2)/area(2+2); // 预期输出1
+cout << yyyy << endl; // 输出1，因为yyyy=((2+2)*(2+2))/((2+2)*(2+2))
+```
+
+#### do...while(0)
+
+用来让多行语句变成非复合语句
+
+```c++
+// do...while(0)
+#define Foo(x) do {\
+    statement one;\
+    statement two;\
+}while(0) // 没有分号
+
+// 宏定义函数
+#define Foo(x) {\
+    statement one;\
+    statement two;\
+}
+
+if (condition)
+    Foo(x); // 如果是宏定义函数，one two有两个分号，而if没有花括号，所以会导致编译错误
+else
+    ...;
+```
+
+#### 条件编译
+
+```c++
+#ifdef 标识符 // 当标识符被定义过（一般用#define定义），则编译1，否则编译2，#else部分也可以没有
+    程序段1
+#else
+    程序段2
+#endif
+
+#if 表达式 // 表达式为真，编译1
+    程序段1
+#else
+    程序段2
+#endif
+```
+
+调试代码巧用条件编译
+
+```c++
+#include <iostream>
+using namespace std;
+#define _DEBUG_ // 目的在于定义_DEBUG_标识符，后面写什么字符串都无所谓，甚至可以不写字符串
+int main() {
+    int x = 10;
+#ifdef _DEBUG_
+    cout << "File:"<<__FILE__<<",Line:"<<__LINE__<<",x:"<<x<<endl;
+#else
+    printf("x = %d\n", x);
+    cout << x << endl;
+#endif
+    return 0;
+}
+```
+
+extern "C"块与条件编译结合，在C/C++混合编程的环境，extern "C"就是告诉编译器按C编译（比如没有C++的函数重载等等），所以这种方法可以保证C/C++的兼容性
+
+```c++
+#ifdef __cplusplus
+    extern "C" {
+#endif
+
+    ...
+
+#ifdef __cplusplus
+    }
+#endif
+```
+
+#### 宏定义常量与const常量的区别
 
 `#define pi 3.1415926`
 
@@ -546,7 +704,7 @@ char drr[] = "123";         // 另一个数组，drr与crr指向的地址不同�
 3. 存储方式不同：宏定义常量**不分配内存**，仅仅是展开而已；const常量会在内存中分配，
 4. 常量只在类中有效只能用const，而且const数据成员只在某个对象生存期内是常量，对于整个类而言是可变的，因为类可以有多个对象，每个对象的const成员值可以不同（不能在类中初始化const数据成员）
 
-### 宏定义函数与内联函数的区别
+#### 宏定义函数与内联函数的区别
 
 `define MAX(a, b) ((a)>(b)?(a):(b))`
 
