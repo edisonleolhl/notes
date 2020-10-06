@@ -7198,6 +7198,251 @@ public:
 };
 ```
 
+### 99. 恢复二叉搜索树(Hard)
+
+二叉搜索树中的两个节点被错误地交换。
+
+请在不改变其结构的情况下，恢复这棵树。
+
+示例 1:
+
+输入: [1,3,null,null,2]
+
+   1
+  /
+ 3
+  \
+   2
+
+输出: [3,1,null,null,2]
+
+   3
+  /
+ 1
+  \
+   2
+示例 2:
+
+输入: [3,1,4,null,null,2]
+
+  3
+ / \
+1   4
+   /
+  2
+
+输出: [2,1,4,null,null,3]
+
+  2
+ / \
+1   4
+   /
+  3
+进阶:
+
+使用 O(n) 空间复杂度的解法很容易实现。
+你能想出一个只使用常数空间的解决方案吗？
+
+解法一：排序，空间复杂度O(n)
+
+按照二叉搜索树的性质我们可以发现，用中序遍历来变遍历整棵树，合法的情况应该是从小到大排序的。因此，我们可以将中序遍历的结果和从小到大排序后的结果做对比，这样就可以找到出错的两个节点，交换他们的值即可。
+
+```c++
+class Solution {
+public:
+    void inorder(TreeNode* root, vector<pair<int, TreeNode*>>& v){
+        if(root == nullptr) return;
+        inorder(root->left, v);
+        v.push_back({root->val, root});
+        inorder(root->right, v);
+    }
+    void recoverTree(TreeNode* root) {
+        vector<pair<int, TreeNode*>> sorted, unsorted;
+        inorder(root, sorted);
+        unsorted = sorted;
+        sort(sorted.begin(), sorted.end());
+        int len = sorted.size();
+        vector<TreeNode*> tt;
+        for(int i = 0; i<len; i++)
+            if(sorted[i].first != unsorted[i].first)
+                tt.push_back(sorted[i].second);
+        swap(tt[0]->val,tt[1]->val);
+    }
+};
+```
+
+解法一变形：显式中序遍历，空间复杂度O(n)
+
+不需要排序，BST的中序遍历是递增的，找到两个违反这个规则的节点即可，从左到右，第一个违反递增规律的取左边节点，第二个违反递增规律的取右边节点
+
+```c++
+class Solution {
+public:
+    void inorder(TreeNode* root, vector<pair<int, TreeNode*>>& v){
+        if(root == nullptr) return;
+        inorder(root->left, v);
+        v.push_back({root->val, root});
+        inorder(root->right, v);
+    }
+    void recoverTree(TreeNode* root) {
+        vector<pair<int, TreeNode*>> vec;
+        inorder(root, vec);
+        int len = vec.size();
+        TreeNode* n1 = nullptr;
+        TreeNode* n2 = nullptr;
+        for(int i = 0; i < len - 1; ++i) {
+            if (vec[i + 1].first < vec[i].first) {
+                if (!n1) {
+                    n1 = vec[i].second; // 第一个违反递增规律的取左边节点
+                }
+                n2 = vec[i + 1].second; // 第二个违反递增规律的取右边节点（有可能只有一个违反规律的pair
+            }
+        }
+        swap(n1->val, n2->val);
+    }
+};
+```
+
+解法二：隐式中序遍历，空间复杂度O(H)，需要用到栈，取决于二叉树的高度
+
+我们只关心中序遍历的值序列中每个相邻的位置的大小关系是否满足条件，且错误交换后最多两个位置不满足条件，因此在中序遍历的过程我们只需要维护当前中序遍历到的最后一个节点 pred，然后在遍历到下一个节点的时候，看两个节点的值是否满足前者小于后者即可，如果不满足说明找到了一个交换的节点，且在找到两次以后就可以终止遍历。
+
+```c++
+class Solution {
+public:
+    void recoverTree(TreeNode* root) {
+        TreeNode* n1 = nullptr;
+        TreeNode* n2 = nullptr;
+        TreeNode* pre = nullptr;
+        stack<TreeNode*> st;
+        TreeNode* cur = root;
+        while (cur || !st.empty()) {
+            while (cur) {
+                st.push(cur);
+                cur = cur->left;
+            }
+            cur = st.top();
+            st.pop();
+            if (pre && pre->val > cur->val) {
+                n2 = cur;
+                if (!n1) {
+                    n1 = pre;
+                } else {
+                    break;
+                }
+            }
+            pre = cur;
+            cur = cur->right;
+        }
+        swap(n1->val, n2->val);
+    }
+};
+```
+
+方法三：Morris 中序遍历，不需要栈，空间复杂度O(1)
+
+Morris 遍历算法整体步骤如下（假设当前遍历到的节点为 x）：
+
+- 如果 x 无左孩子，则访问 x 的右孩子，即 x = x.right。
+- 如果 x 有左孩子，则找到 x 左子树上最右的节点（即左子树中序遍历的最后一个节点，x 在中序遍历中的前驱节点），我们记为 predecessor。根据 predecessor 的右孩子是否为空，进行如下操作。
+  - 如果 predecessor 的右孩子为空，则将其右孩子指向 x，然后访问 x 的左孩子，即 x=x.left。
+  - 如果 predecessor 的右孩子不为空，则此时其右孩子指向 x，说明我们已经遍历完 x 的左子树，我们将 predecessor 的右孩子置空，然后访问 x 的右孩子，即 x = x.right。
+- 重复上述操作，直至访问完整棵树。
+
+其实整个过程我们就多做一步：将当前节点左子树中最右边的节点指向它，这样在左子树遍历完成后我们通过这个指向走回了 x，且能再通过这个知晓我们已经遍历完成了左子树，而不用再通过栈来维护，省去了栈的空间复杂度。
+
+```c++
+class Solution {
+public:
+    void recoverTree(TreeNode* root) {
+        TreeNode *x = nullptr, *y = nullptr, *pred = nullptr, *predecessor = nullptr;
+        while (root != nullptr) {
+            if (root->left != nullptr) {
+                // predecessor 节点就是当前 root 节点向左走一步，然后一直向右走至无法走为止
+                predecessor = root->left;
+                while (predecessor->right != nullptr && predecessor->right != root) {
+                    predecessor = predecessor->right;
+                }
+                // 增加的一步：让 predecessor 的右指针指向 root，继续遍历左子树
+                if (predecessor->right == nullptr) {
+                    predecessor->right = root;
+                    root = root->left;
+                }
+                // 说明左子树已经访问完了，我们需要断开链接
+                else {
+                    if (pred != nullptr && root->val < pred->val) {
+                        y = root;
+                        if (x == nullptr) {
+                            x = pred;
+                        }
+                    }
+                    pred = root;
+                    predecessor->right = nullptr;
+                    root = root->right;
+                }
+            }
+            // 如果没有左孩子，则直接访问右孩子
+            else {
+                if (pred != nullptr && root->val < pred->val) {
+                    y = root;
+                    if (x == nullptr) {
+                        x = pred;
+                    }
+                }
+                pred = root;
+                root = root->right;
+            }
+        }
+        swap(x->val, y->val);
+    }
+};
+```
+
+### 100. 相同的树(Easy)
+
+给定两个二叉树，编写一个函数来检验它们是否相同。
+
+如果两个树在结构上相同，并且节点具有相同的值，则认为它们是相同的。
+
+示例 1:
+
+输入:       1         1
+          / \       / \
+         2   3     2   3
+        [1,2,3],   [1,2,3]
+
+输出: true
+示例 2:
+
+输入:      1          1
+          /           \
+         2             2
+        [1,2],     [1,null,2]
+
+输出: false
+示例 3:
+
+输入:       1         1
+          / \       / \
+         2   1     1   2
+        [1,2,1],   [1,1,2]
+
+输出: false
+
+easy，一次性a了
+
+```c++
+class Solution {
+public:
+    bool isSameTree(TreeNode* p, TreeNode* q) {
+        if (!p && !q) return true;
+        if (!p || !q) return false;
+        if (p->val != q->val) return false;
+        return isSameTree(p->left, q->left) && isSameTree(p->right, q->right);
+    }
+};
+```
+
 ### 101.对称二叉树(medium,based on 98)
 
 给定一个二叉树，检查它是否是镜像对称的。
@@ -7710,6 +7955,58 @@ public:
 };
 ```
 
+### 107. 二叉树的层次遍历 II(Easy)
+
+给定一个二叉树，返回其节点值自底向上的层次遍历。 （即按从叶子节点所在层到根节点所在的层，逐层从左向右遍历）
+
+例如：
+给定二叉树 [3,9,20,null,null,15,7],
+
+```c++
+    3
+   / \
+  9  20
+    /  \
+   15   7
+```
+
+返回其自底向上的层次遍历为：
+
+[
+  [15,7],
+  [9,20],
+  [3]
+]
+
+直接bfs层序遍历，最后再reverse一下
+
+```c++
+class Solution {
+public:
+    vector<vector<int>> levelOrderBottom(TreeNode* root) {
+        vector<vector<int>> ans;
+        if (!root) return ans;
+        queue<TreeNode*> q;
+        TreeNode* cur;
+        q.push(root);
+        while (!q.empty()) {
+            int len = q.size();
+            vector<int> level;
+            while (len--) {
+                cur = q.front();
+                q.pop();
+                level.push_back(cur->val);
+                if (cur->left) q.push(cur->left);
+                if (cur->right) q.push(cur->right);
+            }
+            if (!level.empty()) ans.push_back(level);
+        }
+        reverse(ans.begin(), ans.end());
+        return ans;
+    }
+};
+```
+
 ### 108.将有序数组转换为二叉搜索树(Easy)
 
 将一个按照升序排列的有序数组，转换为一棵高度平衡二叉搜索树。
@@ -7783,6 +8080,57 @@ public:
 
 三刷，速度提上来了
 
+### 109. 有序链表转换二叉搜索树(Medium,based on 108)
+
+给定一个单链表，其中的元素按升序排序，将其转换为高度平衡的二叉搜索树。
+
+本题中，一个高度平衡二叉树是指一个二叉树每个节点 的左右两个子树的高度差的绝对值不超过 1。
+
+示例:
+
+给定的有序链表： [-10, -3, 0, 5, 9],
+
+一个可能的答案是：[0, -3, 9, -10, null, 5], 它可以表示下面这个高度平衡二叉搜索树：
+
+```c++
+      0
+     / \
+   -3   9
+   /   /
+ -10  5
+```
+
+从根节点开始递归构造节点，每次取数组中间的val作为当前节点的val值
+
+这个做法其实就跟108是一样的，也可以使用快慢指针法，不借用数组
+
+```c++
+class Solution {
+public:
+    TreeNode* sortedListToBST(ListNode* head) {
+        if (!head) return nullptr;
+        vector<int> vec;
+        ListNode* cur = head;
+        while (cur) {
+            vec.push_back(cur->val);
+            cur = cur->next;
+        }
+        int len = vec.size();
+        TreeNode* root = new TreeNode(vec[len / 2]);
+        root->left = dfs(vec, 0, len / 2 - 1);
+        root->right = dfs(vec, len / 2 + 1, len - 1);
+        return root;
+    }
+    TreeNode* dfs(vector<int>& vec, int l, int r) { // 闭区间
+        if (l > r) return nullptr;
+        TreeNode* root = new TreeNode(vec[(l + r) / 2]);
+        root->left = dfs(vec, l, (l + r) / 2 - 1);
+        root->right = dfs(vec, (l + r) / 2 + 1, r);
+        return root;
+    }
+};
+```
+
 ### 110. 平衡二叉树
 
 同剑指55-2
@@ -7806,6 +8154,98 @@ public:
         bool flag = left.first && right.first && abs(left.second-right.second) <= 1; // 左右节点都平衡，且左右子树最大高度差不超过1，当前节点才平衡
         int max_hight = max(left.second, right.second);
         return {flag, max_hight};
+    }
+};
+```
+
+### 111. 二叉树的最小深度(Easy)
+
+给定一个二叉树，找出其最小深度。
+
+最小深度是从根节点到最近叶子节点的最短路径上的节点数量。
+
+说明: 叶子节点是指没有子节点的节点。
+
+示例:
+
+给定二叉树 [3,9,20,null,null,15,7],
+
+```c++
+    3
+   / \
+  9  20
+    /  \
+   15   7
+```
+
+返回它的最小深度  2.
+
+简单题，直接用bfs
+
+```c++
+class Solution {
+public:
+    int minDepth(TreeNode* root) {
+        // bfs
+        if (!root) return 0;
+        int ans = 0;
+        queue<TreeNode*> q;
+        TreeNode* cur;
+        q.push(root);
+        while (!q.empty()) {
+            int len = q.size();
+            ++ans;
+            while (len--) {
+                cur = q.front();
+                q.pop();
+                if (cur->left) q.push(cur->left);
+                if (cur->right) q.push(cur->right);
+                if (!cur->left && !cur->right) return ans;
+            }
+        }
+        return ans;
+    }
+};
+```
+
+### 112. 路径总和(Easy)
+
+给定一个二叉树和一个目标和，判断该树中是否存在根节点到叶子节点的路径，这条路径上所有节点值相加等于目标和。
+
+说明: 叶子节点是指没有子节点的节点。
+
+示例:
+给定如下二叉树，以及目标和 sum = 22，
+
+```c++
+              5
+             / \
+            4   8
+           /   / \
+          11  13  4
+         /  \      \
+        7    2      1
+```
+
+返回 true, 因为存在目标和为 22 的根节点到叶子节点的路径 5->4->11->2。
+
+简单题，直接递归
+
+```c++
+class Solution {
+public:
+    bool hasPathSum(TreeNode* root, int sum) {
+        if (!root) return false;
+        sum -= root->val;
+        if (!root->left && !root->right) {
+            if (sum == 0) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+        return (root->left && hasPathSum(root->left, sum)) ||
+                (root->right && hasPathSum(root->right, sum));
     }
 };
 ```
@@ -7952,6 +8392,224 @@ public:
             }
             cur = cur->right;
         }
+    }
+};
+```
+
+### 116. 填充每个节点的下一个右侧节点指针(Medium)
+
+给定一个完美二叉树，其所有叶子节点都在同一层，每个父节点都有两个子节点。二叉树定义如下：
+
+```c++
+struct Node {
+  int val;
+  Node *left;
+  Node *right;
+  Node *next;
+}
+```
+
+填充它的每个 next 指针，让这个指针指向其下一个右侧节点。如果找不到下一个右侧节点，则将 next 指针设置为 NULL。
+
+初始状态下，所有 next 指针都被设置为 NULL。
+
+pre+bfs，一次性ac
+
+```c++
+class Solution {
+public:
+    Node* connect(Node* root) {
+        if (!root) return nullptr;
+        queue<Node*> q;
+        q.push(root);
+        Node* cur;
+        while (!q.empty()) {
+            int len = q.size();
+            Node* level_pre = nullptr;
+            while (len--) {
+                cur = q.front();
+                q.pop();
+                if (!level_pre) {
+                    level_pre = cur;
+                } else {
+                    level_pre->next = cur;
+                    level_pre = cur;
+                }
+                if (cur->left) q.push(cur->left);
+                if (cur->right) q.push(cur->right);
+            }
+        }
+        return root;
+    }
+};
+```
+
+拉链法，利用递归，因为给定了完美二叉树
+
+- 如果右边结点是亲兄弟结点，则在遍历到父节点的时候就root->left->next = root->right;；
+- 如果右边结点是堂兄弟结点，则在遍历到父节点的时候（此时父节点的next指针已经指向了右边的兄弟节点），通过父节点的next指针与右边结点相接： root->right->next = root->next->left;
+
+```c++
+class Solution {
+public:
+    Node* connect(Node* root) {
+        if (!root) return nullptr;
+        if (root->left) root->left->next = root->right;
+        if (root->next && root->right) root->right->next = root->next->left;
+        connect(root->left);
+        connect(root->right);
+        return root;
+    }
+};
+```
+
+### 117. 填充每个节点的下一个右侧节点指针 II(Medium, based on 116)
+
+给定一个二叉树
+
+```c++
+struct Node {
+  int val;
+  Node *left;
+  Node *right;
+  Node *next;
+}
+```
+
+填充它的每个 next 指针，让这个指针指向其下一个右侧节点。如果找不到下一个右侧节点，则将 next 指针设置为 NULL。
+
+初始状态下，所有 next 指针都被设置为 NULL。
+
+进阶：
+
+你只能使用常量级额外空间。
+使用递归解题也符合要求，本题中递归程序占用的栈空间不算做额外的空间复杂度。
+
+借助队列的bfs版本就不看了，因为需要常量级额外空间
+
+对于任意一次递归，只考虑如何设置**子节点**的 next 属性,分为三种情况：
+
+- 没有子节点：直接返回
+- 有一个子节点：将这个子节点的 next 属性设置为同层的下一个节点，即为 root.next 的最左边的一个节点，如果 root.next 没有子节点，则考虑 root.next.next，依次类推
+- 有两个节点：左子节点指向右子节点，然后右子节点同第二种情况的做法
+
+注意递归的顺序需要从右到左
+
+```c++
+class Solution {
+public:
+    Node* connect(Node* root) {
+        // 每次递归设置root的左右儿子节点的next属性
+        if (!root || (!root->left && !root->right)) return root; // 如果root没有儿子，则直接返回
+        if (root->left && root->right) root->left->next = root->right; // root有两个儿子，先设置左儿子的next
+        Node* child = root->right ? root->right : root->left;
+        Node* head = root->next;
+        while (head && (!head->left && !head->right)) { // 找到与root同级的具有儿子的节点
+            head = head->next;
+        }
+        child->next = head ? (head->left ? head->left : head->right) : nullptr;
+        connect(root->right); // 先递归右边
+        connect(root->left);
+        return root;
+    }
+};
+```
+
+### 118. 杨辉三角(Easy)
+
+给定一个非负整数 numRows，生成杨辉三角的前 numRows 行。
+
+在杨辉三角中，每个数是它左上方和右上方的数的和。
+
+直接一把梭
+
+```c++
+class Solution {
+public:
+    vector<vector<int>> generate(int numRows) {
+        if (numRows == 0) return {};
+        if (numRows == 1) return {{1}};
+        vector<vector<int>> ans;
+        ans.push_back({1});
+        ans.push_back({1, 1});
+        for (int i = 2; i < numRows; ++i) { // 从第三行开始
+            ans.push_back(vector<int>(i+1, 1));
+            for (int j = 1; j <= i - 1; ++j) { // 填充level的中间数字
+                ans[i][j] = ans[i-1][j-1] + ans[i-1][j];
+            }
+        }
+        return ans;
+    }
+};
+```
+
+### 119. 杨辉三角 II(Easy)
+
+给定一个非负索引 k，其中 k ≤ 33，返回杨辉三角的第 k 行。
+
+在杨辉三角中，每个数是它左上方和右上方的数的和。
+
+示例:
+
+输入: 3
+输出: [1,3,3,1]
+进阶：
+
+你可以优化你的算法到 O(k) 空间复杂度吗？
+
+暴力构造
+
+```c++
+class Solution {
+public:
+    vector<int> getRow(int rowIndex) {
+        if (rowIndex == 0) return {1};
+        if (rowIndex == 1) return {1, 1};
+        vector<vector<int>> ans;
+        ans.push_back({1});
+        ans.push_back({1, 1});
+        for (int i = 2; i < rowIndex+1; ++i) { // 从第三行开始
+            ans.push_back(vector<int>(i+1, 1));
+            for (int j = 1; j <= i - 1; ++j) { // 填充level的中间数字
+                ans[i][j] = ans[i-1][j-1] + ans[i-1][j];
+            }
+        }
+        return ans[rowIndex];
+    }
+};
+```
+
+二维压缩成一维
+
+```c++
+class Solution {
+public:
+    vector<int> getRow(int rowIndex) {
+        vector<int> kRows(rowIndex+1);
+        for(int i = 0; i <= rowIndex; i++) { //利用前一行求后一行，第K行要循环K遍{
+            kRows[i] = 1; //行末尾为1
+            for(int j = i; j > 1; j--) { //每一行的更新过程
+                    kRows[j-1] = kRows[j-2] + kRows[j-1];
+            }
+        }
+        return kRows;
+    }
+};
+```
+
+然而，符合时间复杂度为O(k)的，只有二项式定理
+
+[纯C 0ms 二项式解题 简单易懂](https://leetcode-cn.com/problems/pascals-triangle-ii/solution/chun-c-0ms-er-xiang-shi-jie-ti-jian-dan-yi-dong-by/)
+
+```c++
+class Solution {
+public:
+    vector<int> getRow(int rowIndex) {
+        vector<int> res(rowIndex+1, 1);
+        for(int i = 1; i <= rowIndex; ++i) {
+            res[i] = (long long)res[i - 1] * (rowIndex - i + 1) / i;
+        }
+        return res;
     }
 };
 ```
