@@ -3222,6 +3222,8 @@ int main(int argc, char **argv)
 
 ### Linux文件系统
 
+这篇文章讲文件系统比较通俗形象，由浅入深讲述了inode与block的概念，直接索引与多级索引寻址能力，为什么ext2文件系统最大单文件大小是4T，稀疏文件的概念，还不错：[深度剖析 Linux cp 命令的秘密](https://mp.weixin.qq.com/s/HkFz0F0A3WhebNgJBC7-Tg)
+
 #### 基础
 
 Linux 文件系统会为每个文件分配两个数据结构：索引节点（index node）和目录项（directory entry），它们主要用来记录文件的元信息和目录层次结构。
