@@ -1,103 +1,103 @@
+# Linux基础知识
+
 本文包括：
 
 > 1、Linux 系统概述
-
+>
 > 2、Linux 用户和用户组管理
-
+>
 > 3、Linux 文件和目录管理
-
+>
 > 4、Linux 文件系统管理
-
+>
 > 5、Linux 任务计划 crontab
-
+>
 > 6、Linux 命令执行顺序、管道、文本处理命令、I/O重定向
-
+>
 > 7、Linux 三剑客——grep、sed、awk
-
+>
 > 8、Linux 进程与任务管理
-
+>
 > 9、Linux 日志系统
-
+>
 > 10、Linux 文件系统管理
-
+>
 > 11、Linux LVM 配置
-
+>
 > 12、Linux 网络管理
-
+>
 > 13、Linux 系统监控
-
+>
 > 14、Linux 安装与管理软件
-
+>
 > 本文篇幅较长，多用 ctrl+F 搜索，效率更高
 
 ## 1、Linux 系统概述
 
 1. Linux 的发展：离不开它的前身 Unix
+
+   - Unix 的发展：
+
+      1970 年，Ken Thompson 研发出 Unix 内核；1970 年为Unix 元年
+
+      1973 年，Ritchie 用 C 语言编写了 Unix 内核，Unix 正式诞生；
+
+      1974 年，Unix 对外公布，开始广泛流行。
+
+   - Linux 的产生和发展：
+
+      1986 年，Tanenbaum 研发出 MINIX，并于次年发布；
+
+      1991 年，Linus 研发出 Linux 内核的雏形；
+
+      1994 年，Linux 1.0 内核发布；
+
+      1995 年以后，各种不同的 Linux 发行版本相继出现- Linux 发行版本（内核是一样的）：
+
+       Redhat 、SUSE Enterprise、CentOS：侧重于网络服务，企业管理
+
+       Debian、Stackware：侧重于服务器及其稳定性
+
+       Ubuntu、Fedora、Open SUSE：侧重于用户体验
+
+   - Unix 和 Linux 的区别：
+
+      |Unix|Linux|
+      |--|--|
+      |商业付费|免费开源|
+      |与硬件配套|跨平台|
+      |对硬件要求苛刻|对硬件要求很低|
+      |安装复杂|安装简单|
+      |使用复杂|使用简单|
+      |稳定|次稳定（好于Windows）|
+
+1. Linux 的结构：
+
+   - 应用程序
   
-	- Unix 的发展：
+   - 外壳（shell）：用户和内核之间的**命令解释器**，可以根据自己的需求更换 shell，shell 与 kernel 可分离
 
-	    1970 年，Ken Thompson 研发出 Unix 内核；1970 年为Unix 元年
+      > 常见的 shell 有：bash（Linux 默认的 shell），sh（Unix 默认的 shell），ksh（korn shell），c shell 等等，其中以 bash（Bourne-Again Shell）最为流行：它基于 Bourne shell，吸收了 C shell 和 Ksh 的一些特性。bash 完全兼容 sh，也就是说，用 sh 写的脚本可以不加修改的在 bash 中执行
 
-	    1973 年，Ritchie 用 C 语言编写了 Unix 内核，Unix 正式诞生；
+   - 内核（kernel）：Linux 操作系统的**核心**，直接控制计算机资源
 
-	    1974 年，Unix 对外公布，开始广泛流行。
+   - 硬件
 
-	- Linux 的产生和发展：
-
-	    1986 年，Tanenbaum 研发出 MINIX，并于次年发布；
-
-	    1991 年，Linus 研发出 Linux 内核的雏形；
-
-	    1994 年，Linux 1.0 内核发布；
-
-	    1995 年以后，各种不同的 Linux 发行版本相继出现。
-
-	- Linux 发行版本（内核是一样的）：
-
-	     Redhat 、SUSE Enterprise、CentOS：侧重于网络服务，企业管理
-
-	     Debian、Stackware：侧重于服务器及其稳定性
-
-	     Ubuntu、Fedora、Open SUSE：侧重于用户体验
+1. Linux 的特点：
   
-	- Unix 和 Linux 的区别：
+   - 多任务，多用户：CPU 时间分片，分给不同的进程；允许多个用户同时登陆使用。
+  
+   - 管道：前一个程序的输出作为后一个程序的输入，看起来好像管道一样
 
-		|Unix|Linux|
-		|--|--|
-		|商业付费|免费开源|
-		|与硬件配套|跨平台|
-		|对硬件要求苛刻|对硬件要求很低|
-		|安装复杂|安装简单|
-		|使用复杂|使用简单|
-		|稳定|次稳定（好于Windows）|
+   - 功能强大的 shell：shell 是一种解释型高级语言
+  
+   - 安全保护机制，稳定性好：防止系统及其数据未经许可而被非法访问，稳定性 Unix 好于 Linux，Linux 好于 Windows
+  
+   - 用户界面：常用命令行的方式，同时提供图形界面
 
-2. Linux 的结构：
+   - 强大的网络支持：TCP/IP 协议就是 Linux 的缺省网络协议
   
-	- 应用程序
-  
-	- 外壳（shell）：用户和内核之间的**命令解释器**，可以根据自己的需求更换 shell，shell 与 kernel 可分离
-
-		> 常见的 shell 有：bash（Linux 默认的 shell），sh（Unix 默认的 shell），ksh（korn shell），c shell 等等，其中以 bash（Bourne-Again Shell）最为流行：它基于 Bourne shell，吸收了 C shell 和 Ksh 的一些特性。bash 完全兼容 sh，也就是说，用 sh 写的脚本可以不加修改的在 bash 中执行
-  	
-	- 内核（kernel）：Linux 操作系统的**核心**，直接控制计算机资源
-  
-	- 硬件
-
-3. Linux 的特点：
-  
-	- 多任务，多用户：CPU 时间分片，分给不同的进程；允许多个用户同时登陆使用。
-  
-	- 管道：前一个程序的输出作为后一个程序的输入，看起来好像管道一样
-
-	- 功能强大的 shell：shell 是一种解释型高级语言
-  
-	- 安全保护机制，稳定性好：防止系统及其数据未经许可而被非法访问，稳定性 Unix 好于 Linux，Linux 好于 Windows
-  
-	- 用户界面：常用命令行的方式，同时提供图形界面
-
-	- 强大的网络支持：TCP/IP 协议就是 Linux 的缺省网络协议
-  
-	- 移植性好：源代码用 C 语言写成，便于移植到其它计算机上
+   - 移植性好：源代码用 C 语言写成，便于移植到其它计算机上
 
 ## 2、Linux 用户和用户组管理
 
@@ -121,7 +121,7 @@ Linux 通过 UID 和 GID 来管理用户和用户组
 
 - UID（User ID）：通过配置文件 ```/etc/password```（或```/etc/passwd```） 储存，记录的是单个用户的登陆信息，比如在该文件中root用户的信息如下：
 
-   ```root​:x:​0:0:root:/root:/bin/bash ```
+   `root​:x:​0:0:root:/root:/bin/bash`
 
    信息被冒号分成七个字段：分别为：用户名、密码、UID、GID、用户描述、用户家目录、用户的 shell 类型
 
@@ -139,20 +139,18 @@ Linux 通过 UID 和 GID 来管理用户和用户组
 
    root 用户组的 GID 为0：
 
-   ```
-   root:x:0:
-   ```
+   `root:x:0:`
 
    SMC 用户组的 GID 为1001：
 
-   ```
-   smc:!:1001:
-   ```
+   `smc:!:1001:`
 
    > 扩展阅读：
-   > 
+   >
    > 没有 supergroup
+   >
    > Systemgroup：GID 0 - 499
+   >
    > 一般组：GID 500 - 60000
 
 ### 用户管理的常用命令
@@ -165,66 +163,72 @@ Linux 通过 UID 和 GID 来管理用户和用户组
 
   finger：查询当前用户的属性信息，包含家目录和 shell 类型。
 
-- 新增用户：```useradd[参数][用户名]```
+- 新增用户：`useradd[参数][用户名]`
 
-   ``` 
+   ```shell
    linux: ~ # useradd -d /home/ipcc -m -u 2000 -g mms -s /bin/csh ipcc
    ```
 
-   > -d：设置用户的家目录
-   > 
-   > -m：设置的家目录不存在时自动创建
+  -d：设置用户的家目录
 
-   > -u：设置用户的 UID
+  -m：设置的家目录不存在时自动创建
 
-   > -g：设置初始 GID 或组名
+  -u：设置用户的 UID
 
-   > -s：设置用户的shell，如：/bin/csh
-   > 
-   > 上例最后的 ipcc 指的是该用户的用户名
+  -g：设置初始 GID 或组名
 
-   	linux: ~ # useradd ipcc
+  -s：设置用户的shell，如：/bin/csh
 
-   > 这个例子中没有参数，直接创建用户名为 ipcc 的用户，如果在新增用户时没有指定参数信息，系统就会去读取 /etc/default/useradd 配置文件，它规定了默认的初始用户组和 shell 等。
+  上例最后的 ipcc 指的是该用户的用户名
 
-   	linux: ~ # useradd lilei -p xxxxxx
+  ```shell
+  linux: ~ # useradd ipcc
+  ```
 
-   > -p：直接设置用户的密码，但必须是加密的密码，故不太方便
+  这个例子中没有参数，直接创建用户名为 ipcc 的用户，如果在新增用户时没有指定参数信息，系统就会去读取 /etc/default/useradd 配置文件，它规定了默认的初始用户组和 shell 等。
+
+  ```shell
+  linux: ~ # useradd lilei -p xxxxxx
+  ```
+
+  -p：直接设置用户的密码，但必须是加密的密码，故不太方便
 
    **经过实践，发现adduser更方便，密码输入，用户家目录默认创建**
 
-   ![](http://ww1.sinaimg.cn/large/005GdKShly1g0n4wu51v0j30gl0bdq5g.jpg)
+   ![adduser](http://ww1.sinaimg.cn/large/005GdKShly1g0n4wu51v0j30gl0bdq5g.jpg)
 
-   > #### `adduser` 和 `useradd` 的区别是什么？
+   > `adduser` 和 `useradd` 的区别是什么？
    >
    > 答：useradd 只创建用户，创建完了用 passwd lilei 去设置新用户的密码。adduser 会创建用户，创建目录，创建密码（提示你设置），做这一系列的操作。其实 useradd、userdel 这类操作更像是一种命令，执行完了就返回。而 adduser 更像是一种程序，需要你输入、确定等一系列操作。
 
 - 删除用户：```userdel [参数] [用户名]```
 
-   >  删除 ipcc 用户
+  删除 ipcc 用户
 
-   	linux:~ # userdel -r iptv 
+  ```shell
+  linux:~ # userdel -r iptv
+  ```
 
-   >  加上 -r，会将用户的家目录一起删除。
+  加上 -r，会将用户的家目录一起删除。
 
-- 新增完用户后，需要设置和修改用户密码：```passwd[用户名]```。常规用户只能不输入用户名，修改当前用户的密码，超级用户可以加上用户名修改其他用户的密码。输入正确后，这个新口令被加密并放入 /etc/shadow 文件
+- 新增完用户后，需要设置和修改用户密码：`passwd[用户名]`。常规用户只能不输入用户名，修改当前用户的密码，超级用户可以加上用户名修改其他用户的密码。输入正确后，这个新口令被加密并放入 /etc/shadow 文件
 
-- 修改用户属性：```usermod[参数][用户名]   ```
+- 修改用户属性：`usermod[参数][用户名]`
 
    参数 -d 修改用户家目录：
 
-   ```
+   ```shell
    linux:~ # usermod -d /opt/ipcc ipcc 
    ```
 
    参数 -G 修改用户所属的用户组（这样可以为lilei用户添加到sudo用户组里面，**只有lilei才可以使用sudo命令**）：
 
-   ```
-   $ sudo usermod -G sudo lilei
+   ```shell
+   sudo usermod -G sudo lilei
    ```
 
    > 扩展阅读：su 命令用于变更为其他使用者的身份，除 root 外，需要键入该使用者的密码
-   > http://www.runoob.com/linux/linux-comm-su.html
+   > [http://www.runoob.com/linux/linux-comm-su.html](http://www.runoob.com/linux/linux-comm-su.html)
 
 ### 用户组管理
 
@@ -232,7 +236,7 @@ Linux 通过 UID 和 GID 来管理用户和用户组
 
   /etc/group 的内容包括用户组（Group）、用户组口令、GID 及该用户组所包含的用户（User），每个用户组一条记录。格式如下：
 
-  ```
+  ```shell
   group_name:password:GID:user_list
   ```
 
@@ -244,32 +248,32 @@ Linux 通过 UID 和 GID 来管理用户和用户组
 
 - 新增用户组：`groupadd [用户组]`
 
-   ```
+   ```shell
    linux:~ # groupadd ipcc
+   linux:~ # groupadd -g 2000 iptv
    ```
 
-   	linux:~ # groupadd -g 2000 iptv
-
-   > -g 指定组 ID
+   -g 指定组 ID
 
 - 删除用户组：`groupdel [用户名]`
 
-   ``` 
+   ```shell
    linux:~ # groupdel iptv
    ```
 
-- 修改用户组：`groupmod [参数] [用户名]` 
+- 修改用户组：`groupmod [参数] [用户名]`
 
-   ```
+   ```shell
    linux:~ # groupmod -g 2500 -n ipcc1 ipcc
    ```
 
-   > g 修改组 ID  -n 修改组名
+   -g 修改组 ID  -n 修改组名
 
 ## 3、Linux 文件和目录管理
+
 ### Linux 的文件结构
 
-类似于倒树形结构树的 root 是``` /``` 目录
+类似于倒树形结构树的 root 是`/`目录
 
 - Linux 与 Windows 的目录虽然看起来很像，但在实现机制上是有差别的。
 
@@ -287,23 +291,21 @@ Linux 通过 UID 和 GID 来管理用户和用户组
 
   第二层则是针对 `/usr` 及 `/var` 这两个目录的子目录来定义。例如 `/var/log` 放置系统日志文件，`/usr/share` 放置共享数据等等。
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0nc70mr05j30yn12kq85.jpg)
+  ![filesystem](http://ww1.sinaimg.cn/large/005GdKShly1g0nc70mr05j30yn12kq85.jpg)
 
   FHS 是根据以往无数 Linux 用户和开发者的经验总结出来的，并且会维持更新，FHS 依据文件系统使用的频繁与否以及是否允许用户随意改动（注意，不是不能，学习过程中，不要怕这些），将目录定义为四种交互作用的形态，如下表所示：
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0nc7gvgxzj30sx061abf.jpg)
-
-  
+  ![FHS](http://ww1.sinaimg.cn/large/005GdKShly1g0nc7gvgxzj30sx061abf.jpg)
 
 - 如果你觉得看这个不明白，那么可以试试最真实最直观的方式，执行如下命令：
 
-  ```
-  $ tree /
+  ```shell
+  tree /
   ```
 
-  如果提示“common not found”，就先安装：
+  如果提示“commond not found”，就先安装：
 
-  ```
+  ```shell
   sudo apt-get install tree
   sudo apt-get update
   ```
@@ -312,25 +314,33 @@ Linux 通过 UID 和 GID 来管理用户和用户组
 
 ### 绝对路径与相对路径
 
-- 绝对路径：由根目录（/）开始写起的文件名或者目录名，例如： /home/student/file.txt
+- 绝对路径：由根目录（/）开始写起的文件名或者目录名，例如： `/home/student/file.txt`
 
   - 相对路径：基于当前路径的的文件名或者目 录名写法，`.` 代表当前目录  `..` 代表上一级目录
 
   举例：假如目前在 /home/smc 目录下，想要切换到 /home/smc/bin/smc 目录下，首先可以使用绝对路径，命令如下：
 
-  	cd /home/smc/bin/smc
+  ```shell
+  cd /home/smc/bin/smc
+  ```
 
   操作完成后，想要回到刚才的 /home/smc 目录下，可以使用相对路径，命令如下；
 
-  	cd ../..
+  ```shell
+  cd ../..
+  ```
 
   再举例：目前在 /tmp，想要去 /home/student/file.txt
 
-  	../home/student/file.txt
+  ```shell
+  cd ../home/student/file.txt
+  ```
 
   再举例：目前在 /home，想要去 /home/student/file.txt
 
-  	student/file.txt
+  ```shell
+  cd student/file.txt
+  ```
 
 ### 文件权限管理
 
@@ -338,15 +348,17 @@ Linux 通过 UID 和 GID 来管理用户和用户组
 
   ls -l ：显示出详细信息
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0n3f9up9ij30hx04sabv.jpg)
+  ![ls example](http://ww1.sinaimg.cn/large/005GdKShly1g0n3f9up9ij30hx04sabv.jpg)
 
   分析各部分的内容
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0n3ga1u6cj30o704kjrz.jpg)
+  ![ls analysis](http://ww1.sinaimg.cn/large/005GdKShly1g0n3ga1u6cj30o704kjrz.jpg)
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0n3gewd4xj30eo0a3mxy.jpg)
+  ![file permission](http://ww1.sinaimg.cn/large/005GdKShly1g0n3gewd4xj30eo0a3mxy.jpg)
 
-- 读权限，表示你可以使用 `cat <file name>` 之类的命令来读取某个文件的内容；
+- 权限
+
+  读权限，表示你可以使用 `cat <file name>` 之类的命令来读取某个文件的内容；
 
   写权限，表示你可以编辑和修改某个文件；
 
@@ -362,7 +374,7 @@ Linux 通过 UID 和 GID 来管理用户和用户组
 
 - 修改文件所有者，假设想更改a用户创建的X文件的所有者为b：
 
-  ```
+  ```shell
   sudo chown b X
   ```
 
@@ -370,12 +382,12 @@ Linux 通过 UID 和 GID 来管理用户和用户组
 
   每个文件的三组权限（拥有者，所属用户组，其他用户，**记住这个顺序是一定的**）对应一个 "rwx"，也就是一个 “7”
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0n68x1y1qj310j0bzmyt.jpg)
+  ![file permission digital](http://ww1.sinaimg.cn/large/005GdKShly1g0n68x1y1qj310j0bzmyt.jpg)
 
   比如，600就意味着拥有者有读（r）写（w）权限，所属用户组、其他用户没有任何权限
 
-  ``` 
-  $ chmod 600 X
+  ``` shell
+  chmod 600 X
   ```
 
 ### 文件和目录的基本操作
@@ -392,35 +404,35 @@ Linux 通过 UID 和 GID 来管理用户和用户组
 
 - 显示当前的工作目录：pwd (print working directory)
 
-   ```
-   $ pwd
+   ```shell
+   pwd
    ```
 
 - 变更工作目录：cd  
 
-   ```
-   	cd ../..
-   	cd /home/smc/bin/smc
+   ```shell
+   cd ../..
+   cd /home/smc/bin/smc
    ```
 
-   > 第一条指令，cd 后面不跟任何路径，则是回到主目录
+   第一条指令，cd 后面不跟任何路径，则是回到主目录
 
 - 新增目录（必须具备写权限）：mkdir[-m 模式][-p] 目录名
 
-   ```
+   ```shell
    mkdir temp
    mkdir -m 777 temp/abc
    mkdir -p father/son/grandson
    ```
 
-   > -m 指定目录权限，设置为777，所有文件可读可写可执行
-   > -p 建立目录时建立其所有不存在的父目录
+   -m 指定目录权限，设置为777，所有文件可读可写可执行
+   -p 建立目录时建立其所有不存在的父目录
 
-- 删除目录（对父目录具备写权限）：rmdir [-p] 目录名 
+- 删除目录（对父目录具备写权限）：rmdir [-p] 目录名
 
-  用于删除空目录，如果删除非空目录，则使用 rm 再加上参数即可 
+  用于删除空目录，如果删除非空目录，则使用 rm 再加上参数即可
 
-  > –p 删除目录及父目录
+  –p 删除目录及父目录
 
 - 复制文件或目录（对父目录具备写权限） ：
 
@@ -439,13 +451,15 @@ Linux 通过 UID 和 GID 来管理用户和用户组
   - `mv /tmp/passwd /var/tmp/abc`：移动文件并更改文件名称
   - 注意 SELinux security context
 
+  > 对文件重命名也可以用mv命令：'mv /home/test1.txt /home/test2.txt'
+
 - 删除文件或目录（对父目录具备写权限）：`rm[-ir] 文件或目录`
 
-  > -name 以指定字符串开头的文件名  
-  >
-  > -user 查找指定用户所拥有的文件
-
   `rm -r family`：删除目录要加参数 `-r
+
+  -name 以指定字符串开头的文件名  
+
+  -user 查找指定用户所拥有的文件
 
 - 链接文件
 
@@ -453,19 +467,19 @@ Linux 通过 UID 和 GID 来管理用户和用户组
 
    `ln -s /home/xxx/testfile /home/testfile`
 
-   > ### Linux 文件管理特性
+   > Linux 文件管理特性
    >
-   > 文件都有文件名与数据，在 Linux 上被分成两个部分：用户数据     (user data) 与元数据 (metadata)。
+   > 文件都有文件名与数据，在 Linux 上被分成两个部分：用户数据 (user data) 与元数据 (metadata)。
    >
    > 用户数据，即文件数据块 (data block)，数据块是记录文件真实内容的地方，元数据则是文件的附加属性，如文件大小、创建时间、所有者等信息。
    >
-   > 在 Linux 中元数据中的 inode 号（inode 是文件元数据一部分但其并不    包含文件名，inode 号即索引节点号）才是文件的唯一标识而非文件名。文件名仅是为了方便人的记忆和使用，系统或程序通过 inode 号找    正确文件数据块。
+   > 在 Linux 中元数据中的 inode 号（inode 是文件元数据一部分但其并不包含文件名，inode 号即索引节点号）才是文件的唯一标识而非文件名。文件名仅是为了方便人的记忆和使用，系统或程序通过 inode 号找正确文件数据块。
    >
-   > ### 为什么会有链接文件
+   > 为什么会有链接文件
    >
    > 为解决文件的共享使用，Linux 系统引入了链接，链接为 Linux 系统解决了文件的共享使用，还带来了隐藏文件路径、增加权限安全及节省存储等好处。创建链接文件可以给文件和目录创建替代名或别名。
    >
-   > 关于软连接与硬链接的区别，可以参考：http://www.maiziedu.com/wiki/linux/link/
+   > 关于软连接与硬链接的区别，可以参考：[http://www.maiziedu.com/wiki/linux/link/](http://www.maiziedu.com/wiki/linux/link/)
 
 ### 查看文件内容
 
@@ -473,15 +487,15 @@ Linux 通过 UID 和 GID 来管理用户和用户组
 
   可以加上 `-n` 参数显示行号：
 
-  ```
-  $ cat -n passwd
+  ```shell
+  cat -n passwd
   ```
 
 - `nl` 命令，添加行号并打印，这是个比 `cat -n` 更专业的行号打印命令。
 
   这里简单列举它的常用的几个参数：
 
-  ```
+  ```shell
   -b : 指定添加行号的方式，主要有两种：
       -b a:表示无论是否为空行，同样列出行号("cat -n"就是这种方式)
       -b t:只列出非空行的编号并列出（默认为这种方式）
@@ -502,8 +516,8 @@ Linux 通过 UID 和 GID 来管理用户和用户组
 
 - tail：查看文件的尾部几行内容，默认为 10 行，可用`-数字` 来查看特定行数，效果等同于 `-n 数字
 
-  ```
-  $ tail -n 1 /etc/passwd
+  ```shell
+  tail -n 1 /etc/passwd
   ```
 
   关于 `tail` 命令，不得不提的还有它一个很牛的参数 `-f`，这个参数可以实现不停地读取某个文件的内容并显示。这可以让我们动态查看日志，达到实时监视的目的。
@@ -514,11 +528,11 @@ Linux 通过 UID 和 GID 来管理用户和用户组
 
 在 Linux 中文件的类型不是根据文件后缀来判断的，我们通常使用 `file` 命令查看文件的类型：
 
-```
-$ file /bin/ls
+```shell
+file /bin/ls
 ```
 
-![](http://ww1.sinaimg.cn/large/005GdKShly1g0nes2hu23j30g8046mz0.jpg)
+![file /bin/ls](http://ww1.sinaimg.cn/large/005GdKShly1g0nes2hu23j30g8046mz0.jpg)
 
 说明这是一个可执行文件，运行在 64 位平台，并使用了动态链接文件（共享库）。
 
@@ -542,11 +556,11 @@ $ file /bin/ls
   |  `env`   | 显示与当前用户相关的环境变量，还可以让命令在指定环境中运行。 |
   | `export` | 显示从 Shell 中导出成环境变量的变量，也能通过它将自定义变量导出为环境变量。 |
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0qrof3kqtj30b007ot94.jpg)
+  ![environment variables command](http://ww1.sinaimg.cn/large/005GdKShly1g0qrof3kqtj30b007ot94.jpg)
 
 - 关于哪些变量是环境变量，可以简单地理解成在当前进程的子进程有效则为环境变量，否则不是（有些人也将所有变量统称为环境变量，只是以全局环境变量和局部环境变量进行区分，我们只要理解它们的实质区别即可）。我们这里用 `export` 命令来体会一下，先在 Shell 中设置一个变量 `temp=shiyanlou`，然后再新创建一个子 Shell 查看 `temp` 变量的值：
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0qrqszmiwj30i10ekad0.jpg)
+  ![environment variables examples](http://ww1.sinaimg.cn/large/005GdKShly1g0qrqszmiwj30i10ekad0.jpg)
 
   **注意：为了与普通变量区分，通常我们习惯将环境变量名设为大写。**
 
@@ -562,13 +576,13 @@ $ file /bin/ls
 
   查看 `PATH` 环境变量的内容：
 
-  ```
-  $ echo $PATH
+  ```shell
+  echo $PATH
   ```
 
   默认情况下会看到如下输出：
 
-  ```
+  ```shell
   /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
   ```
 
@@ -578,8 +592,8 @@ $ file /bin/ls
 
 - 应该注意到 `PATH` 里面的路径是以 `:` 作为分割符的，所以我们可以这样添加自定义路径：
 
-  ```
-  $ PATH=$PATH:/home/shiyanlou/mybin
+  ```shell
+  PATH=$PATH:/home/shiyanlou/mybin
   ```
 
   **注意这里一定要使用绝对路径。**
@@ -590,8 +604,8 @@ $ file /bin/ls
 
   我们可以简单地使用下面命令直接添加内容到 `.zshrc` 中：
 
-  ```
-  $ echo "PATH=$PATH:/home/shiyanlou/mybin" >> .zshrc
+  ```shell
+  echo "PATH=$PATH:/home/shiyanlou/mybin" >> .zshrc
   ```
 
   **上述命令中 >> 表示将标准输出以追加的方式重定向到一个文件中，注意前面用到的 > 是以覆盖的方式重定向到一个文件中，使用的时候一定要注意分辨。在指定文件不存在的情况下都会创建新的文件。**
@@ -613,38 +627,38 @@ $ file /bin/ls
 
   比如要修改我们前面添加到 PATH 的环境变量。为了避免操作失误导致命令找不到，我们先将 PATH 赋值给一个新的自定义变量 path：
 
-  ```
-  $ path=$PATH
-  $ echo $path
-  $ path=${path%/home/shiyanlou/mybin}
+  ```shell
+  path=$PATH
+  echo $path
+  path=${path%/home/shiyanlou/mybin}
   # 或使用通配符,*表示任意多个任意字符
-  $ path=${path%*/mybin}
+  path=${path%*/mybin}
   ```
 
-  #### 变量删除
+### 变量删除
 
-  可以使用 `unset` 命令删除一个环境变量：
+可以使用 `unset` 命令删除一个环境变量：
 
-  ```
-  $ unset temp
-  ```
+```shell
+unset temp
+```
 
-> 前面我们在 Shell 中修改了一个配置脚本文件之后（比如 zsh 的配置文件 home 目录下的 `.zshrc`），每次都要退出终端重新打开甚至重启主机之后其才能生效，很是麻烦，我们可以使用 `source` 命令来让其立即生效，如：
->
-> ```
-> $ cd /home/shiyanlou
-> $ source .zshrc
-> ```
->
-> `source` 命令还有一个别名就是 `.`，上面的命令如果替换成 `.` 的方式就该是：
->
-> ```
-> $ . ./.zshrc
-> ```
->
-> 在使用`.` 的时候，需要注意与表示当前路径的那个点区分开。
->
-> 注意第一个点后面有一个空格，而且后面的文件必须指定完整的绝对或相对路径名，source 则不需要。
+前面我们在 Shell 中修改了一个配置脚本文件之后（比如 zsh 的配置文件 home 目录下的 `.zshrc`），每次都要退出终端重新打开甚至重启主机之后其才能生效，很是麻烦，我们可以使用 `source` 命令来让其立即生效，如：
+
+```shell
+cd /home/shiyanlou
+source .zshrc
+```
+
+`source` 命令还有一个别名就是 `.`，上面的命令如果替换成 `.` 的方式就该是：
+
+```shell
+. ./.zshrc
+```
+
+在使用`.` 的时候，需要注意与表示当前路径的那个点区分开。
+
+注意第一个点后面有一个空格，而且后面的文件必须指定完整的绝对或相对路径名，source 则不需要。
 
 ### 搜索文件
 
@@ -652,12 +666,12 @@ $ file /bin/ls
 
   **whereis 简单快速**
 
-  ```
-  $ whereis who
-  $ whereis find
+  ```shell
+  whereis who
+  whereis find
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0qt5vhf28j30i204c760.jpg)
+  ![whereis](http://ww1.sinaimg.cn/large/005GdKShly1g0qt5vhf28j30i204c760.jpg)
 
   你会看到 `whereis find` 找到了三个路径，两个可执行文件路径和一个 man 在线帮助文件所在路径，这个搜索很快，因为它并没有从硬盘中依次查找，而是直接从数据库中查询。
 
@@ -667,18 +681,18 @@ $ file /bin/ls
 
   通过 “/var/lib/mlocate/mlocate.db” 数据库查找，不过这个数据库也不是实时更新的，系统会使用定时任务每天自动执行 `updatedb` 命令更新一次，所以有时候你刚添加的文件，它可能会找不到，需要手动执行一次 `updatedb` 命令（在我们的环境中必须先执行一次该命令）。它可以用来查找指定目录下的不同文件类型，如查找 /etc 下所有以 sh 开头的文件：
 
-  ```
-  $ sudo apt-get update
-  $ sudo apt-get install locate
-  $ locate /etc/sh
+  ```shell
+  sudo apt-get update
+  sudo apt-get install locate
+  locate /etc/sh
   ```
 
   > **注意，它不只是在 /bin 目录下查找，还会自动递归子目录进行查找。**
 
   查找 /usr/share/ 下所有 jpg 文件：
 
-  ```
-  $ locate /usr/share/\*.jpg
+  ```shell
+  locate /usr/share/\*.jpg
   ```
 
   > **注意要添加 \* 号前面的反斜杠转义，否则会无法找到。**
@@ -689,8 +703,8 @@ $ file /bin/ls
 
   `which` 本身是 Shell 内建的一个命令，我们通常使用 `which` 来确定是否安装了某个指定的软件，因为它只从 `PATH` 环境变量指定的路径中去搜索命令：
 
-  ```
-  $ which man
+  ```shell
+  which man
   ```
 
   **find 精而细**
@@ -699,8 +713,8 @@ $ file /bin/ls
 
   这条命令表示去 /etc/ 目录下面 ，搜索名字叫做 interfaces 的文件或者目录。这是 find 命令最常见的格式，千万记住 find 的第一个参数是要搜索的地方：
 
-  ```
-  $ sudo find /etc/ -name interfaces
+  ```shell
+  sudo find /etc/ -name interfaces
   ```
 
   > **注意 find 命令的路径是作为第一个参数的， 基本命令格式为 find [path] [option] [action] 。**
@@ -724,14 +738,14 @@ $ file /bin/ls
 
   列出 home 目录中，当天（24 小时之内）有改动的文件：
 
-  ```
-  $ find ~ -mtime 0
+  ```fsell
+  find ~ -mtime 0
   ```
 
   列出用户家目录下比 Code 文件夹新的文件：
 
-  ```
-  $ find ~ -newer /home/shiyanlou/Code
+  ```shell
+  find ~ -newer /home/shiyanlou/Code
   ```
 
 ### 文件打包与解压缩
@@ -756,28 +770,28 @@ $ file /bin/ls
 
 - 使用 zip 打包文件夹：
 
-  ```
-  $ cd /home/shiyanlou
-  $ zip -r -q -o shiyanlou.zip /home/shiyanlou/Desktop
-  $ du -h shiyanlou.zip
-  $ file shiyanlou.zip
+  ```shell
+  cd /home/shiyanlou
+  zip -r -q -o shiyanlou.zip /home/shiyanlou/Desktop
+  du -h shiyanlou.zip
+  file shiyanlou.zip
   ```
 
   上面命令将目录 /home/shiyanlou/Desktop 打包成一个文件，并查看了打包后文件的大小和类型。第一行命令中，`-r` 参数表示递归打包包含子目录的全部内容，`-q` 参数表示为安静模式，即不向屏幕输出信息，`-o`，表示输出文件，需在其后紧跟打包输出文件名。后面使用 `du` 命令查看打包后文件的大小（后面会具体说明该命令）。
 
 - 设置压缩级别为 9 和 1（9 最大，1 最小），重新打包：
 
-  ```
-  $ zip -r -9 -q -o shiyanlou_9.zip /home/shiyanlou/Desktop -x ~/*.zip
-  $ zip -r -1 -q -o shiyanlou_1.zip /home/shiyanlou/Desktop -x ~/*.zip
+  ```shell
+  zip -r -9 -q -o shiyanlou_9.zip /home/shiyanlou/Desktop -x ~/*.zip
+  zip -r -1 -q -o shiyanlou_1.zip /home/shiyanlou/Desktop -x ~/*.zip
   ```
 
   这里添加了一个参数用于设置压缩级别 `-[1-9]`，1 表示最快压缩但体积大，9 表示体积最小但耗时最久。最后那个 `-x`是为了排除我们上一次创建的 zip 文件，否则又会被打包进这一次的压缩文件中，**注意：这里只能使用绝对路径，否则不起作用**。
 
   我们再用 `du` 命令分别查看默认压缩级别、最低、最高压缩级别及未压缩的文件的大小：
 
-  ```
-  $ du -h -d 0 *.zip ~ | sort
+  ```shell
+  du -h -d 0 *.zip ~ | sort
   ```
 
   通过 man 手册可知：
@@ -789,41 +803,41 @@ $ file /bin/ls
 
   使用 `-e` 参数可以创建加密压缩包：
 
-  ```
-  $ zip -r -e -o shiyanlou_encryption.zip /home/shiyanlou/Desktop
+  ```shell
+  zip -r -e -o shiyanlou_encryption.zip /home/shiyanlou/Desktop
   ```
 
-  **注意：** 关于 `zip` 命令，因为 Windows 系统与 Linux/Unix 在文本文件格式上的一些兼容问题，比如换行符（为不可见字符），在 Windows 为 CR+LF（Carriage-Return+Line-Feed：回车加换行），而在 Linux/Unix 上为 LF（换行），所以如果在不加处理的情况下，在 Linux 上编辑的文本，在 Windows 系统上打开可能看起来是没有换行的。如果你想让你在 Linux 创建的 zip 压缩文件在 Windows 上解压后没有任何问题，那么你还需要对命令做一些修改：
+  **注意**：关于 `zip` 命令，因为 Windows 系统与 Linux/Unix 在文本文件格式上的一些兼容问题，比如换行符（为不可见字符），在 Windows 为 CR+LF（Carriage-Return+Line-Feed：回车加换行），而在 Linux/Unix 上为 LF（换行），所以如果在不加处理的情况下，在 Linux 上编辑的文本，在 Windows 系统上打开可能看起来是没有换行的。如果你想让你在 Linux 创建的 zip 压缩文件在 Windows 上解压后没有任何问题，那么你还需要对命令做一些修改：
 
-  ```
-  $ zip -r -l -o shiyanlou.zip /home/shiyanlou/Desktop
+  ```shell
+  zip -r -l -o shiyanlou.zip /home/shiyanlou/Desktop
   ```
 
   需要加上 `-l` 参数将 `LF` 转换为 `CR+LF` 来达到以上目的。
 
 - 将 `shiyanlou.zip` 解压到当前目录：
 
-  ```
-  $ unzip shiyanlou.zip
+  ```shell
+  unzip shiyanlou.zip
   ```
 
   使用安静模式，将文件解压到指定目录：
 
-  ```
-  $ unzip -q shiyanlou.zip -d ziptest
+  ```shell
+  unzip -q shiyanlou.zip -d ziptest
   ```
 
   上述指定目录不存在，将会自动创建。如果你不想解压只想查看压缩包的内容你可以使用 `-l` 参数：
 
-  ```
-  $ unzip -l shiyanlou.zip
+  ```shell
+  unzip -l shiyanlou.zip
   ```
 
   **注意：** 使用 unzip 解压文件时我们同样应该注意兼容问题，不过这里我们关心的不再是上面的问题，而是中文编码的问题，通常 Windows 系统上面创建的压缩文件，如果有有包含中文的文档或以中文作为文件名的文件时默认会采用 GBK 或其它编码，而 Linux 上面默认使用的是 UTF-8 编码，如果不加任何处理，直接解压的话可能会出现中文乱码的问题（有时候它会自动帮你处理），为了解决这个问题，我们可以在解压时指定编码类型。
 
   使用 `-O`（英文字母，大写 o）参数指定编码类型：
 
-  ```
+  ```shell
   unzip -O GBK 中文压缩文件.zip
   ```
 
@@ -833,47 +847,47 @@ $ file /bin/ls
 
   - 创建一个 tar 包：
 
-  ```
-  $ cd /home/shiyanlou
-  $ tar -cf shiyanlou.tar /home/shiyanlou/Desktop
+  ```shell
+  cd /home/shiyanlou
+  tar -cf shiyanlou.tar /home/shiyanlou/Desktop
   ```
 
   上面命令中，`-c` 表示创建一个 tar 包文件，`-f` 用于指定创建的文件名，注意文件名必须紧跟在 `-f` 参数之后，比如不能写成 `tar -fc shiyanlou.tar`，可以写成 `tar -f shiyanlou.tar -c ~`。你还可以加上 `-v` 参数以可视的的方式输出打包的文件。上面会自动去掉表示绝对路径的 `/`，你也可以使用 `-P` 保留绝对路径符。
 
   - 解包一个文件（`-x` 参数）到指定路径的**已存在**目录（`-C` 参数）：
 
-  ```
-  $ mkdir tardir
-  $ tar -xf shiyanlou.tar -C tardir
+  ```shell
+  mkdir tardir
+  tar -xf shiyanlou.tar -C tardir
   ```
 
   - 只查看不解包文件 `-t` 参数：
 
-  ```
-  $ tar -tf shiyanlou.tar
+  ```shell
+  tar -tf shiyanlou.tar
   ```
 
   - 保留文件属性和跟随链接（符号链接或软链接），有时候我们使用 tar 备份文件当你在其他主机还原时希望保留文件的属性（`-p` 参数）和备份链接指向的源文件而不是链接本身（`-h` 参数）：
 
-  ```
-  $ tar -cphf etc.tar /etc
+  ```shell
+  tar -cphf etc.tar /etc
   ```
 
   对于创建不同的压缩格式的文件，对于 tar 来说是相当简单的，需要的只是换一个参数，这里我们就以使用 `gzip` 工具创建 `*.tar.gz` 文件为例来说明。
 
   - 我们只需要在创建 tar 文件的基础上添加 `-z` 参数，使用 `gzip` 来压缩文件：
 
-  ```
-  $ tar -czf shiyanlou.tar.gz /home/shiyanlou/Desktop
+  ```shell
+  tar -czf shiyanlou.tar.gz /home/shiyanlou/Desktop
   ```
 
   - 解压 `*.tar.gz` 文件：
 
-  ```
-  $ tar -xzf shiyanlou.tar.gz
+  ```shell
+  tar -xzf shiyanlou.tar.gz
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rn0trf6ij30i1046taf.jpg)
+  ![tar example](http://ww1.sinaimg.cn/large/005GdKShly1g0rn0trf6ij30i1046taf.jpg)
 
   现在我们要使用其它的压缩工具创建或解压相应文件只需要更改一个参数即可：
 
@@ -898,13 +912,13 @@ $ file /bin/ls
 
 - Linux 的命令分为内建命令和外部命令，学习帮助命令必须要要搞懂这两者的区别，有一些查看帮助的工具在内建命令与外建命令上是有区别对待的
 
-  > **内建命令**实际上是 shell 程序的一部分，其中包含的是一些比较简单的 Linux 系统命令，这些命令是写在 bash 源码的 builtins 里面的，由 shell 程序识别并在 shell 程序内部完成运行，通常在 Linux 系统加载运行时 shell 就被加载并驻留在系统内存中。而且解析内部命令 shell 不需要创建子进程，因此其执行速度比外部命令快。比如：history、cd、exit 等等。
-
-  > **外部命令**是 Linux 系统中的实用程序部分，因为实用程序的功能通常都比较强大，所以其包含的程序量也会很大，在系统加载时并不随系统一起被加载到内存中，而是在需要时才将其调入内存。虽然其不包含在 shell 中，但是其命令执行过程是由 shell 程序控制的。外部命令是在 Bash 之外额外安装的，通常放在 /bin，/usr/bin，/sbin，/usr/sbin 等等。比如：ls、vi 等。
+  **内建命令**实际上是 shell 程序的一部分，其中包含的是一些比较简单的 Linux 系统命令，这些命令是写在 bash 源码的 builtins 里面的，由 shell 程序识别并在 shell 程序内部完成运行，通常在 Linux 系统加载运行时 shell 就被加载并驻留在系统内存中。而且解析内部命令 shell 不需要创建子进程，因此其执行速度比外部命令快。比如：history、cd、exit 等等。
+  
+  **外部命令**是 Linux 系统中的实用程序部分，因为实用程序的功能通常都比较强大，所以其包含的程序量也会很大，在系统加载时并不随系统一起被加载到内存中，而是在需要时才将其调入内存。虽然其不包含在 shell 中，但是其命令执行过程是由 shell 程序控制的。外部命令是在 Bash 之外额外安装的，通常放在 /bin，/usr/bin，/sbin，/usr/sbin 等等。比如：ls、vi 等。
 
   简单来说就是：一个是天生自带的天赋技能，一个是后天得来的附加技能。我们可以使用 type 命令来区分命令是内建的还是外部的。例如这两个得出的结果是不同的
 
-  ```
+  ```shell
   type exit
   
   type vim
@@ -912,48 +926,45 @@ $ file /bin/ls
 
   得到的是两种结果，若是对 ls 你还能得到第三种结果
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rn10k5k9j30nd04otam.jpg)
+  ![type](http://ww1.sinaimg.cn/large/005GdKShly1g0rn10k5k9j30nd04otam.jpg)
 
-  ```
-  #得到这样的结果说明是内建命令，正如上文所说内建命令都是在 bash 源码中的 builtins 的.def中
-  xxx is a shell builtin
-  #得到这样的结果说明是外部命令，正如上文所说，外部命令在/usr/bin or /usr/sbin等等中
-  xxx is /usr/bin/xxx
-  #若是得到alias的结果，说明该指令为命令别名所设定的名称；
-  xxx is an alias for xx --xxx
-  ```
+  得到这样的结果说明是内建命令，正如上文所说内建命令都是在 bash 源码中的 builtins 的.def中。`xxx is a shell builtin`
+
+  得到这样的结果说明是外部命令，正如上文所说，外部命令在/usr/bin or /usr/sbin等等中。`xxx is /usr/bin/xxx`
+
+  若是得到alias的结果，说明该指令为命令别名所设定的名称；`xxx is an alias for xx --xxx`
 
 - help 命令
 
   尝试下这个命令:
 
-  ```
+  ```shell
   help ls
   ```
 
   得到的结果如图所示，为什么是这样的结果？
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rn1h26khj30nf02vmyk.jpg)
+  ![help](http://ww1.sinaimg.cn/large/005GdKShly1g0rn1h26khj30nf02vmyk.jpg)
 
   因为 **help 命令是用于显示 shell 内建命令的简要帮助信息**。帮助信息中显示有该命令的简要说明以及一些参数的使用以及说明，一定记住 help 命令只能用于显示内建命令的帮助信息，不然就会得到你刚刚得到的结果。
 
   那如果是外部命令怎么办，不能就这么抛弃它呀。其实外部命令**基本**上都有一个参数 --help, 这样就可以得到相应的帮助，看到你想要的东西了。试试下面这个命令是不是能看到你想要的东西了。
 
-  ```
+  ```shell
   ls --help
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rn16jle9j30ne0crtdw.jpg)
+  ![--help](http://ww1.sinaimg.cn/large/005GdKShly1g0rn16jle9j30ne0crtdw.jpg)
 
 - man 命令
 
   尝试下这个命令
 
-  ```
+  ```shell
   man ls
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rn1mscpqj30s60kytak.jpg)
+  ![man](http://ww1.sinaimg.cn/large/005GdKShly1g0rn1mscpqj30s60kytak.jpg)
 
   得到的内容比用 help 更多更详细，而且 **man 没有内建与外部命令的区分**，因为 man 工具是显示系统手册页中的内容，也就是一本电子版的字典，这些内容大多数都是对命令的解释信息，还有一些相关的描述。通过查看系统文档中的 man 也可以得到程序的更多相关信息和 Linux 的更多特性。
 
@@ -979,12 +990,12 @@ $ file /bin/ls
 
   要是你觉得 man 显示的信息都还不够，满足不了你的需求，那试试 info 命令
 
-  ```
+  ```shell
   # 查看 ls 命令的 info
-  $ info ls
+  info ls
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rn1t0unij30sg0lc7cd.jpg)](https://camo.githubusercontent.com/da646639454deeae61a073b42b61ac9041466090/68747470733a2f2f646e2d73696d706c65636c6f75642e73686979616e6c6f752e636f6d2f313133353038313436383231303335383631332d776d)
+  ![info](http://ww1.sinaimg.cn/large/005GdKShly1g0rn1t0unij30sg0lc7cd.jpg)
 
   得到的信息是不是比 man 还要多了，info 来自自由软件基金会的 GNU 项目，是 GNU 的超文本帮助系统，能够更完整的显示出 GNU 信息。所以得到的信息当然更多。
 
@@ -1004,7 +1015,7 @@ $ file /bin/ls
 
   这里我们看一看 crontab 的格式
 
-  ```
+  ```shell
   # Example of job definition:
   # .---------------- minute (0 - 59)
   # |  .------------- hour (0 - 23)
@@ -1019,13 +1030,13 @@ $ file /bin/ls
 
   启动 rsyslog ，以便可以通过日志的信息来了解我们的任务是否真正的被执行了（一般 Ubuntu 会默认启动）
 
-  ```
+  ```shell
   sudo service rsyslog start
   ```
 
   启动 crontab （一般 Ubuntu 会默认启动）
 
-  ```
+  ```shell
   sudo cron －f &
   ```
 
@@ -1033,7 +1044,7 @@ $ file /bin/ls
 
   我们通过下面一个命令来添加一个计划任务
 
-  ```
+  ```shell
   crontab -e
   ```
 
@@ -1041,7 +1052,7 @@ $ file /bin/ls
 
   而选择后我们会进入这样一个画面，这就是添加计划的地方了，与一般的配置文档相同，以 #号开头的都是注释，可以看看格式是怎样的
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rn3tgxuwj30s60kyk4b.jpg)
+  ![crontab](http://ww1.sinaimg.cn/large/005GdKShly1g0rn3tgxuwj30s60kyk4b.jpg)
 
   详细的格式可以使用上一节中学习到的 man 命令查看，每项工作（这里就是每行）都有六个栏目，分别为：
 
@@ -1053,14 +1064,14 @@ $ file /bin/ls
 
   | 特殊字符  | 代表意义                                                     |
   | --------- | ------------------------------------------------------------ |
-  | *(星号)   | 代表任何时刻都接受的意思！举例来说，范例一内那个日、月、周都是 * ， 就代表着『不论何月、何日的礼拜几的 12:00 都执行后续指令』的意思！ |
-  | ,(逗号)   | 代表分隔时段的意思。举例来说，如果要下达的工作是 3:00 与 6:00 时，就会是：0 3,6 * * * command 时间参数还是有五栏，不过第二栏是 3,6 ，代表 3 与 6 都适用！ |
-  | -(减号)   | 代表一段时间范围内，举例来说， 8 点到 12 点之间的每小时的 20 分都进行一项工作：20 8-12 * * * command 仔细看到第二栏变成 8-12 喔！代表 8,9,10,11,12 都适用的意思！ |
-  | /n (斜线) | 那个 n 代表数字，亦即是『每隔 n 单位间隔』的意思，例如每五分钟进行一次，则： */5 * * * * command 很简单吧！用 * 与 / 5 来搭配，也可以写成 0-59/5 ，相同意思！ |
+  | *(星号)   | **代表任何时刻都接受的意思！**|
+  | ,(逗号)   | 代表分隔时段的意思。举例来说，如果要下达的工作是 3:00 与 6:00 时，就会是：`0 3,6 * * * command` 时间参数还是有五栏，不过第二栏是 3,6 ，代表 3 与 6 都适用!|
+  | -(减号)   | 代表一段时间范围内，举例来说， 8 点到 12 点之间的每小时的 20 分都进行一项工作：`20 8-12 * * * command`。仔细看到第二栏变成 8-12 喔！代表 8,9,10,11,12 都适用的意思！ |
+  | /n (斜线) | 那个 n 代表数字，亦即是『每隔 n 单位间隔』的意思，例如每五分钟进行一次，则： `*/5 * * * * command`。很简单吧！用 * 与 / 5 来搭配，也可以写成 0-59/5 ，相同意思！ |
 
   在了解命令格式之后，我们通过这样的一个例子来完成一个任务的添加，在文档的最后一排加上这样一排命令，该任务是每分钟我们会在 /home/shiyanlou 目录下创建一个以当前的年月日时分秒为名字的空白文件，别忘了保存并退出的命令`:wq`
 
-  ```
+  ```shell
   */1 * * * * touch /home/shiyanlou/$(date +\%Y\%m\%d\%H\%M\%S)
   ```
 
@@ -1068,21 +1079,21 @@ $ file /bin/ls
 
   添加成功后我们会得到最后一排 installing new crontab 的一个提示
 
-  [![](http://ww1.sinaimg.cn/large/005GdKShly1g0rn3dd30ij30s60kyacz.jpg)
+  ![install crontab](http://ww1.sinaimg.cn/large/005GdKShly1g0rn3dd30ij30s60kyacz.jpg)
 
   当然我们也可以通过这样的一个指令来查看我们添加了哪些任务
 
-  ```
+  ```shell
   crontab -l 
   ```
 
   通过图中的显示，我们也可以看出，我们正确的保存并且添加成功了该任务的
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rn4p98bzj30s60kyacw.jpg)
+  ![crontab -l](http://ww1.sinaimg.cn/large/005GdKShly1g0rn4p98bzj30s60kyacw.jpg)
 
   虽然我们添加了任务，但是如果 cron 的守护进程并没有启动，它根本都不会监测到有任务，当然也就不会帮我们执行，我们可以通过以下 2 种方式来确定我们的 cron 是否成功的在后台启动，默默的帮我们做事，若是没有就得执行上文准备中的第二步了
 
-  ```
+  ```shell
   ps aux | grep cron
   
   or
@@ -1090,25 +1101,25 @@ $ file /bin/ls
   pgrep cron
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rn4w3obsj30n804bjtt.jpg)
+  ![grep cron](http://ww1.sinaimg.cn/large/005GdKShly1g0rn4w3obsj30n804bjtt.jpg)
 
   通过下图可以看到任务在创建之后，执行了几次，生成了一些文件，且每分钟生成一个：
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rn514bjoj30n806j78a.jpg)
+  ![cron ok](http://ww1.sinaimg.cn/large/005GdKShly1g0rn514bjoj30n806j78a.jpg)
 
   我们通过这样一个命令可以查看到执行任务命令之后在日志中的信息反馈
 
-  ```
+  ```shell
   sudo tail -f /var/log/syslog
   ```
 
   从图中我们可以看到分别在 13 点 28、29、30 分的 01 秒为我们在 shiyanlou 用户的家目录下创建了文件
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rn56jhlij30nh0do7cf.jpg)
+  ![syslog cron](http://ww1.sinaimg.cn/large/005GdKShly1g0rn56jhlij30nh0do7cf.jpg)
 
   当我们并不需要这个任务的时候我们可以使用 -r 参数去删除所有例行性工作调度
 
-  ```
+  ```shell
   crontab -r
   ```
 
@@ -1116,13 +1127,13 @@ $ file /bin/ls
 
   通过图中我们可以看出我们删除之后再查看任务列表，系统已经显示该用户并没有任务了
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rn5cdbdbj30na01v3z1.jpg)
+  ![crontab delete](http://ww1.sinaimg.cn/large/005GdKShly1g0rn5cdbdbj30na01v3z1.jpg)
 
 - 多用户使用 crontab
 
   每个用户使用 `crontab -e` 添加计划任务，都会在 `/var/spool/cron/crontabs` （这是个执行文件）中添加一个该用户自己的任务文档
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rn5hwv59j30s60kydii.jpg)
+  ![multiuser crontab](http://ww1.sinaimg.cn/large/005GdKShly1g0rn5hwv59j30s60kydii.jpg)
 
   如果是系统级别的定时任务，应该如何处理？只需要以 sudo 权限编辑 `/etc/crontab` 文件就可以，有时 crontab 是读到内存当中的，编辑 `/etc/crontab` 之后可能不会立马生效，需要重新启动 crond 服务
 
@@ -1130,13 +1141,13 @@ $ file /bin/ls
 
   `/etc/crontab` 文件内容如下：
 
-  ```
-  `[root@study ~]# cat /etc/crontab  SHELL=/bin/bash                      <==使用哪种shell介面  PATH=/sbin:/bin:/usr/sbin:/usr/bin   <==执行档搜寻路径  MAILTO=root                          <==若有额外STDOUT，以email将资料送给谁  # Example of job definition: # .---------------- minute (0 - 59) # | .------------- hour (0 - 23) # | | .---------- day of month (1 - 31) # | | | .------- month (1 - 12) OR jan,feb,mar,apr ... # | | | | .---- day of week (0 - 6) (Sunday=0 or 7) OR sun,mon,tue,wed,thu,fri,sat # | | | | | # * * * * * user-name command to be executed`
+  ```shell
+  [root@study ~]# cat /etc/crontab  SHELL=/bin/bash                      <==使用哪种shell介面  PATH=/sbin:/bin:/usr/sbin:/usr/bin   <==执行档搜寻路径  MAILTO=root                          <==若有额外STDOUT，以email将资料送给谁  # Example of job definition: # .---------------- minute (0 - 59) # | .------------- hour (0 - 23) # | | .---------- day of month (1 - 31) # | | | .------- month (1 - 12) OR jan,feb,mar,apr ... # | | | | .---- day of week (0 - 6) (Sunday=0 or 7) OR sun,mon,tue,wed,thu,fri,sat # | | | | | # * * * * * user-name command to be executed`
   ```
 
   在 /etc 目录下，cron 相关的目录有下面几个：
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rn5tvybrj30s60kyq5e.jpg)
+  ![cron directory](http://ww1.sinaimg.cn/large/005GdKShly1g0rn5tvybrj30s60kyq5e.jpg)
 
   每个目录的作用：
 
@@ -1166,22 +1177,22 @@ $ file /bin/ls
 
 注意 crontab 的计划任务设定的用户：
 
-```
-$ crontab -e 表示为当前用户添加计划任务
-$ sudo crontab -e 表示为root用户添加计划任务
+```shell
+crontab -e 表示为当前用户添加计划任务
+sudo crontab -e 表示为root用户添加计划任务
 ```
 
 注意使用下面的命令启动 crontab：
 
-```
-$ sudo cron －f &
+```shell
+sudo cron －f &
 ```
 
 #### 参考答案
 
 注意：请务必自己独立思考解决问题之后再对照参考答案，一开始直接看参考答案收获不大。
 
-```
+```shell
 sudo cron -f &
 crontab -e 添加
 0 3 * * * sudo rm /home/shiyanlou/tmp/*
@@ -1198,18 +1209,18 @@ crontab -e 添加
 
   以下三条命令逐条输入：
 
-  ```
-  $ sudo apt-get update
+  ```shell
+  sudo apt-get update
   # 等待——————————然后输入下面的命令
-  $ sudo apt-get install some-tool //这里some-tool是指具体的软件包，例如：banner
+  sudo apt-get install some-tool //这里some-tool是指具体的软件包，例如：banner
   # 等待——————————然后输入下面的命令
-  $ some-tool
+  some-tool
   ```
 
   这时你可能就会想：要是我可以一次性输入完，让它自己去依次执行各命令就好了，你可以使用 `;` 来完成，比如上述操作你可以：
 
-  ```
-  $ sudo apt-get update;sudo apt-get install some-tool;some-tool
+  ```shell
+  sudo apt-get update;sudo apt-get install some-tool;some-tool
   # 让它自己运行
   ```
 
@@ -1219,33 +1230,33 @@ crontab -e 添加
 
   我们需要能够有选择性的来执行命令，比如我们使用 `which` 来查找是否安装某个命令，如果找到就执行该命令，否则什么也不做：
 
-  ```
-  $ which cowsay>/dev/null && cowsay -f head-in ohch~
+  ```shell
+  which cowsay>/dev/null && cowsay -f head-in ohch~
   ```
 
   你如果没有安装 `cowsay`，你可以先执行一次上述命令，你会发现什么也没发生，你再安装好之后你再执行一次上述命令，你也会发现一些惊喜。
 
   上面的 `&&` 就是用来实现选择性执行的，它表示如果前面的命令执行结果（不是表示终端输出的内容，而是表示命令执行状态的结果）返回 0 则执行后面的，否则不执行，你可以从 `$?` 环境变量获取上一次命令的返回结果：
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rnci2gb5j30lq0hhwh6.jpg)
+  ![which&&](http://ww1.sinaimg.cn/large/005GdKShly1g0rnci2gb5j30lq0hhwh6.jpg)
 
   学习过 C 语言的用户应该知道在 C 语言里面 `&&` 表示逻辑与，而且还有一个 `||` 表示逻辑或，同样 Shell 也有一个 `||`，或的逻辑是：当前面不成功时，再判断（执行）后面，于是`||` 在这里就是与 `&&` 相反的控制效果，当上一条命令执行结果为≠0 ($?≠0) 时则执行它后面的命令：
 
-  ```
-  $ which cowsay>/dev/null || echo "cowsay has not been install, please run 'sudo apt-get install cowsay' to install"
+  ```shell
+  which cowsay>/dev/null || echo "cowsay has not been install, please run 'sudo apt-get install cowsay' to install"
   ```
 
   除了上述基本的使用之外，我们还可以结合着 `&&` 和 `||` 来实现一些操作，比如：
 
-  ```
-  $ which cowsay>/dev/null && echo "exist" || echo "not exist"
+  ```shell
+  which cowsay>/dev/null && echo "exist" || echo "not exist"
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rncn0ib7j30jw0540up.jpg)
+  ![which and && and ||](http://ww1.sinaimg.cn/large/005GdKShly1g0rncn0ib7j30jw0540up.jpg)
 
   画个流程图来解释一下上面的流程：
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rncqvc0oj30660i9q34.jpg)
+  ![&& and ||](http://ww1.sinaimg.cn/large/005GdKShly1g0rncqvc0oj30660i9q34.jpg)
 
 ### 管道（pipeline）
 
@@ -1255,14 +1266,14 @@ crontab -e 添加
 
 - 先试用一下管道，比如查看 `/etc` 目录下有哪些文件和目录，使用 `ls` 命令来查看：
 
-  ```
-  $ ls -al /etc
+  ```shell
+  ls -al /etc
   ```
 
   有太多内容，屏幕不能完全显示，这时候可以使用滚动条或快捷键滚动窗口来查看。不过这时候可以使用管道：
 
-  ```
-  $ ls -al /etc | less
+  ```shell
+  ls -al /etc | less
   ```
 
   通过管道将前一个命令 (`ls`) 的输出作为下一个命令 (`less`) 的输入，然后就可以一行一行地看。
@@ -1275,23 +1286,23 @@ crontab -e 添加
 
   cut 命令的 -d 参数传入分隔符，-f 参数传入要打印的第几个字段，比如打印 `/etc/passwd` 文件中以`:` 为分隔符的第 1 个字段和第 6 个字段分别表示用户名和其家目录：
 
-  ```
-  $ cut /etc/passwd -d ':' -f 1,6
+  ```shell
+  cut /etc/passwd -d ':' -f 1,6
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rngve0a4j30k80nbwjb.jpg)
+  ![cut](http://ww1.sinaimg.cn/large/005GdKShly1g0rngve0a4j30k80nbwjb.jpg)
 
   打印 `/etc/passwd` 文件中每一行的前 N 个字符：
 
-  ```
+  ```shell
   # 前五个（包含第五个）
-  $ cut /etc/passwd -c -5
+  cut /etc/passwd -c -5
   # 前五个之后的（包含第五个）
-  $ cut /etc/passwd -c 5-
+  cut /etc/passwd -c 5-
   # 第五个
-  $ cut /etc/passwd -c 5
+  cut /etc/passwd -c 5
   # 2到5之间的（包含第五个）
-  $ cut /etc/passwd -c 2-5
+  cut /etc/passwd -c 2-5
   ```
 
 - grep 命令，在文本中或 stdin 中查找匹配字符串
@@ -1300,17 +1311,17 @@ crontab -e 添加
 
   `grep` 命令的一般形式为：
 
-  ```
+  ```shell
   grep [命令选项]... 用于匹配的表达式 [文件]...
   ```
 
   还是先体验一下，我们搜索 `/home/shiyanlou` 目录下所有包含 "shiyanlou" 的文本文件，并显示出现在文本中的行号：
 
-  ```
-  $ grep -rnI "shiyanlou" ~
+  ```shell
+  grep -rnI "shiyanlou" ~
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rniaxwayj30kb07qwi6.jpg)
+  ![grep](http://ww1.sinaimg.cn/large/005GdKShly1g0rniaxwayj30kb07qwi6.jpg)
 
   `-r` 参数表示递归搜索子目录中的文件，`-n` 表示打印匹配项行号，`-I` 表示忽略二进制文件
 
@@ -1318,36 +1329,36 @@ crontab -e 添加
 
   wc 命令用于统计并输出一个文件中行、单词和字节的数目，比如输出 `/etc/passwd` 文件的统计信息：
 
-  ```
-  $ wc /etc/passwd
+  ```shell
+  wc /etc/passwd
   ```
 
   分别只输出行数、单词数、字节数、字符数和输入文本中最长一行的字节数：
 
-  ```
+  ```shell
   # 行数
-  $ wc -l /etc/passwd
+  wc -l /etc/passwd
   # 单词数
-  $ wc -w /etc/passwd
+  wc -w /etc/passwd
   # 字节数
-  $ wc -c /etc/passwd
+  wc -c /etc/passwd
   # 字符数
-  $ wc -m /etc/passwd
+  wc -m /etc/passwd
   # 最长行字节数
-  $ wc -L /etc/passwd
+  wc -L /etc/passwd
   ```
 
   **注意：对于西文字符来说，一个字符就是一个字节，但对于中文字符一个汉字是大于 2 个字节的，具体数目是由字符编码决定的**
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rnj4k0p0j30ka09en02.jpg)
+  ![wc](http://ww1.sinaimg.cn/large/005GdKShly1g0rnj4k0p0j30ka09en02.jpg)
 
   再来结合管道来操作一下，下面统计 /etc 下面所有目录数：
 
-  ```
-  $ ls -dl /etc/*/ | wc -l
+  ```shell
+  ls -dl /etc/*/ | wc -l
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rnj8zo5lj30gc0243yb.jpg)
+  ![etc dir wc](http://ww1.sinaimg.cn/large/005GdKShly1g0rnj8zo5lj30gc0243yb.jpg)
 
 - sort 排序命令
 
@@ -1355,31 +1366,31 @@ crontab -e 添加
 
   默认为字典排序：
 
-  ```
-  $ cat /etc/passwd | sort
+  ```shell
+  cat /etc/passwd | sort
   ```
 
   反转排序：
 
-  ```
-  $ cat /etc/passwd | sort -r
+  ```shell
+  cat /etc/passwd | sort -r
   ```
 
   按特定字段排序：
 
-  ```
-  $ cat /etc/passwd | sort -t':' -k 3
+  ```shell
+  cat /etc/passwd | sort -t':' -k 3
   ```
 
   上面的 `-t` 参数用于指定字段的分隔符，这里是以 ":" 作为分隔符；`-k 字段号`用于指定对哪一个字段进行排序。这里 `/etc/passwd` 文件的第三个字段为数字，默认情况下是以字典序排序的，如果要按照数字排序就要加上 `-n` 参数：
 
-  ```
-  $ cat /etc/passwd | sort -t':' -k 3 -n
+  ```shell
+  cat /etc/passwd | sort -t ':' -k 3 -n
   ```
 
-  注意观察第二个冒号后的数字： 
+  注意观察第二个冒号后的数字：
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rnp30cktj30k70h8agk.jpg)
+  ![sort](http://ww1.sinaimg.cn/large/005GdKShly1g0rnp30cktj30k70h8agk.jpg)
 
 - uniq 去重命令
 
@@ -1389,98 +1400,98 @@ crontab -e 添加
 
   我们可以使用 `history` 命令查看最近执行过的命令（实际为读取 ${SHELL}_history 文件，如我们环境中的～/.zsh_history 文件），不过你可能只想查看使用了哪个命令而不需要知道具体干了什么，那么你可能就会要想去掉命令后面的参数然后去掉重复的命令：
 
-  ```
-  $ history | cut -c 8- | cut -d ' ' -f 1 | uniq
+  ```shell
+  history | cut -c 8- | cut -d ' ' -f 1 | uniq
   ```
 
   然后经过层层过滤，你会发现确是只输出了执行的命令那一列，不过去重效果好像不明显，仔细看你会发现它确实去重了，只是不那么明显，之所以不明显是**因为 uniq 命令只能去连续重复的行，不是全文去重**，所以要达到预期效果，我们先排序：
 
-  ```
-  $ history | cut -c 8- | cut -d ' ' -f 1 | sort | uniq
-  # 或者$ history | cut -c 8- | cut -d ' ' -f 1 | sort -u
+  ```shell
+  history | cut -c 8- | cut -d ' ' -f 1 | sort | uniq
+  # 或者history | cut -c 8- | cut -d ' ' -f 1 | sort -u
   ```
 
   这就是 Linux/UNIX 哲学吸引人的地方，大繁至简，一个命令只干一件事却能干到最好。
 
   - 输出重复行
 
-  ```
+  ```shell
   # 输出重复过的行（重复的只输出一个）及重复次数
-  $ history | cut -c 8- | cut -d ' ' -f 1 | sort | uniq -dc
+  history | cut -c 8- | cut -d ' ' -f 1 | sort | uniq -dc
   # 输出所有重复的行
-  $ history | cut -c 8- | cut -d ' ' -f 1 | sort | uniq -D
+  history | cut -c 8- | cut -d ' ' -f 1 | sort | uniq -D
   ```
 
 - tr 命令，删除
 
   tr 命令可以用来删除一段文本信息中的某些文字。或者将其进行转换。
 
-  #### 使用方式：
+  使用方式：
 
-  ```
+  ```shell
   tr [option]...SET1 [SET2]
   ```
 
-  #### 常用的选项有：
+  常用的选项有：
 
   | 选项 | 说明                                                         |
   | ---- | ------------------------------------------------------------ |
   | `-d` | 删除和 set1 匹配的字符，注意不是全词匹配也不是按字符顺序匹配 |
   | `-s` | 去除 set1 指定的在输入文本中连续并重复的字符                 |
 
-  #### 操作举例：
+  操作举例：
 
-  ```
+  ```shell
   # 删除 "hello shiyanlou" 中所有的'o','l','h'
-  $ echo 'hello shiyanlou' | tr -d 'olh'
+  echo 'hello shiyanlou' | tr -d 'olh'
   # 将"hello" 中的ll,去重为一个l
-  $ echo 'hello' | tr -s 'l'
+  echo 'hello' | tr -s 'l'
   # 将输入文本，全部转换为大写或小写输出
-  $ echo 'input some text here' | tr '[:lower:]' '[:upper:]'
+  echo 'input some text here' | tr '[:lower:]' '[:upper:]'
   # 上面的'[:lower:]' '[:upper:]'你也可以简单的写作'[a-z]' '[A-Z]',当然反过来将大写变小写也是可以的
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rnv2sdetj30k805umyv.jpg)
+  ![tr](http://ww1.sinaimg.cn/large/005GdKShly1g0rnv2sdetj30k805umyv.jpg)
 
 - col 命令，转换 tab 与空格
 
   col 命令可以将 `Tab` 换成对等数量的空格键，或反转这个操作。
 
-  #### 使用方式：
+  使用方式：
 
-  ```
+  ```shell
   col [option]
   ```
 
-  #### 常用的选项有：
+  常用的选项有：
 
   | 选项 | 说明                           |
   | ---- | ------------------------------ |
   | `-x` | 将 `Tab` 转换为空格            |
   | `-h` | 将空格转换为 `Tab`（默认选项） |
 
-  #### 操作举例：
+  操作举例：
 
-  ```
+  ```shell
   # 查看 /etc/protocols 中的不可见字符，可以看到很多 ^I ，这其实就是 Tab 转义成可见字符的符号
-  $ cat -A /etc/protocols
+  cat -A /etc/protocols
   # 使用 col -x 将 /etc/protocols 中的 Tab 转换为空格,然后再使用 cat 查看，你发现 ^I 不见了
-  $ cat /etc/protocols | col -x | cat -A
+  cat /etc/protocols | col -x | cat -A
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rnvruoy5j30kc07z0vy.jpg)
+  ![col](http://ww1.sinaimg.cn/large/005GdKShly1g0rnvruoy5j30kc07z0vy.jpg)
 
 - join 命令，将两个文件中包含相同内容的那一行合并在一起
 
   学过数据库的用户对这个应该不会陌生，这个命令就是用于将两个文件中包含相同内容的那一行合并在一起。
 
-  #### 使用方式：
+  使用方式：
 
-  ```
+  ```shell
   join [option]... file1 file2
   ```
 
-  #### 常用的选项有：
+  常用的选项有：
 
   | 选项 | 说明                                                 |
   | ---- | ---------------------------------------------------- |
@@ -1489,54 +1500,54 @@ crontab -e 添加
   | `-1` | 指明第一个文件要用哪个字段来对比，默认对比第一个字段 |
   | `-2` | 指明第二个文件要用哪个字段来对比，默认对比第一个字段 |
 
-  #### 操作举例：
+  操作举例：
 
-  ```
-  $ cd /home/shiyanlou
+  ```shell
+  cd /home/shiyanlou
   # 创建两个文件，因为默认分隔符为空格，所以两个文件的第一行都有‘1’，故可以合并
-  $ echo '1 hello' > file1
-  $ echo '1 shiyanlou' > file2
-  $ join file1 file2
+  echo '1 hello' > file1
+  echo '1 shiyanlou' > file2
+  join file1 file2
   # 将/etc/passwd与/etc/shadow两个文件合并，指定以':'作为分隔符
-  $ sudo join -t':' /etc/passwd /etc/shadow
+  sudo join -t':' /etc/passwd /etc/shadow
   # 将/etc/passwd与/etc/group两个文件合并，指定以':'作为分隔符, 分别比对第4和第3个字段
-  $ sudo join -t':' -1 4 /etc/passwd -2 3 /etc/group
+  sudo join -t':' -1 4 /etc/passwd -2 3 /etc/group
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rnzjoumej30jq09mdjy.jpg)
+  ![join](http://ww1.sinaimg.cn/large/005GdKShly1g0rnzjoumej30jq09mdjy.jpg)
 
 - paste 命令，不对比数据，简单将多个文件合并
 
   `paste` 这个命令与 `join` 命令类似，它是在不对比数据的情况下，简单地将多个文件合并一起，以 `Tab` 隔开。
 
-  #### 使用方式：
+  使用方式：
 
-  ```
+  ```shell
   paste [option] file...
   ```
 
-  #### 常用的选项有：
+  常用的选项有：
 
   | 选项 | 说明                         |
   | ---- | ---------------------------- |
   | `-d` | 指定合并的分隔符，默认为 Tab |
   | `-s` | 不合并到一行，每个文件为一行 |
 
-  #### 操作举例：
+  操作举例：
 
-  ```
-  $ echo hello > file1
-  $ echo shiyanlou > file2
-  $ echo www.shiyanlou.com > file3
-  $ paste -d ':' file1 file2 file3
-  $ paste -s file1 file2 file3
+  ```shell
+  echo hello > file1
+  echo shiyanlou > file2
+  echo www.shiyanlou.com > file3
+  paste -d ':' file1 file2 file3
+  paste -s file1 file2 file3
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0ro8wwdoij30k606a763.jpg)
+  ![paste](http://ww1.sinaimg.cn/large/005GdKShly1g0ro8wwdoij30k606a763.jpg)
 
 - 字符转换
 
-  Windows/dos 与 Linux/UNIX 文本文件一些特殊字符`不一致`，如断行符 Windows 为 CR+LF (`\r\n`)，Linux/UNIX 为 LF (`\n`)。使用 `cat -A 文本` 可以看到文本中包含的不可见特殊字符。Linux 的 `\n` 表现出来就是一个 `$`，而 Windows/dos 的表现为 `^M$`，可以直接使用 `dos2unix` 和 `unix2dos` 工具在两种格式之间进行转换，使用 `file` 命令可以查看文件的具体类型。
+  Windows/dos 与 Linux/UNIX 文本文件一些特殊字符`不一致`，如行行符 Windows 为 CR+LF (`\r\n`)，Linux/UNIX 为 LF (`\n`)。使用 `cat -A 文本` 可以看到文本中包含的不可见特殊字符。Linux 的 `\n` 表现出来就是一个 `$`，而 Windows/dos 的表现为 `^M$`，可以直接使用 `dos2unix` 和 `unix2dos` 工具在两种格式之间进行转换，使用 `file` 命令可以查看文件的具体类型。
 
   > 回车”（Carriage Return）和 “换行”（Line Feed）这两个概念的来历和区别。
   >        在计算机还没有出现之前，有一种叫做电传打字机（Teletype Model 33，Linux/Unix 下的 tty 概念也来自于此）的玩意，每秒钟可以打 10 个字符。但是它有一个问题，就是打完一行换行的时候，要用去 0.2 秒，正好可以打两个字符。要是在这 0.2 秒里面，又有新的字符传过来，那么这个字符将丢失。
@@ -1545,39 +1556,39 @@ crontab -e 添加
   >
   > ​        后来，计算机发明了，这两个概念也就被般到了计算机上。那时，存储器很贵，一些科学家认为在每行结尾加两个字符太浪费了，加一个就可以。于是，就出现了分歧。
   >
-  > ​        Unix 系统里，每行结尾只有 “<换行>”，即 "\n"；Windows 系统里面，每行结尾是 “< 换行 >< 回车 >”，即 “\n\r”；Mac 系统里，每行结尾是 “< 回车 >”，即 "\n"；。一个直接后果是，Unix/Mac 系统下的文件在 Windows 里打开的话，所有文字会变成一行；而 Windows 里的文件在 Unix/Mac 下打开的话，在每行的结尾可能会多出一个 ^M 符号。 
+  > ​        Unix 系统里，每行结尾只有 “<换行>”，即 "\n"；Windows 系统里面，每行结尾是 “< 换行 >< 回车 >”，即 “\n\r”；Mac 系统里，每行结尾是 “< 回车 >”，即 "\n"；。一个直接后果是，Unix/Mac 系统下的文件在 Windows 里打开的话，所有文字会变成一行；而 Windows 里的文件在 Unix/Mac 下打开的话，在每行的结尾可能会多出一个 ^M 符号。
 
   1. 利用 vim 编辑器
 
-     利用 Linux 下的 vim 编辑器，可以方便的在 dos 文件、unix 文件之间进行切换，且可以便利的去除恼人的 `^M` 
+     利用 Linux 下的 vim 编辑器，可以方便的在 dos 文件、unix 文件之间进行切换，且可以便利的去除恼人的 `^M`
 
-     ```html
+     ```shell
      vim file
      ```
 
      然后，在 vim 中使用以下命令用于查看当前文件是 dos 格式还是 unix 格式
 
-     ```
+     ```vim
      :set ff?
      ```
 
      在 vim 中强制切换为 unix/dos 格式，然后保存即可：
 
-     ```
+     ```shell
      :set ff=unix #转换为unix格式
      or
      :set ff=dos #转换为dos格式
      :wq #保存、退出
      ```
 
-     ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rpd4z62bj30gh068757.jpg)
+     ![vim ff](http://ww1.sinaimg.cn/large/005GdKShly1g0rpd4z62bj30gh068757.jpg)
 
   2. 调用dos2unix中的两个命令：dos2unix、unix2dos
 
      格式：
 
-     ```
-     $ dos2unix [options] <files>
+     ```shell
+     dos2unix [options] <files>
      ```
 
      - `-o <files>`：直接操作输入文件进行编码转换，此处的 `-o` 可以省略；
@@ -1586,15 +1597,15 @@ crontab -e 添加
      - `-f`、`--force`：强制转换二进制文件，默认为跳过二进制文件；
      - `-k`、`--keep-date`：保持新文件的时间戳（修改时间）不变；
 
-     ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rqi8v3ptj30gh06ngms.jpg)
+     ![dos2unix](http://ww1.sinaimg.cn/large/005GdKShly1g0rqi8v3ptj30gh06ngms.jpg)
 
-  > Linux 提供了两种文本格式相互转化的命令：dos2unix 和 unix2dos，dos2unix 把 "\r\n" 转化成 "\n"，unix2dos 把 "\n" 转化成 "\r\n"。
-  >
-  > 注意下载时要下载 dos2unix 包：
-  >
-  > ```
-  > sudo apt-get install dos2unix
-  > ```
+      > Linux 提供了两种文本格式相互转化的命令：dos2unix 和 unix2dos，dos2unix 把 "\r\n" 转化成 "\n"，unix2dos 把 "\n" 转化成 "\r\n"。
+      >
+      > 注意下载时要下载 dos2unix 包：
+      >
+      > ```shell
+      > sudo apt-get install dos2unix
+      > ```
 
   3. 利用 tr 命令
 
@@ -1618,16 +1629,16 @@ crontab -e 添加
 
   默认使用终端的标准输入作为命令的输入和标准输出作为命令的输出
 
-  ```
-  $ cat 
+  ```shell
+  cat 
   （按Ctrl+C退出）
   ```
 
   将 cat 的连续输出（heredoc 方式）重定向到一个文件
 
-  ```
-  $ mkdir Documents
-  $ cat > Documents/test.c <<EOF
+  ```shell
+  mkdir Documents
+  cat > Documents/test.c << EOF
   #include <stdio.h>
   
   int main()
@@ -1641,26 +1652,26 @@ crontab -e 添加
 
   将一个文件作为命令的输入，标准输出作为命令的输出
 
-  ```
-  $ cat Documents/test.c
+  ```shell
+  cat Documents/test.c
   ```
 
-  将 echo 命令通过**管道传过来的数据作为 cat 命令的输入**，将标准输出作为命令的输出
+  调用echo命令传入管道，cat命令把管道传过来的数据作为输入，将标准输出作为命令的输出
 
-  ```
-  $ echo 'hi' | cat
+  ```shell
+  echo 'hi' | cat
   ```
 
 - 标准输出重定向
 
   将 echo 命令的输出从默认的标准输出**重定向到一个普通文件**
 
-  ```
-  $ echo 'hello shiyanlou' > redirect
-  $ cat redirect
+  ```shell
+  echo 'hello shiyanlou' > redirect
+  cat redirect
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0rrf5x44wj30hs0gowic.jpg)
+  ![redirect](http://ww1.sinaimg.cn/large/005GdKShly1g0rrf5x44wj30hs0gowic.jpg)
 
   初学者这里要注意不要将管道和重定向混淆，**管道默认是连接前一个命令的输出到下一个命令的输入**，而重定向通常是需要一个文件来建立两个命令的连接，你可以仔细体会一下上述第三个操作和最后两个操作的异同点。
 
@@ -1668,40 +1679,40 @@ crontab -e 添加
 
   都被指向伪终端的屏幕显示，所以我们经常看到的一个命令的输出通常是同时包含了标准输出和标准错误的结果的。比如下面的操作：
 
-  ```
-  # 使用cat 命令同时读取两个文件，其中一个存在，另一个不存在
-  $ cat Documents/test.c hello.c
+  ```shell
+  # 使用cat命令同时读取两个文件，其中一个存在，另一个不存在
+  cat Documents/test.c hello.c
   # 你可以看到除了正确输出了前一个文件的内容，还在末尾出现了一条错误信息，见下图
   # 那如果我们将输出重定向到一个文件呢？见下图
-  $ cat Documents/test.c hello.c > somefile
+  cat Documents/test.c hello.c > somefile
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0s0160cq0j30fd06fgmb.jpg)
+  ![redirect error](http://ww1.sinaimg.cn/large/005GdKShly1g0s0160cq0j30fd06fgmb.jpg)
 
   遗憾的是，这里依然出现了那条错误信息，其实标准输出和标准错误虽然都指向终端屏幕，实际它们并不一样。
 
   但有时我们就是要隐藏某些错误或者警告，那又该怎么做呢？这就需要用到我们前面讲的文件描述符了：
 
-  ```
+  ```shell
   # 将标准错误（2）重定向到标准输出（1），再将标准输出重定向到文件（somefile），注意要将重定向到文件写到前面，且必须在文件描述符（1）前加上 & ，否则 shell 会当做重定向到一个文件名为 1 的文件中
-  $ cat Documents/test.c hello.c >somefile  2>&1
+  cat Documents/test.c hello.c >somefile  2>&1
   # 或者只用bash提供的特殊的重定向符号"&"将标准错误和标准输出同时重定向到文件
-  $ cat Documents/test.c hello.c &>somefilehell
+  cat Documents/test.c hello.c &>somefilehell
   ```
 
   效果如下：
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0s01a52iij30g90bzdfw.jpg)
+  ![redirect success](http://ww1.sinaimg.cn/large/005GdKShly1g0s01a52iij30g90bzdfw.jpg)
 
 - 使用 tee 命令同时重定向到多个文件
 
   你可能还有这样的需求，除了需要将输出重定向到文件，也需要将信息打印在终端。那么你可以使用 `tee` 命令来实现：
 
-  ```
-  $ echo 'hello shiyanlou' | tee hello
+  ```shell
+  echo 'hello shiyanlou' | tee hello
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0s0akrj0tj30hy04fwfs.jpg)
+  ![tee](http://ww1.sinaimg.cn/large/005GdKShly1g0s0akrj0tj30hy04fwfs.jpg)
 
   tee 命令详解
 
@@ -1709,12 +1720,13 @@ crontab -e 添加
 
   - 举例：
 
-    ifconfig eth0 | grep pattern | tee /root/interface-info | cut -f2 -d: | cut -f1 -d" "
+    ```shell
+    ifconfig eth0 | grep pattern | tee /root/interface-info | cut -f2 -d: | cut -f1 -d " "
+    ```
 
   - 再举例：
-    使用tee的示意图：ls -l的输出被导向 tee，并且复制到档案　file.txt 以及下一个命令 less。tee 的名称来自于这个图示，它看起来像是大写的字母 T。
 
-  ![](https://upload.wikimedia.org/wikipedia/commons/2/24/Tee.svg)
+    使用tee的示意图：ls -l的输出被导向 tee，并且复制到档案　file.txt 以及下一个命令 less。tee 的名称来自于这个图示，它看起来像是大写的字母 T。
 
 - 使用 exec 命令永久重定向
 
@@ -1722,18 +1734,18 @@ crontab -e 添加
 
   `exec`命令的作用是使用指定的命令替换当前的 Shell，即使用一个进程替换当前进程，或者指定新的重定向：
 
-  ```
+  ```shell
   # 先开启一个子 Shell
-  $ zsh
+  zsh
   # 使用exec替换当前进程的重定向，将标准输出（1）重定向到一个文件
-  $ exec 1>somefile
+  exec 1>somefile
   # 后面你执行的命令的“输出”都将被重定向到名为‘somefile’的文件中,直到你退出当前子shell，或取消exec的重定向（如何取消见后续操作）
-  $ ls
-  $ exit
-  $ cat somefile
+  ls
+  exit
+  cat somefile
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0s0ejs2xtj30cy07dwed.jpg)
+  ![exec](http://ww1.sinaimg.cn/large/005GdKShly1g0s0ejs2xtj30cy07dwed.jpg)
 
   可以看到，执行 ls 命令的输出并没有显示在终端上，查看 somefile 文件，可以看到其中的内容正是 ls 命令的输出
 
@@ -1741,32 +1753,32 @@ crontab -e 添加
 
   在 Shell 中有 9 个文件描述符。上面我们使用了也是它默认提供的 0,1,2 号文件描述符。另外我们还可以使用 3-8 的文件描述符，只是它们默认没有打开而已。你可以使用下面命令查看当前 Shell 进程中打开的文件描述符：
 
-  ```
-  $ cd /dev/fd/;ls -Al
+  ```shell
+  cd /dev/fd/;ls -Al
   ```
 
   同样使用 `exec` 命令可以创建新的文件描述符：
 
-  ```
-  $ zsh
-  $ exec 3>somefile
+  ```shell
+  zsh
+  exec 3>somefile
   # 先进入目录，再查看，否则你可能不能得到正确的结果，然后再回到上一次的目录
-  $ cd /dev/fd/;ls -Al;cd -
+  cd /dev/fd/;ls -Al;cd -
   # 把字符串重定向到文件描述符3，而3会重定向到somefile文件，注意下面的命令>与&之间不应该有空格
-  $ echo "this is test" >&3
-  $ cat somefile
-  $ exit
+  echo "this is test" >&3
+  cat somefile
+  exit
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0s0j683p7j30k20bwdjv.jpg)
+  ![exec3](http://ww1.sinaimg.cn/large/005GdKShly1g0s0j683p7j30k20bwdjv.jpg)
 
 - 关闭文件描述符
 
   EASY，如上面我们打开的 3 号文件描述符，可以使用如下操作将它关闭：
 
-  ```
-  $ exec 3>&-
-  $ cd /dev/fd;ls -Al;cd -
+  ```shell
+  exec 3>&-
+  cd /dev/fd;ls -Al;cd -
   ```
 
 - 完全屏蔽命令的输出
@@ -1775,10 +1787,10 @@ crontab -e 添加
 
   > 在类 UNIX 系统中，/dev/null，或称空设备，是一个特殊的设备文件，它通常被用于丢弃不需要的输出流，或作为用于输入流的空文件，这些操作通常由重定向完成。读取它则会立即得到一个 EOF。
 
-  我们可以利用设个 `/dev/null` 屏蔽命令的输出：
+  我们可以利用设个 `/dev/null` 屏蔽命令的输出（标准输出1重定向至黑洞中，标准错误2重定向至标准输出1中进而到黑洞中）：
 
-  ```
-  $ cat Documents/test.c nefile 1>/dev/null 2>&1
+  ```shell
+  cat Documents/test.c nefile 1>/dev/null 2>&1
   ```
 
   上面这样的操作将使你得不到任何输出结果，也可以叫它“垃圾箱”
@@ -1809,7 +1821,7 @@ crontab -e 添加
 
       mail -s "Warning" root < /root/mail/record/alert-notify
 
-  > Shell 输入 / 输出重定向：http://www.runoob.com/linux/linux-shell-io-redirections.html
+  > Shell 输入 / 输出重定向：[http://www.runoob.com/linux/linux-shell-io-redirections.html](http://www.runoob.com/linux/linux-shell-io-redirections.html)
 
 - 使用 xargs 命令分割参数列表
 
@@ -1817,13 +1829,13 @@ crontab -e 添加
 
   这个命令在有些时候十分有用，特别是当用来处理产生大量输出结果的命令如 find，locate 和 grep 的结果，详细用法请参看 man 文档。
 
-  ```
-  $ cut -d: -f1 < /etc/passwd | sort | xargs echo
+  ```shell
+  cut -d: -f1 < /etc/passwd | sort | xargs echo
   ```
 
   上面这个命令用于将 `/etc/passwd` 文件按`:` 分割取第一个字段排序后，使用 `echo` 命令生成一个列表
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0s0s6rd7gj30gh02l0ta.jpg)
+  ![xargs](http://ww1.sinaimg.cn/large/005GdKShly1g0s0s6rd7gj30gh02l0ta.jpg)
 
 - 比较
 
@@ -1845,9 +1857,9 @@ crontab -e 添加
 
 在 Linux 中，对于文本的处理和分析是极为重要的，现在有一个文件叫做 data1，可以使用下面的命令下载：
 
-```
-$ cd /home/shiyanlou
-$ wget http://labfile.oss.aliyuncs.com/courses/1/data1
+```shell
+cd /home/shiyanlou
+wget http://labfile.oss.aliyuncs.com/courses/1/data1
 ```
 
 data1 文件里记录是一些命令的操作记录，现在需要你从里面找出出现频率次数前 3 的命令并保存在 `/home/shiyanlou/result`。
@@ -1865,17 +1877,17 @@ data1 文件里记录是一些命令的操作记录，现在需要你从里面�
 3. sort 的参数选择 `-k1 -n -r`
 4. 操作过程使用管道，例如：
 
-```
-$ cd /home/shiyanlou
-$ cat data1 |....|....|....   >  /home/shiyanlou/result
+```shell
+cd /home/shiyanlou
+cat data1 |....|....|....   >  /home/shiyanlou/result
 ```
 
 来源：2016 年百度校招面试题
 
 我的答案
 
-```
-shiyanlou:~/ $ cut data1 -c 8- | cut -d ' ' -f 1 | sort | uniq -dc | sort -rn | head -n 3
+```shell
+shiyanlou:~/ cut data1 -c 8- | cut -d ' ' -f 1 | sort | uniq -dc | sort -rn | head -n 3
 ```
 
 思考
@@ -1885,7 +1897,7 @@ shiyanlou:~/ $ cut data1 -c 8- | cut -d ' ' -f 1 | sort | uniq -dc | sort -rn | 
 
 参考答案
 
-```
+```shell
 cat data1 |cut -c 8-|sort|uniq -dc|sort -rn -k1 |head -3 > /home/shiyanlou/result
 ```
 
@@ -1893,21 +1905,19 @@ cat data1 |cut -c 8-|sort|uniq -dc|sort -rn -k1 |head -3 > /home/shiyanlou/resul
 
 ### 正则表达式
 
-- 什么是正则表达式呢？
+**正则表达式**，又称正规表示式、正规表示法、正规表达式、规则表达式、常规表示法（英语：Regular Expression，在代码中常简写为 regex、regexp 或 RE），计算机科学的一个概念。正则表达式使用单个字符串来描述、匹配一系列符合某个句法规则的字符串。在很多文本编辑器里，正则表达式通常被用来检索、替换那些符合某个模式的文本。
 
-> **正则表达式**，又称正规表示式、正规表示法、正规表达式、规则表达式、常规表示法（英语：Regular Expression，在代码中常简写为 regex、regexp 或 RE），计算机科学的一个概念。正则表达式使用单个字符串来描述、匹配一系列符合某个句法规则的字符串。在很多文本编辑器里，正则表达式通常被用来检索、替换那些符合某个模式的文本。
+许多程序设计语言都支持利用正则表达式进行字符串操作。例如，在 Perl 中就内建了一个功能强大的正则表达式引擎。正则表达式这个概念最初是由 UNIX 中的工具软件（例如 `sed` 和 `grep`）普及开的。正则表达式通常缩写成 “regex”，单数有 regexp、regex，复数有 regexps、regexes、regexen。
 
-> 许多程序设计语言都支持利用正则表达式进行字符串操作。例如，在 Perl 中就内建了一个功能强大的正则表达式引擎。正则表达式这个概念最初是由 UNIX 中的工具软件（例如 `sed` 和 `grep`）普及开的。正则表达式通常缩写成 “regex”，单数有 regexp、regex，复数有 regexps、regexes、regexen。
+简单的说形式和功能上正则表达式和我们前面讲的通配符很像，不过它们之间又有很大差别，特别在于一些特殊的匹配字符的含义上
 
-​	简单的说形式和功能上正则表达式和我们前面讲的通配符很像，不过它们之间又有很大差别，特别在于一些特殊的匹配字符的含义上
+一个正则表达式通常被称为一个模式（**pattern**），为用来描述或者匹配一系列符合某个句法规则的字符串。
 
-- 一个正则表达式通常被称为一个模式（**pattern**），为用来描述或者匹配一系列符合某个句法规则的字符串。
-
-  #### 选择
+- 选择
 
   `|` 竖直分隔符表示选择，例如 "boy|girl" 可以匹配 "boy" 或者 "girl"
 
-  #### 数量限定
+- 数量限定
 
   数量限定除了我们举例用的 `*`, 还有 `+` 加号，`?` 问号，如果在一个模式中不加数量限定符则表示出现一次且仅出现一次：
 
@@ -1915,21 +1925,21 @@ cat data1 |cut -c 8-|sort|uniq -dc|sort -rn -k1 |head -3 > /home/shiyanlou/resul
   - `?` 表示前面的字符最多出现一次 (0 次或 1 次)，例如，"colou?r", 可以匹配 "color" 或者 "colour";
   - `*` 星号代表前面的字符可以不出现，也可以出现一次或者多次（0 次、或 1 次、或多次），例如，“0*42” 可以匹配 42、042、0042、00042 等。
 
-  #### 范围和优先级
+- 范围和优先级
 
   `()` 圆括号可以用来定义模式字符串的范围和优先级，这可以简单的理解为是否将括号内的模式串作为一个整体。例如，"gr (a|e) y" 等价于 "gray|grey"，（这里体现了优先级，竖直分隔符用于选择 a 或者 e 而不是 gra 和 ey），"(grand)?father" 匹配 father 和 grandfather（这里体验了范围，`?` 将圆括号内容作为一个整体匹配）。
 
-  #### 语法（部分）
+- 语法（部分）
 
   正则表达式有多种不同的风格，下面列举一些常用的作为 PCRE 子集的适用于 `perl` 和 `python` 编程语言及 `grep` 或 `egrep` 的正则表达式匹配规则：
 
-  > PCRE（Perl Compatible Regular Expressions 中文含义：perl 语言兼容正则表达式）是一个用 C 语言编写的正则表达式函数库，由菲利普。海泽 (Philip Hazel) 编写。PCRE 是一个轻量级的函数库，比 Boost 之类的正则表达式库小得多。PCRE 十分易用，同时功能也很强大，性能超过了 POSIX 正则表达式库和一些经典的正则表达式库。
+  PCRE（Perl Compatible Regular Expressions 中文含义：perl 语言兼容正则表达式）是一个用 C 语言编写的正则表达式函数库，由菲利普。海泽 (Philip Hazel) 编写。PCRE 是一个轻量级的函数库，比 Boost 之类的正则表达式库小得多。PCRE 十分易用，同时功能也很强大，性能超过了 POSIX 正则表达式库和一些经典的正则表达式库。
 
   | 字符      | 描述                                                         |
   | --------- | ------------------------------------------------------------ |
   | \         | **将下一个字符标记为一个特殊字符、或一个原义字符。**例如，“n” 匹配字符 “n”。“\n” 匹配一个换行符。序列 “\\” 匹配 “\” 而 “\(” 则匹配 “(”。 |
   | ^         | **匹配输入字符串的开始位置。**                               |
-  | $         | **匹配输入字符串的结束位置。**                               |
+  |         | **匹配输入字符串的结束位置。**                               |
   | {n}       | n 是一个非负整数。**匹配确定的 n 次**。例如，“o {2}” 不能匹配 “Bob” 中的 “o”，但是能匹配 “food” 中的两个 o。 |
   | {n,}      | n 是一个非负整数。**至少匹配 n 次**。例如，“o {2,}” 不能匹配 “Bob” 中的 “o”，但能匹配 “foooood” 中的所有 o。“o {1,}” 等价于 “o+”。“o {0,}” 则等价于 “o*”。 |
   | {n,m}     | m 和 n 均为非负整数，其中 n<=m。**最少匹配 n 次且最多匹配 m 次。**例如，“o {1,3}” 将匹配 “fooooood” 中的前三个 o。“o {0,1}” 等价于 “o?”。请注意在逗号和两个数之间不能有空格。 |
@@ -1945,7 +1955,7 @@ cat data1 |cut -c 8-|sort|uniq -dc|sort -rn -k1 |head -3 > /home/shiyanlou/resul
   | [a-z]     | 字符范围。**匹配指定范围内的任意字符。**例如，“[a-z]” 可以匹配 “a” 到 “z” 范围内的任意小写字母字符。 |
   | [^a-z]    | 排除型的字符范围。**匹配任何不在指定范围内的任意字符**。例如，`[^a-z]`”可以匹配任何不在 “a” 到 “z” 范围内的任意字符。 |
 
-  #### 优先级
+- 优先级
 
   优先级为从上到下从左到右，依次降低：
 
@@ -1965,7 +1975,7 @@ cat data1 |cut -c 8-|sort|uniq -dc|sort -rn -k1 |head -3 > /home/shiyanlou/resul
 
   regex 的思导图：
 
-  ![img](https://doc.shiyanlou.com/linux_base/RegularExpression.png/wm)
+  ![regex](https://doc.shiyanlou.com/linux_base/RegularExpression.png/wm)
 
 ### grep 模式匹配命令
 
@@ -1995,54 +2005,54 @@ cat data1 |cut -c 8-|sort|uniq -dc|sort -rn -k1 |head -3 > /home/shiyanlou/resul
 
   > 注：在大多数发行版中是默认设置了 grep 的颜色的，你可以通过参数指定或修改 `GREP_COLOR` 环境变量。
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0t3nytohhj30jy0hb778.jpg)
+  ![grep](http://ww1.sinaimg.cn/large/005GdKShly1g0t3nytohhj30jy0hb778.jpg)
 
-- #### 使用基本正则表达式，BRE
+- 使用基本正则表达式，BRE
 
   - 位置
 
   查找 `/etc/group` 文件中以 "shiyanlou" 为开头的行
 
-  ```
-  $ grep 'shiyanlou' /etc/group
-  $ grep '^shiyanlou' /etc/group
+  ```shell
+  grep 'shiyanlou' /etc/group
+  grep '^shiyanlou' /etc/group
   ```
 
   - 数量
 
-  ```
+  ```shell
   # 将匹配以'z'开头以'o'结尾的所有字符串
-  $ echo 'zero\nzo\nzoo' | grep 'z.*o'
+  echo 'zero\nzo\nzoo' | grep 'z.*o'
   # 将匹配以'z'开头以'o'结尾，中间包含一个任意字符的字符串
-  $ echo 'zero\nzo\nzoo' | grep 'z.o'
+  echo 'zero\nzo\nzoo' | grep 'z.o'
   # 将匹配以'z'开头,以任意多个'o'结尾的字符串
-  $ echo 'zero\nzo\nzoo' | grep 'zo*'
+  echo 'zero\nzo\nzoo' | grep 'zo*'
   ```
 
   注意：其中 `\n` 为换行符
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0t46ow8w8j30k208bdhm.jpg)
+  ![grep number](http://ww1.sinaimg.cn/large/005GdKShly1g0t46ow8w8j30k208bdhm.jpg)
 
   - 选择
 
-  ```
+  ```shell
   # grep默认是区分大小写的，这里将匹配所有的小写字母
-  $ echo '1234\nabcd' | grep '[a-z]'
+  echo '1234\nabcd' | grep '[a-z]'
   # 将匹配所有的数字
-  $ echo '1234\nabcd' | grep '[0-9]'
+  echo '1234\nabcd' | grep '[0-9]'
   # 将匹配所有的数字
-  $ echo '1234\nabcd' | grep '[[:digit:]]'
+  echo '1234\nabcd' | grep '[[:digit:]]'
   # 将匹配所有的小写字母
-  $ echo '1234\nabcd' | grep '[[:lower:]]'
+  echo '1234\nabcd' | grep '[[:lower:]]'
   # 将匹配所有的大写字母
-  $ echo '1234\nabcd' | grep '[[:upper:]]'
+  echo '1234\nabcd' | grep '[[:upper:]]'
   # 将匹配所有的字母和数字，包括0-9,a-z,A-Z
-  $ echo '1234\nabcd' | grep '[[:alnum:]]'
+  echo '1234\nabcd' | grep '[[:alnum:]]'
   # 将匹配所有的字母
-  $ echo '1234\nabcd' | grep '[[:alpha:]]'
+  echo '1234\nabcd' | grep '[[:alpha:]]'
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0t46zccpbj30jv0da0wb.jpg)
+  ![grep select](http://ww1.sinaimg.cn/large/005GdKShly1g0t46zccpbj30jv0da0wb.jpg)
 
   下面包含完整的特殊符号及说明：
 
@@ -2063,14 +2073,14 @@ cat data1 |cut -c 8-|sort|uniq -dc|sort -rn -k1 |head -3 > /home/shiyanlou/resul
 
   > **注意**：之所以要使用特殊符号，是因为上面的 [a-z] 不是在所有情况下都管用，这还与主机当前的语系有关，即设置在 `LANG` 环境变量的值，zh_CN.UTF-8 的话 [a-z]，即为所有小写字母，其它语系可能是大小写交替的如，"a A b B...z Z"，[a-z] 中就可能包含大写字母。所以在使用 [a-z] 时请确保当前语系的影响，使用 [:lower:] 则不会有这个问题。
 
-  ```
+  ```shell
   # 排除字符
-  $ $ echo 'geek\ngood' | grep '[^o]'
+  echo 'geek\ngood' | grep '[^o]'
   ```
 
   > **注意:** 当 `^` 放到中括号内为排除字符，否则表示行首。
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0t4l4fj0jj30jv05ymym.jpg)
+  ![grep ^](http://ww1.sinaimg.cn/large/005GdKShly1g0t4l4fj0jj30jv05ymym.jpg)
 
 - **使用扩展正则表达式，ERE**
 
@@ -2078,22 +2088,22 @@ cat data1 |cut -c 8-|sort|uniq -dc|sort -rn -k1 |head -3 > /home/shiyanlou/resul
 
   - 数量
 
-  ```
+  ```shell
   # 只匹配"zo"
-  $ echo 'zero\nzo\nzoo' | grep -E 'zo{1}'
+  echo 'zero\nzo\nzoo' | grep -E 'zo{1}'
   # 匹配以"zo"开头的所有单词
-  $ echo 'zero\nzo\nzoo' | grep -E 'zo{1,}'
+  echo 'zero\nzo\nzoo' | grep -E 'zo{1,}'
   ```
 
   > **注意：**推荐掌握 `{n,m}` 即可，`+`,`?`,`*`，这几个不太直观，且容易弄混淆。
 
   - 选择
 
-  ```
+  ```shell
   # 匹配"www.shiyanlou.com"和"www.google.com"
-  $ echo 'www.shiyanlou.com\nwww.baidu.com\nwww.google.com' | grep -E 'www\.(shiyanlou|google)\.com'
+  echo 'www.shiyanlou.com\nwww.baidu.com\nwww.google.com' | grep -E 'www\.(shiyanlou|google)\.com'
   # 或者匹配不包含"baidu"的内容
-  $ echo 'www.shiyanlou.com\nwww.baidu.com\nwww.google.com' | grep -Ev 'www\.baidu\.com'
+  echo 'www.shiyanlou.com\nwww.baidu.com\nwww.google.com' | grep -Ev 'www\.baidu\.com'
   ```
 
   > **注意：**因为`.` 号有特殊含义，所以需要转义。
@@ -2108,10 +2118,10 @@ cat data1 |cut -c 8-|sort|uniq -dc|sort -rn -k1 |head -3 > /home/shiyanlou/resul
 
 - sed 命令基本格式：
 
-  ```
+  ```shell
   sed [参数]... [执行命令] [输入文件]...
   # 形如：
-  $ sed -i 's/sad/happy/' test # 表示将test文件中的"sad"替换为"happy"
+  sed -i 's/sad/happy/' test # 表示将test文件中的"sad"替换为"happy"
   ```
 
   | 参数          | 说明                                                         |
@@ -2124,12 +2134,12 @@ cat data1 |cut -c 8-|sort|uniq -dc|sort -rn -k1 |head -3 > /home/shiyanlou/resul
 
 - sed 执行命令格式：
 
-  ```
+  ```shell
   [n1][,n2]command
   [n1][~step]command
   # 其中一些命令可以在后面加上作用范围，形如：
-  $ sed -i 's/sad/happy/g' test # g表示全局范围
-  $ sed -i 's/sad/happy/4' test # 4表示指定行中的第四个匹配字符串
+  sed -i 's/sad/happy/g' test # g表示全局范围
+  sed -i 's/sad/happy/4' test # 4表示指定行中的第四个匹配字符串
   ```
 
   其中 n1,n2 表示输入内容的行号，它们之间为 `,` 逗号则表示从 n1 到 n2 行，如果为`～`波浪号则表示从 n1 开始以 step 为步进的所有行；command 为执行动作，下面为一些常用动作指令：
@@ -2147,40 +2157,40 @@ cat data1 |cut -c 8-|sort|uniq -dc|sort -rn -k1 |head -3 > /home/shiyanlou/resul
 
   我们先找一个用于练习的文本文件：
 
-  ```
-  $ cp /etc/passwd ~
+  ```shell
+  cp /etc/passwd ~
   ```
 
-  #### 打印指定行
+  打印指定行
 
-  ```
+  ```shell
   # 打印2-5行
-  $ nl passwd | sed -n '2,5p'
+  nl passwd | sed -n '2,5p'
   # 打印奇数行
-  $ nl passwd | sed -n '1~2p'
+  nl passwd | sed -n '1~2p'
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0t536sro0j30k10j2q9i.jpg)
+  ![sed print specified line](http://ww1.sinaimg.cn/large/005GdKShly1g0t536sro0j30k10j2q9i.jpg)
 
-  #### 行内替换
+  行内替换
 
-  ```
+  ```shell
   # 将输入文本中"shiyanlou" 全局替换为"hehe",并只打印替换的那一行，注意这里不能省略最后的"p"命令
-  $ sed -n 's/shiyanlou/hehe/gp' passwd
+  sed -n 's/shiyanlou/hehe/gp' passwd
   ```
 
   > **注意：** 行内替换可以结合正则表达式使用。
 
-  #### 行间替换
+  行间替换
 
-  ```
-  $ nl passwd | grep "shiyanlou"
+  ```shell
+  nl passwd | grep "shiyanlou"
   # 删除第21行
-  $ sed -n '21c\www.shiyanlou.com' passwd
+  sed -n '21c\www.shiyanlou.com' passwd
   （这里我们只把要删的行打印出来了，并没有真正的删除，如果要删除的话，请使用-i参数）
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0t545sw3lj30h303o3yf.jpg)
+  ![sed exchange in line](http://ww1.sinaimg.cn/large/005GdKShly1g0t545sw3lj30h303o3yf.jpg)
 
   关于 sed 命令就介绍这么多，你如果希望了解更多 sed 的高级用法，你可以参看如下链接：
 
@@ -2194,18 +2204,18 @@ cat data1 |cut -c 8-|sort|uniq -dc|sort -rn -k1 |head -3 > /home/shiyanlou/resul
 
 - 在大多数 linux 发行版上面，实际我们使用的是 gawk（GNU awk，awk 的 GNU 版本），在我们的环境中 ubuntu 上，默认提供的是 mawk，不过我们通常可以直接使用 awk 命令（awk 语言的解释器），因为系统已经为我们创建好了 awk 指向 mawk 的符号链接。
 
-  ```
-  $ ll /usr/bin/awk
+  ```shell
+  ll /usr/bin/awk
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0t5gzhklnj30jt04omyl.jpg)
+  ![whichis awk](http://ww1.sinaimg.cn/large/005GdKShly1g0t5gzhklnj30jt04omyl.jpg)
 
   > nawk： 在 20 世纪 80 年代中期，对 awk 语言进行了更新，并不同程度地使用一种称为 nawk (new awk) 的增强版本对其进行了替换。许多系统中仍然存在着旧的 awk 解释器，但通常将其安装为 oawk (old awk) 命令，而 nawk 解释器则安装为主要的 awk 命令，也可以使用 nawk 命令。Dr. Kernighan 仍然在对 nawk 进行维护，与 gawk 一样，它也是开放源代码的，并且可以免费获得； gawk： 是 GNU Project 的 awk 解释器的开放源代码实现。尽管早期的 GAWK 发行版是旧的 AWK 的替代程序，但不断地对其进行了更新，以包含 NAWK 的特性； mawk 也是 awk 编程语言的一种解释器，mawk 遵循 POSIX 1003.2 （草案 11.3）定义的 AWK 语言，包含了一些没有在 AWK 手册中提到的特色，同时 mawk 提供一小部分扩展，另外据说 mawk 是实现最快的 awk
 
 - awk 所有的操作都是基于 pattern (模式)—action (动作) 对来完成的，如下面的形式：
 
-  ```
-  $ pattern {action}
+  ```shell
+  pattern {action}
   ```
 
   你可以看到就如同很多编程语言一样，它将所有的动作操作用一对 `{}` 花括号包围起来。其中 pattern 通常是表示用于匹配输入的文本的 “关系式” 或 “正则表达式”，action 则是表示匹配后将执行的动作。在一个完整 awk 操作中，这两者可以只有其中一个，如果没有 pattern 则默认匹配输入的全部文本，如果没有 action 则默认为打印匹配内容到屏幕。
@@ -2214,7 +2224,7 @@ cat data1 |cut -c 8-|sort|uniq -dc|sort -rn -k1 |head -3 > /home/shiyanlou/resul
 
 - awk 命令基本格式
 
-  ```
+  ```shell
   awk [-F fs] [-v var=value] [-f prog-file | 'program text'] [file...]
   ```
 
@@ -2222,36 +2232,36 @@ cat data1 |cut -c 8-|sort|uniq -dc|sort -rn -k1 |head -3 > /home/shiyanlou/resul
 
   先用 vim 新建一个文本文档
 
-  ```
-  $ vim test
+  ```shell
+  vim test
   ```
 
   包含如下内容：
 
-  ```
+  ```shell
   I like linux
   www.shiyanlou.com
   ```
 
   - 使用 awk 将文本内容打印到终端
 
-  ```
+  ```shell
   # "quote>" 不用输入
-  $ awk '{
+  awk '{
   > print
   > }' test
   # 或者写到一行
-  $ awk '{print}' test
+  awk '{print}' test
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0t5t926x1j30k3076dhh.jpg)
+  ![awk print](http://ww1.sinaimg.cn/large/005GdKShly1g0t5t926x1j30k3076dhh.jpg)
 
   说明：在这个操作中我是省略了 `pattern`，所以 `awk` 会默认匹配输入文本的全部内容，然后在 "{}" 花括号中执行动作，即 `print` 打印所有匹配项，这里是全部文本内容
 
   - 将 test 的第一行的每个字段单独显示为一行
 
-  ```
-  $ awk '{
+  ```shell
+  awk '{
   > if(NR==1){
   > print $1 "\n" $2 "\n" $3
   > } else {
@@ -2259,7 +2269,7 @@ cat data1 |cut -c 8-|sort|uniq -dc|sort -rn -k1 |head -3 > /home/shiyanlou/resul
   > }' test
   
   # 或者
-  $ awk '{
+  awk '{
   > if(NR==1){
   > OFS="\n"
   > print $1, $2, $3
@@ -2268,20 +2278,20 @@ cat data1 |cut -c 8-|sort|uniq -dc|sort -rn -k1 |head -3 > /home/shiyanlou/resul
   > }' test
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0t5tgsenmj30jw08gmyt.jpg)
+  ![awk every word in first line to single line](http://ww1.sinaimg.cn/large/005GdKShly1g0t5tgsenmj30jw08gmyt.jpg)
 
   说明：你首先应该注意的是，这里我使用了 `awk` 语言的分支选择语句 `if`, 它的使用和很多高级语言如 `C/C++` 语言基本一致，如果你有这些语言的基础，这里将很好理解。另一个你需要注意的是 `NR` 与 `OFS`，这两个是 `awk` 内建的变量，`NR` 表示当前读入的记录数，你可以简单的理解为当前处理的行数，`OFS` 表示输出时的字段分隔符，默认为 " " 空格，如上图所见，我们将字段分隔符设置为 `\n` 换行符，所以第一行原本以空格为字段分隔的内容就分别输出到单独一行了。然后是 `$N` 其中 N 为相应的字段号，这也是 `awk` 的内建变量，它表示引用相应的字段，因为我们这里第一行只有三个字段，所以只引用到了 `$3`。除此之外另一个这里没有出现的 `$0`，它表示引用当前记录（当前行）的全部内容。
 
   - 将 test 的第二行的以点为分段的字段换成以空格为分隔
 
-  ```
-  $ awk -F'.' '{
+  ```shell
+  awk -F'.' '{
   > if(NR==2){
   > print $1 "\t" $2 "\t" $3
   > }}' test
   
   # 或者
-  $ awk '
+  awk '
   > BEGIN{
   > FS="."
   > OFS="\t"  # 如果写为一行，两个动作语句之间应该以";"号分开  
@@ -2291,7 +2301,7 @@ cat data1 |cut -c 8-|sort|uniq -dc|sort -rn -k1 |head -3 > /home/shiyanlou/resul
   > }}' test
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0t5v7nqk7j30k307utac.jpg)
+  ![awk ](http://ww1.sinaimg.cn/large/005GdKShly1g0t5v7nqk7j30k307utac.jpg)
 
   说明：这里的 `-F` 参数，前面已经介绍过，它是用来预先指定待处理记录的字段分隔符。我们需要注意的是除了指定 `OFS` 我们还可以在 `print` 语句中直接打印特殊符号如这里的 `\t`，**print 打印的非变量内容都需要用 "" 一对引号包围起来**。上面另一个版本，展示了实现预先指定变量分隔符的另一种方式，即使用 `BEGIN`，就这个表达式指示了，其后的动作将在所有动作之前执行，这里是 `FS` 赋值了新的 "." 点号代替默认的 " " 空格
 
@@ -2326,9 +2336,9 @@ cat data1 |cut -c 8-|sort|uniq -dc|sort -rn -k1 |head -3 > /home/shiyanlou/resul
 
 数据文件可以使用以下命令下载：
 
-```
-$ cd /home/shiyanlou
-$ wget http://labfile.oss.aliyuncs.com/courses/1/data2
+```shell
+cd /home/shiyanlou
+wget http://labfile.oss.aliyuncs.com/courses/1/data2
 ```
 
 下载后的数据文件路径为 `/home/shiyanlou/data2`。
@@ -2347,17 +2357,17 @@ $ wget http://labfile.oss.aliyuncs.com/courses/1/data2
 
 我的答案
 
-```
-shiyanlou:~/ $ cat data2 | grep '^[0-9]' > num
-shiyanlou:~/ $ cat data2 | grep -E '@.{1,}\.com' > mail
-shiyanlou:~/ $ cat data2 | grep -E '@.+\.com' > mail
+```shell
+shiyanlou:~/ cat data2 | grep '^[0-9]' > num
+shiyanlou:~/ cat data2 | grep -E '@.{1,}\.com' > mail
+shiyanlou:~/ cat data2 | grep -E '@.+\.com' > mail
 ```
 
-​	思考：邮箱的匹配有点问题，`@`前一定要有东西，`.`hou的域名不一定非要是com
+思考：邮箱的匹配有点问题，`@`前一定要有东西，`.`hou的域名不一定非要是com
 
 参考答案
 
-```
+```shell
 grep '^[0-9]' /home/shiyanlou/data2 > /home/shiyanlou/num
 
 grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data2 > /home/shiyanlou/mail
@@ -2381,7 +2391,7 @@ grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data
 
 - 简而言之，一个程序至少有一个进程，一个进程至少有一个线程。线程的划分尺度小于进程，使得多线程程序的并发性高。另外，进程在执行过程中拥有独立的内存单元，而多个线程共享内存，从而极大地提高了程序的运行效率。就如下图所示：
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tdri17osj30sg0lcae8.jpg)
+  ![process and thread](http://ww1.sinaimg.cn/large/005GdKShly1g0tdri17osj30sg0lcae8.jpg)
 
 ### 进程分类
 
@@ -2412,16 +2422,16 @@ grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data
   关于父进程与子进程便会提及这两个系统调用 `fork()` 与 `exec()`
 
   > **fork-exec** 是由 Dennis M. Ritchie 创造的
-
+  >
   > **fork()** 是一个系统调用（system call），它的主要作用就是为当前的进程创建一个新的进程，这个新的进程就是它的子进程，这个子进程除了父进程的返回值和 PID 以外其他的都一模一样，如进程的执行代码段，内存信息，文件描述，寄存器状态等等
-
+  >
   > **exec()** 也是系统调用，作用是切换子进程中的执行程序也就是替换其从父进程复制过来的代码段与数据段
 
   子进程就是父进程通过系统调用 `fork()` 而产生的复制品，`fork()` 就是把父进程的 PCB 等进程的数据结构信息直接复制过来，只是修改了 PID，所以一模一样，只有在执行 `exec()` 之后才会不同，而早先的 `fork()` 比较消耗资源后来进化成 `vfork()`, 效率高了不少，感兴趣的同学可以查查为什么。
 
   这就是子进程产生的由来。简单的实现逻辑就如下方所示
 
-  ```
+  ```c
   pid_t p;
   
   p = fork();
@@ -2455,21 +2465,21 @@ grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data
 
   通过以下的命令我们可以很明显的看到这样的结构
 
-  ```
+  ```shell
   pstree
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tefapnpsj30s60kyjsy.jpg)
+  ![pstree](http://ww1.sinaimg.cn/large/005GdKShly1g0tefapnpsj30s60kyjsy.jpg)
 
 - 用户进程的祖先——进程1（init 进程）
 
   我们还可以使用这样一个命令来看，其中 pid 就是该进程的一个唯一编号，ppid 就是该进程的父进程的 pid，command 表示的是该进程通过执行什么样的命令或者脚本而产生的
 
-  ```
+  ```shell
   ps －fxo user,ppid,pid,pgid,command
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tegau73vj30s60kyjw0.jpg)
+  ![ps](http://ww1.sinaimg.cn/large/005GdKShly1g0tegau73vj30s60kyjw0.jpg)
 
   可以在图中看见我们执行的 ps 就是由 zsh 通过 fork-exec 创建的子进程而执行的。 init进程是由进程 0 这个初始化进程来创建出来的子进程，而其他的进程基本是由 init 创建的子进程，或者是由它的子进程创建出来的子进程。所以 init 是用户进程的第一个进程也是所有用户进程的**父进程**或者**祖先进程**。这就像一个树状图，而 init 进程就是这棵树的根，其他进程由根不断的发散，开枝散叶
 
@@ -2481,10 +2491,10 @@ grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data
 
 - 与进程组类似，每当一个进程被创建的时候，它便会成为其父进程所在 Session 中的一员，每一个进程组都会在一个 Session 中，并且这个 Session 是唯一存在的。
 
-- Session 主要是针对一个 tty 建立，Session 中的每个进程都称为一个工作 (job)。每个会话可以连接一个终端 (control terminal)。当控制终端有输入输出时，都传递给该会话的前台进程组。Session 意义在于将多个 jobs 囊括在一个终端，并取其中的一个 job 作为前台，来直接接收该终端的输入输出以及终端信号。 其他 jobs 在后台运行。
+- Session 主要是针对一个 tty 建立，Session 中的每个进程都称为一个工作 (job)。每个会话可以连接一个终端 (control terminal)。当控制终端有输入输出时，都传递给该会话的前台进程组。**Session 意义在于将多个 jobs 囊括在一个终端，并取其中的一个 job 作为前台，来直接接收该终端的输入输出以及终端信号**。 其他 jobs 在后台运行。
 
   > **前台**（foreground）就是在终端中运行，能与你有交互的
-
+  >
   > **后台**（background）就是在终端中运行，但是你并不能与其任何的交互，也不会显示其执行的过程
 
 ### 工作管理
@@ -2497,54 +2507,52 @@ grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data
 
   我们可以通过 `&` 这个符号，让我们的命令在后台中运行
 
-  ```
-  shiyanlou:~/ $ ls &                                   
+  ```shell
+  shiyanlou:~/ ls &                                   
   [2] 6650
   anaconda3  Code  Desktop  emacs24_24.5+1-6ubuntu1.1_amd64.deb                   
   [2]  + 6650 done       ls --color=tty
   shiyanlou:~/ $
   ```
 
-  
-
   图中所显示的 `[2] 6650` 分别是该 job 的 job number 与该进程的 PID，而最后一行的 Done 表示该命令已经在后台执行完毕。
 
   我们还可以通过 `ctrl + z` 使我们的当前工作停止并丢到后台中去
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tey5vg4fj30s60kygm9.jpg)
+  ![&](http://ww1.sinaimg.cn/large/005GdKShly1g0tey5vg4fj30s60kygm9.jpg)
 
   被停止并放置在后台的工作我们可以使用这个命令来查看
 
-  ```
+  ```shell
   jobs
   ```
 
-  ![实验楼](https://dn-simplecloud.shiyanlou.com/1135081469037134869-wm)
+  ![jobs](https://dn-simplecloud.shiyanlou.com/1135081469037134869-wm)
 
   其中第一列显示的为被放置后台 job 的编号，而第二列的 `＋`表示最近被放置后台的 job，同时也表示**预设工作**，也就是若是有什么针对后台 job 的操作，首先对预设的 job，`-` 表示倒数第二（也就是在预设之前的一个）被放置后台的工作，倒数第三个（再之前的）以后都不会有这样的符号修饰，第三列表示它们的状态，而最后一列表示该进程执行的命令
 
   我们可以通过这样的一个命令将后台的工作拿到前台来:
 
-  ```
+  ```shell
   #后面不加参数提取预设工作，加参数提取指定工作的编号
   #ubuntu 在 zsh 中需要 %，在 bash 中不需要 %
   fg [%jobnumber]
   ```
 
-  ![实验楼](https://dn-simplecloud.shiyanlou.com/1135081469037555070-wm)
+  ![fg](https://dn-simplecloud.shiyanlou.com/1135081469037555070-wm)
 
   之前我们通过 `ctrl + z` 使得工作停止放置在后台，若是我们想让其在后台运作我们就使用这样一个命令
 
-  ```
+  ```shell
   #与fg类似，加参数则指定，不加参则取预设工作
   bg [%jobnumber]
   ```
 
-  ![实验楼](https://dn-simplecloud.shiyanlou.com/1135081469037983282-wm)
+  ![bg](https://dn-simplecloud.shiyanlou.com/1135081469037983282-wm)
 
   既然有方法将被放置在后台的工作提至前台或者让它从停止变成继续运行在后台，当然也有方法删除一个工作，或者重启等等
 
-  ```
+  ```shell
   #kill的使用格式如下
   kill -signal %jobnumber
   
@@ -2561,22 +2569,22 @@ grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data
   | -9     | 强制终止该任务                   |
   | -15    | 正常的方式终止该任务             |
 
-  ![实验楼](https://dn-simplecloud.shiyanlou.com/1135081469038840624-wm)
+  ![kill -l](https://dn-simplecloud.shiyanlou.com/1135081469038840624-wm)
 
   > **注意**
-
+  >
   > 若是在使用 kill＋信号值然后直接加 pid，你将会对 pid 对应的进程进行操作
-
+  >
   > 若是在使用 kill + 信号值然后 `％jobnumber`，这时所操作的对象是 job，这个数字就是就当前 bash 中后台的运行的 job 的 ID
 
-### **查看进程**——ps、top、pstree
+### 查看进程——ps、top、pstree
 
 - ps 命令，静态查看当前进程信息（snapchat）
 
   使用 `-l` 参数可以显示自己**这次登陆的 bash** 相关的进程信息罗列出来
 
-  ```
-  shiyanlou:~/ $ ps -l                                 
+  ```shell
+  shiyanlou:~/ ps -l                                 
   F S   UID   PID  PPID  C PRI  NI ADDR SZ WCHAN  TTY          TIME CMD
   0 S  5000   148   142  0  80   0 - 12056 sigsus pts/0    00:00:01 zsh
   0 R  5000  6850   148  0  80   0 -  7514 -      pts/0    00:00:00 ps
@@ -2585,31 +2593,31 @@ grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data
 
   相对来说，罗列出**所有的**进程信息更常用
 
-  ```
+  ```shell
   ps aux
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tfy0qx3ij30s60ky440.jpg)
+  ![ps aux](http://ww1.sinaimg.cn/large/005GdKShly1g0tfy0qx3ij30s60ky440.jpg)
 
   若是查找其中的某个进程的话，我们还可以配合着 grep 和正则表达式一起使用
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tg18s2qbj30s60ky0tu.jpg)
+  ![ps aux | grep zsh](http://ww1.sinaimg.cn/large/005GdKShly1g0tg18s2qbj30s60ky0tu.jpg)
 
   此外我们还可以查看时，将连同部分的进程呈树状显示出来
 
-  ```
+  ```shell
   ps axjf
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tfyuqe5gj30s60kyn1e.jpg)
+  ![ps axjf](http://ww1.sinaimg.cn/large/005GdKShly1g0tfyuqe5gj30s60kyn1e.jpg)
 
   当然如果你觉得使用这样的此时没有把你想要的信息放在一起，我们也可以是用这样的命令，来自定义我们所需要的参数显示
 
-  ```
+  ```shell
   ps -afxo user,ppid,pid,pgid,command
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tfz89f97j30s60kyjw0.jpg)
+  ![ps](http://ww1.sinaimg.cn/large/005GdKShly1g0tfz89f97j30s60kyjw0.jpg)
 
   打印出来的信息各个字段的意义参考下表
 
@@ -2659,11 +2667,11 @@ grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data
 
   `top` 工具是我们常用的一个查看工具，能实时的查看我们系统的一些关键信息的变化:
 
-  ```
+  ```shell
   top
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tf66ln78j30s60kyjvv.jpg)
+  ![top](http://ww1.sinaimg.cn/large/005GdKShly1g0tf66ln78j30s60kyjvv.jpg)
 
   top 是一个在**前台**执行的程序，所以执行后便进入到这样的一个**交互界面**，正是因为交互界面我们才可以实时的获取到系统与进程的信息。在交互界面中我们可以通过一些指令来操作和筛选。在此之前我们先来了解显示了哪些信息。
 
@@ -2690,7 +2698,7 @@ grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data
 
   这是单个 CPU 单核的情况，而实际生活中我们需要将得到的这个值除以我们的核数来看。我们可以通过以下的命令来查看 CPU 的个数与核心数
 
-  ```
+  ```shell
   #查看物理CPU的个数
   #cat /proc/cpuinfo |grep "physical id"|sort |uniq|wc -l
   
@@ -2709,7 +2717,7 @@ grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data
 
   查看 busybox 的代码可以知道，数据是每 5 秒钟就检查一次活跃的进程数，然后计算出该值，然后 load 从 `/proc/loadavg` 中读取的。而这个 load 的值是如何计算的呢，这是 load 的计算的源码
 
-  ```
+  ```c
   #define FSHIFT      11          /* nr of bits of precision */
   #define FIXED_1     (1<<FSHIFT) /* 1.0 as fixed-point(定点) */
   #define LOAD_FREQ   (5*HZ)      /* 5 sec intervals，每隔5秒计算一次平均负载值 */
@@ -2778,7 +2786,7 @@ grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data
   | 313088 buffers | 用作内核缓存的内存量 |
 
   > **注意**
-
+  >
   > 系统中可用的物理内存最大值并不是 free 这个单一的值，而是 free + buffers + swap 中的 cached 的和
 
   来看 top 的第五行数据，这一行基本上是交换区的一个使用情况的统计了
@@ -2808,14 +2816,14 @@ grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data
   | COMMAND | 该进程运行的名字                             |
 
   > **注意**
-
+  >
   > **NICE 值**叫做静态优先级，是用户空间的一个优先级值，其取值范围是 - 20 至 19。这个值越小，表示进程” 优先级” 越高，而值越大 “优先级” 越低。nice 值中的 -20 到 19，中 -20 优先级最高， 0 是默认的值，而 19 优先级最低
-
+  >
   > **PR 值**表示 Priority 值叫动态优先级，是进程在内核中实际的优先级值，进程优先级的取值范围是通过一个宏定义的，这个宏的名称是 MAX_PRIO，它的值为 140。Linux 实际上实现了 140 个优先级范围，取值范围是从 0-139，这个值越小，优先级越高。而这其中的 0 - 99 是实时进程的值，而 100 - 139 是给用户的。
-
+  >
   > 其中 PR 中的 100 to 139 值部分有这么一个对应 `PR = 20 + (-20 to +19)`，这里的 -20 to +19 便是 nice 值，所以说两个虽然都是优先级，而且有千丝万缕的关系，但是他们的值，他们的作用范围并不相同
-
-  > ** VIRT ** 任务所使用的虚拟内存的总数，其中包含所有的代码，数据，共享库和被换出 swap 空间的页面等所占据空间的总数
+  >
+  > **VIRT** 任务所使用的虚拟内存的总数，其中包含所有的代码，数据，共享库和被换出 swap 空间的页面等所占据空间的总数
 
   在上文我们曾经说过 top 是一个前台程序，所以是一个可以交互的
 
@@ -2830,19 +2838,17 @@ grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data
 
   好好的利用 top 能够很有效的帮助我们观察到系统的瓶颈所在，或者是系统的问题所在。
 
-  
-
 - pstree 命令，查看当前活跃进程的树形结构，用ASCII字符显示树状结构
 
   通过 pstree 可以很直接的看到相同的进程数量，最主要的还是我们可以看到所有进程之间的相关性
 
-  ```
+  ```shell
   pstree
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tg2v9xehj30s60ky409.jpg)
+  ![pstree](http://ww1.sinaimg.cn/large/005GdKShly1g0tg2v9xehj30s60ky409.jpg)
 
-  ```
+  ```shell
   pstree -up
   
   #参数选择：
@@ -2851,7 +2857,7 @@ grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data
   #-u  ：同时列出每个 process 的所属用户名称。
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tg2yh6esj30s60kyjv2.jpg)
+  ![pstree -up](http://ww1.sinaimg.cn/large/005GdKShly1g0tg2yh6esj30s60kyjv2.jpg)
 
 ### 管理进程
 
@@ -2862,8 +2868,6 @@ grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data
   - kill PID：结束进程和进程号PID，系统可能不响应
   - kill -9 PID：强制终止进程，一般不适用
   - killall PID：终止同一进程组内的所有进程
-
-
 
 - 进程的执行顺序
 
@@ -2890,7 +2894,7 @@ grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data
 
 - 在 Linux 中大部分的发行版都内置使用 syslog 系统日志，那么通过前期的课程我们了解到常见的日志一般存放在 `/var/log` 中，我们来看看其中有哪些日志
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tgq7g5lfj30s60ky78h.jpg)
+  ![/var/log](http://ww1.sinaimg.cn/large/005GdKShly1g0tgq7g5lfj30s60ky78h.jpg)
 
   根据图中所显示的日志，我们可以根据服务对象粗略的将日志分为两类
 
@@ -2925,7 +2929,7 @@ grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data
 
 - 只闻其名，不见其人，我们并不能明白这些日志记录的内容。首先我们来看 `alternatives.log` 中的信息，在本实验环境中没有任何日志输出是因为刚刚启动的系统中并没有任何的更新迭代。我可以看看从其他地方截取过来的内容
 
-  ```
+  ```shell
   update-alternatives 2016-07-02 13:36:16: run with --install /usr/bin/x-www-browser x-www-browser /usr/bin/google-chrome-stable 200
   update-alternatives 2016-07-02 13:36:16: run with --install /usr/bin/gnome-www-browser gnome-www-browser /usr/bin/google-chrome-stable 200
   update-alternatives 2016-07-02 13:36:16: run with --install /usr/bin/google-chrome google-chrome /usr/bin/google-chrome-stable 200
@@ -2935,11 +2939,11 @@ grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data
 
   我们用这样的命令来看看 `auth.log` 中的信息
 
-  ```
+  ```shell
   less auth.log
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tgqf6rn2j30sg0lcn1e.jpg)
+  ![auth.log](http://ww1.sinaimg.cn/large/005GdKShly1g0tgqf6rn2j30sg0lcn1e.jpg)
 
   我们可以从中得到的信息有日期与 ip 地址的来源以及的用户与工具
 
@@ -2947,39 +2951,38 @@ grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data
 
   我们通过这样的例子就可以很明显的看出区别，在本实验环境中因为是刚启动的环境，所以两个日志中的信息都是空的
 
-  ```
+  ```shell
   less /var/log/apt/history.log
-  
   less /var/log/apt/term.log
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tgql8mkkj30sg0lc75a.jpg)
+  ![history emtpy](http://ww1.sinaimg.cn/large/005GdKShly1g0tgql8mkkj30sg0lc75a.jpg)
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tgqz5wk8j30sg0lcab2.jpg)
+  ![term empty](http://ww1.sinaimg.cn/large/005GdKShly1g0tgqz5wk8j30sg0lcab2.jpg)
 
   然后我们来安装 git 这个程序，因为本实验环境中本有预装 git ，所以这里真正执行的操作是一个更新的操作，但这并不影响
 
-  ```
+  ```shell
   sudo apt-get install git
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tgr5vae7j30sg0lcten.jpg)
+  ![install git](http://ww1.sinaimg.cn/large/005GdKShly1g0tgr5vae7j30sg0lcten.jpg)
 
   成功的执行之后我们再来查看两个日志的内容变化
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tgrr3f7cj30sg0lcdh8.jpg)
+  ![history](http://ww1.sinaimg.cn/large/005GdKShly1g0tgrr3f7cj30sg0lcdh8.jpg)
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tgrycp9vj30sg0lcacv.jpg)
+  ![term](http://ww1.sinaimg.cn/large/005GdKShly1g0tgrycp9vj30sg0lcacv.jpg)
 
   其他的日志格式也都类似于之前我们所查看的日志，主要便是时间，操作。
 
 - 但要注意有两个比较特殊的日志，其查看的方式比较与众不同，因为这两个日志并不是 ASCII 文件而是被编码成了二进制文件，所以我们并不能直接使用 less、cat、more 这样的工具来查看，这两个日志文件是 wtmp，lastlog
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tgs85nx5j30sg0lcn0d.jpg)
+  ![wtmp](http://ww1.sinaimg.cn/large/005GdKShly1g0tgs85nx5j30sg0lcn0d.jpg)
 
   我们查看的方法是使用 last 与 lastlog 工具来提取其中的信息
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tgsf5cetj30sg0lcwhu.jpg)
+  ![lastlog](http://ww1.sinaimg.cn/large/005GdKShly1g0tgsf5cetj30sg0lcwhu.jpg)
 
 ### 配置的日志
 
@@ -2998,14 +3001,14 @@ grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data
 
   我们可以手动开启这项服务，然后来查看
 
-  ```
+  ```shell
   sudo apt-get update
   sudo apt-get install -y rsyslog
   sudo service rsyslog start
   ps aux | grep syslog
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tgx063mlj30sg0lcjtu.jpg)
+  ![rsyslog](http://ww1.sinaimg.cn/large/005GdKShly1g0tgx063mlj30sg0lcjtu.jpg)
 
   既然它是一个服务，那么它便是可以配置，首先我们来看 rsyslog 的配置文件是什么样子的，而 rsyslog 的配置文件有两个，
 
@@ -3014,19 +3017,18 @@ grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data
 
   第一个主要是配置的环境，也就是 rsyslog 加载什么模块，文件的所属者等；而第二个主要是配置的 Filter Conditions
 
-  ```
+  ```shell
   vim /etc/rsyslog.conf 
-  
   vim /etc/rsyslog.d/50-default.conf
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tgxi4wuej30sg0lcdj3.jpg)
+  ![rsyslog.conf](http://ww1.sinaimg.cn/large/005GdKShly1g0tgxi4wuej30sg0lcdj3.jpg)
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tgxlezavj30s60kydi4.jpg)
+  ![rsyslog.d/50-default.conf](http://ww1.sinaimg.cn/large/005GdKShly1g0tgxlezavj30s60kydi4.jpg)
 
   看上去有点复杂，我们还是来看看 rsyslog 的结构框架
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tgyqwww1j30sg0lcwf3.jpg)
+  ![rsyslog architecture](http://ww1.sinaimg.cn/large/005GdKShly1g0tgyqwww1j30sg0lcwf3.jpg)
 
   （图片来源于 <http://www.rsyslog.com/doc/queues_analogy.html>）
 
@@ -3081,7 +3083,7 @@ grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data
 
 - 了解了 rsyslog 环境的配置文件之后，我们看向 `/etc/rsyslog.d/50-default.conf` 这个配置文件，这个文件中主要是配置的 Filter Conditions，也就是我们在流程图中所看见的 `Parser & Filter Engine`, 它的名字叫 Selectors 是过滤 syslog 的传统方法，他主要由两部分组成，`facility` 与 `priority`，其配置格式如下
 
-  ```
+  ```shell
   facility.priority　　　　　log_location
   ```
 
@@ -3119,9 +3121,9 @@ grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data
 
 - 我们来看看系统中的配置
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0th2etnp3j30s60kydi4.jpg)
+  ![rsyslog.d/50-default.conf](http://ww1.sinaimg.cn/large/005GdKShly1g0th2etnp3j30s60kydi4.jpg)
 
-  ```
+  ```shell
   auth,authpriv.*       /var/log/auth.log
   ```
 
@@ -3129,7 +3131,7 @@ grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data
 
   而其中有类似于这样的配置信息意思有细微的差别
 
-  ```
+  ```shell
   kern.*      -/var/log/kern.log
   ```
 
@@ -3139,7 +3141,7 @@ grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data
 
 - 与日志相关的还有一个还有常用的命令 `logger`,logger 是一个 shell 命令接口，可以通过该接口使用 Syslog 的系统日志模块，还可以从命令行直接向系统日志文件写入信息。
 
-  ```
+  ```shell
   #首先将syslog启动起来
   sudo service rsyslog start
   
@@ -3150,7 +3152,7 @@ grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data
   sudo tail -f /var/log/syslog
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0th2ine2dj30s60kytdk.jpg)
+  ![start rsyslog](http://ww1.sinaimg.cn/large/005GdKShly1g0th2ine2dj30s60kytdk.jpg)
 
   从图中我们可以看到我们成功的将 ping 的信息写入了 syslog 中，格式也就是使用的 rsyslog 的默认模板
 
@@ -3172,15 +3174,15 @@ grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data
 
 - 显而易见，logrotate 是基于 CRON 来运行的，其脚本是 /etc/cron.daily/logrotate；同时我们可以在 `/etc/logrotate`中找到其配置文件
 
-  ```
+  ```shell
   cat /etc/logrotate.conf
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0th8091hyj30s60ky40c.jpg)
+  ![logrotate](http://ww1.sinaimg.cn/large/005GdKShly1g0th8091hyj30s60ky40c.jpg)
 
   这其中的具体意思是什么呢？
 
-  ```
+  ```shell
   # see "man logrotate" for details  //可以查看帮助文档
   # rotate log files weekly
   weekly                             //设置每周转储一次(daily、weekly、monthly当然可以使用这些参数每天、星期，月 )
@@ -3208,251 +3210,265 @@ grep -E '^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$' /home/shiyanlou/data
 
 2. 存储在介质中数据的三个因素
   
-	文件名：定位存储的位置
-  
-	数据：文件的具体内容
-  
-	元数据 meta-data：文件有关的信息。例如文件的权限、所有者、文件的修   改时间等。
+    文件名：定位存储的位置
 
-	Linux 支持的文件系统类型可查看 /etc/filesystems
+    数据：文件的具体内容
+
+    元数据 meta-data：文件有关的信息。例如文件的权限、所有者、文件的修   改时间等。
+
+    Linux 支持的文件系统类型可查看 /etc/filesystems
 
 3. 文件系统的分类
 
-	- 根据是否有日志？
+   - 根据是否有日志？
 
-		- 传统型文件系统：写入文件内容的时候，先写数据，再写元数据，若写元数据前断电，则会造成文件不一致。典型的：ext2（Linux 默认的文件系统）
-  
-		- 日志型文件系统：写入文件内容的时候，先写日志记录文件（更安全）。典型的：ext3 = ext2 + 日志  ，ReiserFS （基于平衡树，搜索快，节约空间）
+     - 传统型文件系统：写入文件内容的时候，先写数据，再写元数据，若写元数据前断电，则会造成文件不一致。典型的：ext2（Linux 默认的文件系统）
 
-	- 根据如何查找数据？
+     - 日志型文件系统：写入文件内容的时候，先写日志记录文件（更安全）。典型的：ext3 = ext2 + 日志  ，ReiserFS （基于平衡树，搜索快，节约空间）
 
-		- 索引式文件系统：文件属性数据和实际内容放在不同的区块，例如 Linux 中默认的 ext2 文件系统中，文件属性数据存放在 inode（类似于指针），实际内容放在 block。ext2 一开始就规划好了 inode 与 block ，所以数量庞大，不容易管理，所以有分组
-  
-			![](http://upload-images.jianshu.io/upload_images/2106579-b71e3f2eb47dbf42.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+   - 根据如何查找数据？
 
-		- 非索引式文件系统：只有 block，数据需要一个 block 接一个 block 读取（下一个 block 位置存放在上一个 block 中），效率低。 典型的：FAT（Windows 的文件系统）
+     - 索引式文件系统：文件属性数据和实际内容放在不同的区块，例如 Linux 中默认的 ext2 文件系统中，文件属性数据存放在 inode（类似于指针），实际内容放在 block。ext2 一开始就规划好了 inode 与 block ，所以数量庞大，不容易管理，所以有分组
 
-			![](http://upload-images.jianshu.io/upload_images/2106579-c0507b51e0e4840d.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+        ![inode](http://upload-images.jianshu.io/upload_images/2106579-b71e3f2eb47dbf42.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-			> 碎片整理：写入的数据的 block 太过分散，此时读取的效率会很低。磁盘整理的目的，就是将这些分散的 block 尽量的集中起来。
+     - 非索引式文件系统：只有 block，数据需要一个 block 接一个 block 读取（下一个 block 位置存放在上一个 block 中），效率低。 典型的：FAT（Windows 的文件系统）
+
+      > 碎片整理：写入的数据的 block 太过分散，此时读取的效率会很低。磁盘整理的目的，就是将这些分散的 block 尽量的集中起来。
 
 4. 配置文件系统分区
 
-	- 创建分区：fdisk + 设备名，输入完该命令之后，可以通过参数 m 查看按键操作说明，通过参数 p 可以得到本磁盘的相关信息，输入 n 命令可以新建一个分区。使用完 n 命令之后，新建分区的步骤如下：
+    创建分区：fdisk + 设备名，输入完该命令之后，可以通过参数 m 查看按键操作说明，通过参数 p 可以得到本磁盘的相关信息，输入 n 命令可以新建一个分区。使用完 n 命令之后，新建分区的步骤如下：
   
-		选择分区类型
-	
-		选择分区开始的磁柱
-	
-		决定分区的大小
-	
-		保存新建的分区 （w 命令）
-  
-		通过重启服务器或使用 partprobe 命令通知内核
+    选择分区类型
 
-	- 创建文件系统：mkfs [参数] 设备名。-t 指定文件系统类型，如 ext3。  -b 指定 block 大小，单位 bytes，ext2 和 ext3 仅支持 1024/2048/4096 三种。
+    选择分区开始的磁柱
 
-	- 挂载文件系统：mount + 设备名 + 挂载点。挂载的过程就是将文件系统和目录树上的某一个目录结合。  -t  -b 同上。
+    决定分区的大小
 
-			mount /dev/sda6/root/testmount
+    保存新建的分区 （w 命令）
+
+    通过重启服务器或使用 partprobe 命令通知内核
+
+    创建文件系统：mkfs [参数] 设备名。-t 指定文件系统类型，如 ext3。  -b 指定 block 大小，单位 bytes，ext2 和 ext3 仅支持 1024/2048/4096 三种。
+
+    挂载文件系统：mount + 设备名 + 挂载点。挂载的过程就是将文件系统和目录树上的某一个目录结合。  -t  -b 同上。
+
+    ```shell
+    mount /dev/sda6/root/testmount
+    ```
 
 5. 管理 Linux 文件系统
 
-	- 查看分区使用情况：
+   - 查看分区使用情况：
 
-		- df：查看文件系统的磁盘空间占用情况，参数 –h 以容易理解的格式打印出文件系统大小，参数 –i 显示 inode 信息而非块使用量。
+     - df：查看文件系统的磁盘空间占用情况，参数 –h 以容易理解的格式打印出文件系统大小，参数 –i 显示 inode 信息而非块使用量。
 
-		- du：查看文件或目录的磁盘使用空间，参数 –a 显示目录下的每个文件所占的磁盘空间，参数 –s 只显示大小的总和，参数 -h 以容易理解的格式输出文件大小值，如多少 Mb
+     - du：查看文件或目录的磁盘使用空间，参数 –a 显示目录下的每个文件所占的磁盘空间，参数 –s 只显示大小的总和，参数 -h 以容易理解的格式输出文件大小值，如多少 Mb
 
-	- 查看系统打开的文件：lsof
+   - 查看系统打开的文件：lsof
 
-		Isof filename 显示打开指定文件的所有进程
+     - Isof filename 显示打开指定文件的所有进程
 
-		Isof –c string 显示以指定字符开头的进程所有打开的文件
+     - Isof –c string 显示以指定字符开头的进程所有打开的文件
 
-		Isof –u username 显示所属 username 相关进程打开的文件
+     - Isof –u username 显示所属 username 相关进程打开的文件
 
 6. 修复文件系统：
   
-	- fsck 参数 设备名：检查文件系统并尝试修复错误。执行 fsck 时，必须首先要将修复的设备进行umount 后，再执行 fsck 命令。
+   - fsck 参数 设备名：检查文件系统并尝试修复错误。执行 fsck 时，必须首先要将修复的设备进行umount 后，再执行 fsck 命令。
   
-	- e2fsck：检查和修复 ext2 和 ext3 文件系统
+   - e2fsck：检查和修复 ext2 和 ext3 文件系统
 
-##11、Linux LVM 配置
+## 11、Linux LVM 配置
+
 LVM：Logical Volume Manager
 
 - 传统：文件系统构建在物理分区（PP：physical partition）之上，物理分区的大小直接决定了文件系统的容量。LVM：使文件系统的调节更简便，搭配 RAID 做容错
 
 - LVM 结构：
 
-	![](http://upload-images.jianshu.io/upload_images/2106579-2c5ca1a7e33f6cf9.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+  ![LVM](http://upload-images.jianshu.io/upload_images/2106579-2c5ca1a7e33f6cf9.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-	PP：physical partition 物理分区，LVM 最底层
-	
-	PV：physical volume 物理卷，一个 PP 对应一个 PV
-	
-	PE：physical extends 物理扩展单元，组成PV的最小单元，也是的最小区块，类似于文件系统的 block
-	
-	VG：volume group 卷组，可以看出由 LVM 组成的大磁盘
-	
-	LE：logical extends 逻辑扩展单元，组成LV的最小单元，对应一个PE
-	
-	LV：logical volume 逻辑卷， VG之上，文件系统之下，文件系统是基于逻辑卷的
+  PP：physical partition 物理分区，LVM 最底层
+  
+  PV：physical volume 物理卷，一个 PP 对应一个 PV
+  
+  PE：physical extends 物理扩展单元，组成PV的最小单元，也是的最小区块，类似于文件系统的 block
+  
+  VG：volume group 卷组，可以看出由 LVM 组成的大磁盘
+  
+  LE：logical extends 逻辑扩展单元，组成LV的最小单元，对应一个PE
+  
+  LV：logical volume 逻辑卷， VG之上，文件系统之下，文件系统是基于逻辑卷的
 
 - VG、LV 和 PE 的关系
 
-	LV 通过交换 PE 来实现弹性改变文件系统大小的效果，LV 移除一些 PE，文件系统大小即减小，VG 把一些 PE 给LV，文件系统大小即增加
+  LV 通过交换 PE 来实现弹性改变文件系统大小的效果，LV 移除一些 PE，文件系统大小即减小，VG 把一些 PE 给LV，文件系统大小即增加
 
-	![](http://upload-images.jianshu.io/upload_images/2106579-2bc6a3b02784a97e.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240) 
+  ![LV](http://upload-images.jianshu.io/upload_images/2106579-2bc6a3b02784a97e.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-	最多65534个PE，PE的大小可以影响到VG的容量
+  最多65534个PE，PE的大小可以影响到VG的容量
 
-	LV与磁盘分区类似，能够格式化
+  LV与磁盘分区类似，能够格式化
 
 - LVM 的优点：
 
-	- 通过LVM，文件系统可以跨越多个磁盘
-	
-	- 动态地扩展文件系统的大小
-	
-	- 增加新磁盘到 LVM 的存储池中
+  - 通过LVM，文件系统可以跨越多个磁盘
+  
+  - 动态地扩展文件系统的大小
+  
+  - 增加新磁盘到 LVM 的存储池中
 
 - LVM 使用要点：
 
-	- 按需分配文件系统大小
+  - 按需分配文件系统大小
 
-	- 把不同的数据放在不同的卷组中
+  - 把不同的数据放在不同的卷组中
 
 - LVM 配置步骤，创建逻辑卷的步骤
 
 - 物理卷管理命令
 
-	- pvcreate 将普通的分区加上 PV 属性
-	- pvscan 查看物理卷信息
-	- pvdisplay 查看各个物理卷的详细参数
-	- pvremve
+  - pvcreate 将普通的分区加上 PV 属性
+  - pvscan 查看物理卷信息
+  - pvdisplay 查看各个物理卷的详细参数
+  - pvremve
 
 - 卷组管理
 
-	- vgcreate vgname /dev/sdaN
-		- vgname：卷组名称
-		- /dev/sdaN：要加入卷组的物理卷
-	- vgscan
-	- vgdisplay
-	- vgreduce 缩小卷组，把物理卷从卷组中删除
-	- vgextend 扩展卷组，把某个物理卷添加到卷组中
-	- vgremove
+  - vgcreate vgname /dev/sdaN
+  - vgname：卷组名称
+  - /dev/sdaN：要加入卷组的物理卷
+  - vgscan
+  - vgdisplay
+  - vgreduce 缩小卷组，把物理卷从卷组中删除
+  - vgextend 扩展卷组，把某个物理卷添加到卷组中
+  - vgremove
 
 - 逻辑卷管理命令
 
-	- lvcreate -n lvname -L 2G vgname
-		- lvname：逻辑卷名称
-		- -L 2G:逻辑卷大小
-		- vgname：从卷组分配空间给逻辑卷
-	- lvscan
-	- lvdisplay
-	- lvextend
-	- lvreduce
-	- lvrmove
+  - lvcreate -n lvname -L 2G vgname
+  - lvname：逻辑卷名称
+  - -L 2G:逻辑卷大小
+  - vgname：从卷组分配空间给逻辑卷
+  - lvscan
+  - lvdisplay
+  - lvextend
+  - lvreduce
+  - lvrmove
 
 - 扩展卷组
-	- 可在线扩展卷组
-	- 不一定可以所见卷组
-	- 命令：vgextend vgname /dev/sdaN
-		- 将物理卷 /dev/sdaN，加到vgname
-	- 必须要有未使用的物理卷
-		- 必须先有未使用的分区或硬盘
+
+  - 可在线扩展卷组
+  - 不一定可以所见卷组
+  - 命令：vgextend vgname /dev/sdaN
+  - 将物理卷 /dev/sdaN，加到vgname
+  - 必须要有未使用的物理卷
+  - 必须先有未使用的分区或硬盘
 
 - 管理文件系统的空间（增大或减小）
 
-	- 增大（ 卷组必须要有足够空间）
+- 增大（ 卷组必须要有足够空间）
 
-		- 先卸载逻辑卷
-		- 然后通过vgextend、lvextend等命令增大LV的空间
-		
-			- lvextend -l +128 /dev/vgname/lvname
-				- 再加大128个LE
-			- lvextend -L +128M /dev/vgname/lvname
-				- 再加大128 Mb
-		- resize2fs -p /dev/vgname/lvname
-			- 再使用resize2fs将逻辑卷容量增加，扩展文件系统
-			- -p：显示操作期间的进度
-		- 最后将逻辑卷挂载到目录树
+  - 先卸载逻辑卷
+  - 然后通过vgextend、lvextend等命令增大LV的空间
+  - lvextend -l +128 /dev/vgname/lvname
+  - 再加大128个LE
+  - lvextend -L +128M /dev/vgname/lvname
+  - 再加大128 Mb
+  - resize2fs -p /dev/vgname/lvname
+  - 再使用resize2fs将逻辑卷容量增加，扩展文件系统
+  - -p：显示操作期间的进度
+  - 最后将逻辑卷挂载到目录树
 
-	- 减小
+- 减小
 
-		- 先卸载逻辑卷
-		- resize2fs -p /dev/vgname/lvname 512M
-			- 再使用resize2fs将逻辑卷容量减小，文件系统调整为512MB
-		- lvreduce -L 512M /dev/vgname/lvname
-			- 再通过lvreduce将逻辑卷容量减小，逻辑卷减小到512MB
-		- 最后将逻辑卷挂载到目录树
+  - 先卸载逻辑卷
+  - resize2fs -p /dev/vgname/lvname 512M
+  - 再使用resize2fs将逻辑卷容量减小，文件系统调整为512MB
+  - lvreduce -L 512M /dev/vgname/lvname
+  - 再通过lvreduce将逻辑卷容量减小，逻辑卷减小到512MB
+  - 最后将逻辑卷挂载到目录树
 
-	> 注意 lvextend -l +128 与 lvextend -L +128M 的区别。一个是增加128个PE，一个是增加128MB
+> 注意 lvextend -l +128 与 lvextend -L +128M 的区别。一个是增加128个PE，一个是增加128MB
 
 ## 12、Linux 网络管理
+
 - ifconfig [接口]：查看IP地址，广播地址，网口掩码
 
-	> windowns 中用 ipconfig
+> windowns 中用 ipconfig
 
-	- ifconfig 网口[参数]：设置网口的参数，如IP地址，广播地址，网口掩码等，重启网络或系统后失效
+- ifconfig 网口[参数]：设置网口的参数，如IP地址，广播地址，网口掩码等，重启网络或系统后失效
 
-			ifconfig eth3 192.168.100.128 broadcast 192.168.100.255 netmask 255.255.255.0
+  ```shell
+  ifconfig eth3 192.168.100.128 broadcast 192.168.100.255 netmask 255.255.255.0
+  ```
 
-	- 若想修改一直有效，则需要去修改配置文件：/etc/sysconfig/network/ifcfg-网口
-	
-		编辑配置文件：
-	
-			vi ifcfg-eth4
-	
-		使用ifup命令，启动网口:
-	
-			ifup ifcfg-eth4
+- 若想修改一直有效，则需要去修改配置文件：/etc/sysconfig/network/ifcfg-网口
+
+  编辑配置文件：
+
+  ```shell
+  vi ifcfg-eth4
+  ```
+
+  使用ifup命令，启动网口:
+
+  ```shell
+  ifup ifcfg-eth4
+  ```
 
 - route：查询本机路由表
 
-	Destination 目的地
-	Gateway 网管
-	Genmask
-	Flags 标记，为U：可用
-	Iface 该路由的网络出口
+  Destination 目的地
+  
+  Gateway 网管
+  
+  Genmask
+  
+  Flags 标记，为U：可用
+  
+  Iface 该路由的网络出口
 
 - 新增路由：通过命令方式新建路由，会保存在内存中，重启无效，若想持久保存，通过配置文件 /etc/sysconfig/network/routes 静态保存路由信息，重启网络服务才能生效
 
 - 检测本地端口
 
-		netstat -tupln | grep:25
+  netstat -tupln | grep:25
 
-	- 	t：TCP仅显示tcp相关选项
-	- 	u：UDP仅显示udp相关选项
-	- 	p：Procedure显示建立相关连接的程序名
-	- 	l：List仅列出正在Listen（监听）的服务
-	- 	n：拒绝显示别名，能显示数字的全部转化为数字
+  - t：TCP仅显示tcp相关选项
+  - u：UDP仅显示udp相关选项
+  - p：Procedure显示建立相关连接的程序名
+  - l：List仅列出正在Listen（监听）的服务
+  - n：拒绝显示别名，能显示数字的全部转化为数字
 
 - 检测远程服务
 
-	- nmap软件包
-	
-	- 可以单独检测服务器
-		- 如：nmap 192.168.0.101
+  - nmap软件包
 
-	- 可检测整个class C
-		- 如：nmap 192.168.0.0/24
-		- 不支持255.255.255.0的语法
-	- 如果没有防火墙干扰，结果应该与netstat一致
+  - 可以单独检测服务器
+  - 如：nmap 192.168.0.101
+
+  - 可检测整个class C
+  - 如：nmap 192.168.0.0/24
+  - 不支持255.255.255.0的语法
+  - 如果没有防火墙干扰，结果应该与netstat一致
 
 - IP别名
-	- 在相同的网卡以及MAC地址之下，配置不同的IP地址
-	- 命名原则
-		- eth0
-		- eth0:0
-		- eth0:1 ...
-	- 哪些不支持IP别名
-		- DHCP不支持别名
-		- NetworkManager不支持别名
-			- NetworkManager也不支持网卡绑定
-			- service NetworkManager stop
-			- chkconfig NetworkManager Off
+
+  - 在相同的网卡以及MAC地址之下，配置不同的IP地址
+  - 命名原则
+  - eth0
+  - eth0:0
+  - eth0:1 ...
+  - 哪些不支持IP别名
+    - DHCP不支持别名
+    - NetworkManager不支持别名
+    - NetworkManager也不支持网卡绑定
+  - service NetworkManager stop
+  - chkconfig NetworkManager Off
+
 - **ping -c 次数**
 
 - **traceroute 目的地址或主机名：追踪包源到目的所经过的路由**
@@ -3461,9 +3477,8 @@ LVM：Logical Volume Manager
 
 - 配置Telnet服务，进入yast界面
 
-- - 
-
 ## 13、Linux 系统监控
+
 - 监控系统启动日志
 
   想要查看启动信息，调用命令 dmesg|less，或者查看 /var/log/boot.msg 日志
@@ -3472,40 +3487,41 @@ LVM：Logical Volume Manager
 
   - cat /proc/..
 
-  	/proc/cpuinfo
+    /proc/cpuinfo
 
-  	/proc/bus
+    /proc/bus
 
-  	/proc/scsi
-  	
+    /proc/scsi
+  
   - fdisk 硬盘信息
 
-  	-l：查看服务器所挂硬盘个数及分区情况
+    -l：查看服务器所挂硬盘个数及分区情况
 
   - lspci PCI信息
 
-  	-v：显示PCI接口装置的详细信息
+    -v：显示PCI接口装置的详细信息
 
-  	-vv：更详细的信息
+  - vv：更详细的信息
 
   - iostat CPU和I/O信息
 
-  	-c：仅显示CPU统计信息
+    -c：仅显示CPU统计信息
 
-  	-d：仅显示磁盘统计信息
+    -d：仅显示磁盘统计信息
 
-  	-k：以k为单位显示每秒磁盘的请求数
+    -k：以k为单位显示每秒磁盘的请求数
+  
   - hwinfo 设备信息
 
-  	--disk 显示磁盘信息
+    --disk 显示磁盘信息
 
-  	--cpu 显示CPU信息
+    --cpu 显示CPU信息
 
-  	--memory 显示内存信息
+    --memory 显示内存信息
 
-  	--network 显示网卡信息
+    --network 显示网卡信息
 
-  	--short 显示硬件的摘要信息
+    --short 显示硬件的摘要信息
 
 - 监控系统和进程
 
@@ -3531,9 +3547,6 @@ LVM：Logical Volume Manager
 
   - `lastlog[参数][用户]`：查看用户前一次登录信息。-t days：查看距今n天内登录了系统的用户的最近一次登录信息，-u显示登录与登出的详细信息
 
-
-
-
 ## 14、Linux 安装与管理软件
 
 - 通常 Linux 上的软件安装主要有四种方式：
@@ -3551,12 +3564,12 @@ LVM：Logical Volume Manager
 
 - 比如我们想安装一个软件，名字叫做 `w3m`(w3m 是一个命令行的简易网页浏览器)，那么输入如下命令：
 
-  ```
-  $ sudo apt-get install w3m
+  ```shell
+  sudo apt-get install w3m
   ```
 
-  ```
-  $ w3m www.shiyanlou.com/faq
+  ```shell
+  w3m www.shiyanlou.com/faq
   ```
 
   **注意**: 如果你在安装一个软件之后，无法立即使用 `Tab` 键补全这个命令，你可以尝试先执行 `source ~/.zshrc`，然后你就可以使用补全操作。
@@ -3606,19 +3619,19 @@ LVM：Logical Volume Manager
 
   你可以使用如下方式重新安装：
 
-  ```
-  $ sudo apt-get --reinstall install w3m
+  ```shell
+  sudo apt-get --reinstall install w3m
   ```
 
 - 软件升级
 
-  ```
+  ```shell
   # 更新软件源
-  $ sudo apt-get update
+  sudo apt-get update
   # 升级没有依赖问题的软件包
-  $ sudo apt-get upgrade
+  sudo apt-get upgrade
   # 升级并解决依赖关系
-  $ sudo apt-get dist-upgrade
+  sudo apt-get dist-upgrade
   ```
 
 - 卸载软件
@@ -3627,52 +3640,52 @@ LVM：Logical Volume Manager
 
   执行了 `remove` 前，使用`whereis w3m`命令，发现：
 
-  ```
-  shiyanlou:~/ $ whereis w3m                           
+  ```shell
+  shiyanlou:~/ whereis w3m                           
   w3m: /usr/bin/w3m /usr/lib/w3m /etc/w3m /usr/share/w3m /usr/share/man/man1/w3m.1.gz
   
   ```
 
   执行了 `remove` 后，使用`whereis w3m`命令，发现：
 
-  ```
-  shiyanlou:~/ $ whereis w3m                           
+  ```shell
+  shiyanlou:~/ whereis w3m                           
   w3m: /etc/w3m
   ```
 
   这时可以执行`purge`命令：
 
-  ```
+  ```shell
   # 不保留配置文件的移除
-  $ sudo apt-get purge w3m
+  sudo apt-get purge w3m
   ```
 
   再执行`whereis w3m`命令，发现：
 
-  ```
-  shiyanlou:~/ $ whereis w3m                           
+  ```shell
+  shiyanlou:~/ whereis w3m                           
   w3m:
   ```
 
   移除不需要的被依赖的软件包：
 
-  ```
+  ```shell
   # 移除不再需要的被依赖的软件包
-  $ sudo apt-get autoremove
+  sudo apt-get autoremove
   ```
 
 - `apt-cache` ——软件搜索
 
   当自己刚知道了一个软件，想下载使用，需要确认软件仓库里面有没有，就需要用到搜索功能了，命令如下：
 
-  ```
+  ```shell
   sudo apt-cache search softname1 softname2 softname3……
   ```
 
   `apt-cache` 命令则是针对本地数据进行相关操作的工具，`search` 顾名思义在本地的数据库中寻找有关 `softname1` `softname2` …… 相关软件的信息。现在我们试试搜索一下之前我们安装的软件 `w3m` ：
 
-  ```
-  shiyanlou:~/ $ sudo apt-cache search w3m             
+  ```shell
+  shiyanlou:~/ sudo apt-cache search w3m             
   w3m - WWW browsable pager with excellent tables/frames support
   w3m-el - simple Emacs interface of w3m
   w3m-el-snapshot - simple Emacs interface of w3m (development version)
@@ -3690,7 +3703,7 @@ LVM：Logical Volume Manager
 - dpkg 介绍
 
   > dpkg 是 Debian 软件包管理器的基础，它被伊恩・默多克创建于 1993 年。dpkg 与 RPM 十分相似，同样被用于安装、卸载和供给和 .deb 软件包相关的信息。
-
+  >
   > dpkg 本身是一个底层的工具。上层的工具，像是 APT，被用于从远程获取软件包以及处理复杂的软件包关系。"dpkg" 是 "Debian Package" 的简写。
 
   我们经常可以在网络上见到以 `deb` 形式打包的软件包，就需要使用 `dpkg` 命令来安装。
@@ -3711,47 +3724,47 @@ LVM：Logical Volume Manager
 
   我们先使用 `apt-get` 加上 `-d` 参数只下载不安装，下载 emacs 编辑器的 deb 包，下载完成后，我们可以查看 /var/cache/apt/archives/ 目录下的内容，如下图：
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tcytez1pj30kk0f4q5t.jpg)
+  ![ls archives](http://ww1.sinaimg.cn/large/005GdKShly1g0tcytez1pj30kk0f4q5t.jpg)
 
   然后我们将第一个 `deb` 拷贝到 /home/shiyanlou 目录下，并使用 `dpkg` 安装
 
-  ```
-  $ cp /var/cache/apt/archives/emacs24_24.5+1-6ubuntu1.1_amd64.deb ~
+  ```shell
+  cp /var/cache/apt/archives/emacs24_24.5+1-6ubuntu1.1_amd64.deb ~
   # 安装之前参看deb包的信息
-  $ sudo dpkg -I emacs24_24.5+1-6ubuntu1.1_amd64.deb
+  sudo dpkg -I emacs24_24.5+1-6ubuntu1.1_amd64.deb
   ```
 
   如你所见，这个包还额外依赖了一些软件包，这意味着，如果主机目前没有这些被依赖的软件包，直接使用 dpkg 安装可能会存在一些问题，因为 `dpkg` 并不能为你解决依赖关系。
 
-  ```
+  ```shell
   # 使用dpkg安装
-  $ sudo dpkg -i emacs24_24.5+1-6ubuntu1.1_amd64.deb
+  sudo dpkg -i emacs24_24.5+1-6ubuntu1.1_amd64.deb
   ```
 
   跟前面预料的一样，这里你可能出现了一些错误：
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0tcz1c9zaj30ke0ge455.jpg)
+  ![dpkg error](http://ww1.sinaimg.cn/large/005GdKShly1g0tcz1c9zaj30ke0ge455.jpg)
 
   我们将如何解决这个错误呢？这就要用到 `apt-get` 了，使用它的 `-f` 参数了，修复依赖关系的安装
 
-  ```
-  $ sudo apt-get update
-  $ sudo apt-get -f install
+  ```shell
+  sudo apt-get update
+  sudo apt-get -f install
   ```
 
   没有任何错误，这样我们就安装成功了，然后你可以运行 emacs 程序了
 
-  ```
-  shiyanlou:~/ $ emacs24    
+  ```shell
+  shiyanlou:~/ emacs24    
   ```
 
 - 查看已安装软件包的安装目录，使用 `dpkg -L` 查看 `deb` 包目录信息
 
-  ```
-  $ sudo dpkg -L emacs24
+  ```shell
+  sudo dpkg -L emacs24
   ```
 
-  ![](http://ww1.sinaimg.cn/large/005GdKShly1g0td15m9haj30kl0hu78q.jpg)
+  ![dpkg -L](http://ww1.sinaimg.cn/large/005GdKShly1g0td15m9haj30kl0hu78q.jpg)
 
 ### RPM 安装
 
@@ -3771,9 +3784,9 @@ LVM：Logical Volume Manager
   - E：后缀，.rpm 或者 .src.rpm
 
   - 例如：
-  	- 	gimp-2.6.9-4.el6_1.1.x86_64.rpm
-  	- 	zsh-4.3.10-4.1.el6.x86_64.rpm
-  	- 	apache-1.3.23-11.i386.rpm
+  - gimp-2.6.9-4.el6_1.1.x86_64.rpm
+  - zsh-4.3.10-4.1.el6.x86_64.rpm
+  - apache-1.3.23-11.i386.rpm
 
 - RPM 软件包相依性
   - 有些 RPM 软件包不能单独安装，必须先安装别的 RPM 软件包才能安装，称之为 RPM软件包相依性
@@ -3804,7 +3817,7 @@ LVM：Logical Volume Manager
 
 - rpm 删除
 
-  rpm -e jdk ：删除 jdk 的RPM包 
+  rpm -e jdk ：删除 jdk 的RPM包
 
   > 如果其他软件包依赖于 jdk ，则删除时会报错
 
