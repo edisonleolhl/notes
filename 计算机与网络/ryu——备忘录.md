@@ -571,3 +571,39 @@ index 9fe72ed..6e750e6 100644
 
 ---
 5.8 fa
+
+---
+
+
+2020.12.28复现环境记录
+
+1. 安装
+	- ryu4.23：用git方式安装，checkout v4.23，再安装
+	- 用户可定义网络平台服务端代码在ryu控制器上，是基于python2.7写的，所以ryu-manager也是基于python2.7运行，所以安装时注意python版本，特别是pip2和pip3的区别
+	- 安装ryu以及运行ryu可能会有很多报错，大概率是cannot import module "xxx"，主要原因在各种依赖库的版本不对劲
+2. 修改源码
+	- flags文件
+	- switch
+3. ryu-manager network.py rest_qos.py rest_conf_switch.py ofctl_rest.py --observe-links --weight=hop
+4. sudo mn --custom sw5host3.py --topo mytopo --controller=remote --mac --switch ovs,protocols=OpenFlow13 --link tc --nat
+
+---
+
+1.5 尝试pod=4，density=2的fattree拓扑，但是还没有和ryu连接起来，还需要修改一下李呈大神的fattree源码
+
+1.6 
+
+1. 修改了fattree的switch与host的命名，导致ryu报错：multiple connections from [dpid]，查阅资料发现是因为mininet没法猜测出节点命名，所以还是按原来的命名方式
+2. 发现fattree如果四元太复杂，二元太简单，最后选择了叶脊网络，两个脊，四个叶，各下挂一个主机
+3. 又遇到了ping不通的玄学问题，mn -c/杀进程/运行官方拓扑/运行官方应用都试过了，最后重新进入了vscode与xshell就可以了
+4. 叶脊网络有好几个环，发现只有h3 ping h4可以通，监听s1的端口发现一直在arp泛洪，保持mininet不动，把ryu app重新启动就可以全部ping通了！
+5. 注意，因为是ssh登陆到服务器上，无论是ryu还是mininet都是命令行运行的，所以如果ssh断掉连接，并不代表服务器上的程序停止了，得kill重启
+6. 在mininet做了iperfleafspine命令，测试iperf，h1-h9, h2-h10, ..., h8-h16，最后在服务端(h1~h16)记录下来数据，发现weight=hop是正好打满了各自的最大带宽，h9~h12四台服务端iperf加起来的带宽为40Mb/s，这正好与设置的链路带宽参数吻合，比如h1-h9的路径是：h1-s3-s1-s5-h9，叶子交换机南向带宽为20Mb/s，北向带宽为40Mb/s，所以正好打满
+
+1.7
+
+1. 为network app新增weight=ratio，`cost = alpha*delay - beta*utilization`，设置alpha=10，beta=1，utilization=used_bandwidth / 40
+
+4.3
+
+不需要做流量调度，参照lhl硕士毕业论文，修改了一点客户端GUI，修改mininet的指令，方便测试ping与iperf
