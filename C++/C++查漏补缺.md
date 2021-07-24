@@ -3378,6 +3378,10 @@ kthreadd是第2号进程，会成为内核态，是所有内核态进程的祖�
 
     系统级：`/etc/security/limits.conf`
 
+### 目录与文件权限的意义区别（鸟哥的Linux私房菜
+
+见Linux-基础知识
+
 ### Linux日志系统
 
 syslog是Linux的守护进程，rsyslog是加强版，配置文件位于`/etc/syslog.conf`
