@@ -161,8 +161,7 @@ using V2 = vector<int>;
 
 1. extern可以置于变量或者函数前，以标示变量或者函数的定义在别的文件中，提示编译器遇到此变量和函数时在其他模块中寻找其定义。
 2. 头文件中应使用extern关键字声明全局变量（不定义），比如在A.h中声明外部变量`extern int a;`，而在A.cpp文件中去定义`int a;`。如果在头文件中定义全局变量，虽然在编译阶段可能能通过，但是在链接的时候就会出现**重复定义**的错误
-3. 在函数前加上`extern "C"`，告诉编译器要用C的规则去翻译函数名，因为C不支持函数重载而C++支持函数重载，所以C++会将函数名和参数联合起来生成一个中间的函数名称，也可以用`extern "C"`指定一个块，里面所有语句都按C的规则编译
-54 C语言中不支持extern "C"声明，在.c文件中包含了extern "C"时会出现编译语法错误
+3. 在函数前加上`extern "C"`，告诉编译器要用C的规则去翻译函数名，因为C不支持函数重载而C++支持函数重载，所以C++会将函数名和参数联合起来生成一个中间的函数名称，也可以用`extern "C"`指定一个块，里面所有语句都按C的规则编译。C语言中不支持extern "C"声明，在.c文件中包含了extern "C"时会出现编译语法错误
 
 ### union数据类型是什么
 
@@ -323,7 +322,7 @@ a = (enum weekday)2; // 正确，强转，相当于 a = tue;
 
 enum weather {sunny, cloudy, rainy, windy}; // 默认赋值，sunny = 0, ...
 enum fruits {apple=3, orange, banana=7, bear}; // 显式赋值，每个枚举子取值是前一个加一，orange=4, bear=8
-enum big_cities{guangzhou=1, shenzhen=3, beijing=1, shanghai=2}; // 枚举子取值可以重复
+enum big_cities{guangzhou=1, shenzhen=3, beijing=1, shanghai=2}; // 枚举值取值可以重复
 ```
 
 传统方法有三个特点，或者说缺点
@@ -10305,6 +10304,10 @@ E：5,10,15,20
 ```
 
 这种方式是负载到哪台机器提前定好，未来很难做修改。3~5台服务器基本能够满足需求，都可以获得不同的ID，但步长和初始值一定需要事先确定，使用Redis集群也可以解决单点故障问题。
+
+#### 分布式锁
+
+陈皓分享：https://youtu.be/VnbC5RG1fEo
 
 ### Elasticsearch
 
