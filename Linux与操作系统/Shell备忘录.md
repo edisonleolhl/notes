@@ -72,3 +72,45 @@ There is a screen on:
 ```
 
 若想退出screen管理的这个这个终端，在该终端下键入`ctrl+d`即可
+
+screen -S xxx -> 新建一个叫xxx的session
+
+screen -ls -> 列出当前所有的session
+
+screen -r xxx -> 回到xxx这个session
+
+screen -d xxx -> 远程detach某个session
+
+screen -R 　先试图恢复离线的作业。若找不到离线的作业，即建立新的screen作业。
+
+screen -d -r xxx -> 结束当前session并回到xxx这个session
+
+在每个screen session 下，所有命令都以 ctrl+a(C-a) 开始：
+ 
+- `[` -> 进入 copy mode，在 copy mode 下可以回滚、搜索、复制就像用使用 vi 一样，ctrl+c退出该模式
+- `n` -> Next，切换到下一个 window 
+- `p` -> Previous，切换到前一个 window 
+
+### wc
+
+1. 命令格式：
+wc [选项]文件...
+
+2. 命令功能：
+统计指定文件中的字节数、字数、行数，并将统计结果显示输出。该命令统计指定文件中的字节数、字数、行数。如果没有给出文件名，则从标准输入读取。wc同时也给出所指定文件的总统计数。
+
+3. 命令参数：
+-c 统计字节数。
+-l 统计行数。
+-m 统计字符数。这个标志不能与 -c 标志一起使用。
+-w 统计字数。一个字被定义为由空白、跳格或换行字符分隔的字符串。
+-L 打印最长行的长度。
+--help 显示帮助信息
+--version 显示版本信息
+ 
+　　例子: 在文件a中统计 hello 出现的行数:
+　　
+grep hello a | wc -l
+　　在文件a中统计hello出现的次数:
+
+grep -o hello a | wc -l
