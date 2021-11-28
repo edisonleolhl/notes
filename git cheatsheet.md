@@ -332,6 +332,51 @@ git reset --hard HEAD~1：效果同上
 
 > 该命令是可以二次“反悔”的，找到被重置的提交 git reflog，发现是f8651ff，使用reset回到该提交 git reset --hard f8651ff
 
+### 从上一次提交中签出指定文件
+
+```shell
+git checkout -- a.txt
+```
+
+**提示**：运行上面的命令后，将签出上次提交时a.txt文件。
+
+### 从指定的提交历史中签出指定文件
+
+附加上commit id，将会签出指定提交记录中的文件：
+
+```shell
+git checkout 830cf95f56ef9a7d6838f6894796dac8385643b7 -- a.txt
+```
+
+### 从其他分支签出指定文件
+
+**背景**：一个仓库一般有一个master分支和其他多个brach。branch主要目的是为了某个功能开发，在开发期间 master 分支可能更新了核心模块，这时其他branch需要同步更新此模块。
+
+**说明**：只需要签出时指定分支名称。
+
+**命令**：
+
+```shell
+git checkout master -- a.txt
+```
+
+> 除了签出制定文件外，git还支持签出指定目录、制定后缀等等。
+>
+> ```shell
+> git checkout -- *.txt
+> git checkout -- css/
+> ```
+>
+> 
+
+## 2.2 从指定的提交历史中签出指定文件
+
+附加上commit id，将会签出指定提交记录中的文件：
+
+```
+git checkout 830cf95f56ef9a7d6838f6894796dac8385643b7 
+```
+
 ### reset再温习
 
 git reset [HEAD]：撤销暂存区（stage）的修改，即撤销git add命令，其中HEAD可加可不加

@@ -91,6 +91,53 @@ screen -d -r xxx -> 结束当前session并回到xxx这个session
 - `n` -> Next，切换到下一个 window 
 - `p` -> Previous，切换到前一个 window 
 
+### tmux
+
+> 摘自：https://pragmaticpineapple.com/gentle-guide-to-get-started-with-tmux/
+
+ctrl+b：进入tmux命令模式，tmux的命令都要先加上ctrl+b
+
+ctrl+b  +  ?：如果忘记了tmux命令，可以用该命令
+
+#### pane management
+
+ctrl+b  +  "：水平创建一个pane
+
+ctrl+b  +  %：垂直创建一个pane
+
+ctrl+b  +  LeftArrow/Right/Up/Down：在pane之间移动光标
+
+ctrl+d：关闭pane
+
+#### window management
+
+ctrl+b  +  c：创建window
+
+> 底部有各window的名称（默认是序号，从0开始）与该window正在运行的任务，带星号*的window是当前焦点所在window，带折号-的window是最后一个window
+
+ctrl+b  +  0/1/2：前往第0/1/2号window
+
+ctrl+b  +  p/n：前往previous window/前往next window
+
+#### sessions
+
+tmux ls：列出所有session
+
+ctrl+b  +  d：退出tmux当前session
+
+tmux new -s heythere：创建名为heythere的session
+
+tmux  attach -t heythere：连接名为heythere的session
+
+```shell
+$ tmux ls
+0: 4 windows (created Thu Aug 12 20:08:22 2021) (attached)
+1: 1 windows (created Thu Aug 12 20:15:03 2021)
+
+
+# The first session marked with 0 shows that we have four windows open, and we are attached to it. But the second session marked with 1 (one) is not attached
+```
+
 ### wc
 
 1. 命令格式：
