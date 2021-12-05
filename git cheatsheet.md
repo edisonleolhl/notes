@@ -369,7 +369,7 @@ git checkout master -- a.txt
 >
 > 
 
-## 2.2 从指定的提交历史中签出指定文件
+### 从指定的提交历史中签出指定文件
 
 附加上commit id，将会签出指定提交记录中的文件：
 
@@ -460,3 +460,35 @@ $ git bisect good：检查完当前commit后，确定该commit功能正常，执
 $ git bisect bad：检查完当前commit后，确定该commit功能不正常，执行该命令可以二分法缩小到后半段范围
 
 $ git bisect reset：当二分法定位到问题后，可以检查当时的代码提交，然后执行该命令回到最初的提交，进行代码修改
+
+## git clean
+
+- 背景：在构建项目时可能会产生临时文件，这些文件对于git是未跟踪文件，git clean命令可以快速删除untracked_files
+
+```shell
+# 删除 untracked files
+
+git clean -f
+
+ 
+# 连 untracked 的目录也一起删掉
+
+git clean -fd
+
+ 
+
+# 连 gitignore 的untrack 文件/目录也一起删掉 （慎用，一般这个是用来删掉编译出来的 .o之类的文件用的）
+
+git clean -xfd
+
+ 
+
+# 在用上述 git clean 前，墙裂建议加上 -n 参数来先看看会删掉哪些文件，防止重要文件被误删
+
+git clean -nxfd
+
+git clean -nf
+
+git clean -nfd
+```
+
