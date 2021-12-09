@@ -45,6 +45,24 @@ SDS示例：
 
     > printf("%s", s->buf);
 
+- Redis5.0 SDS数据结构
+
+![image-20211209100447798](https://tva1.sinaimg.cn/large/008i3skNly1gx7cs52yytj310c0qqtaj.jpg)
+
+- flags有5 种类型，分别是 sdshdr5、sdshdr8、sdshdr16、sdshdr32 和 sdshdr64。这 5 种类型的主要区别就在于，它们数据结构中的 len 和 alloc 成员变量的数据类型不同。比如sdshdr16 类型的 len 和 alloc 的数据类型都是 uint16_t，sdshdr32 则都是 uint32_t。这是为了能灵活保存不同⼤⼩的字符串，从⽽有效节省内存空间
+
+  ```c
+  struct __attribute__ ((__packed__)) sdshdr32 {
+    uint32_t len;
+    uint32_t alloc;
+    unsigned char flags;
+    char buf[];
+  };
+  // __attribute__ ((__packed__))：告诉编译器取消结构体在编译过程中的优化对⻬，按照实际占⽤字节数进⾏对⻬
+  ```
+
+  
+
 ### SDS与C字符串的区别
 
 - 根据传统，C语言使用长度为N+1的字符数组来表示长度为N的字符串，并且字符数组的最后一个元素总是空字符'\0'。
@@ -575,7 +593,7 @@ load_factor = ht[0].used / ht[0].size
 
 ![image-20211124005538110](https://tva1.sinaimg.cn/large/008i3skNly1gwpkm5kazkj30vg09mq49.jpg)
 
-## 第7章　压缩列表
+## 第7章　压缩列表（旧版本List的底层数据结构）
 
 - 压缩列表（ziplist）是列表键和哈希键的底层实现之一。
   - 当一个列表键只包含少量列表项，并且每个列表项要么就是小整数值，要么就是长度比较短的字符串，那么Redis就会使用压缩列表来做列表键的底层实现。
@@ -610,7 +628,7 @@ load_factor = ht[0].used / ht[0].size
 
 - 节点的content属性负责保存节点的值，节点值可以是一个字节数组或者整数，值的类型和长度由节点的encoding属性决定。
 
-### 连锁更新
+### 连锁更新（这是性能问题！所以Redis新版本转而使用quicklist）
 
 - 因为previous_entry_length有可能是1字节有可能是5字节，当插入一个大于254字节的新元素到压缩列表头前时，如果之前的头元素（现在为压缩列表插入后第二个元素）的previous_entry_length为1字节，这时无法满足，需要扩展到5字节，第二个元素的扩展很可能引起第三个元素的扩展，以此类推。
 - Redis将这种在特殊情况下产生的连续多次空间扩展操作称之为“连锁更新”（cascade update）。删除节点也可能会引发连锁更新。
@@ -627,11 +645,69 @@ load_factor = ht[0].used / ht[0].size
 
 ![image-20211124011836840](https://tva1.sinaimg.cn/large/008i3skNgy1gwpla0kpqfj30vg0k4acx.jpg)
 
+## quicklist快表（新版本List的底层数据结构）
+
+- 在 Redis 3.0 之前，List 对象的底层数据结构是双向链表或者压缩列表。然后在 Redis 3.2 的时候，List 对象的底层改由 quicklist 数据结构实现。
+- 其实 quicklist 就是「双向链表 + 压缩列表」组合，因为⼀个 quicklist 就是⼀个链表，⽽链表中的每个元素⼜是⼀个压缩列表。
+- 压缩列表的性能问题：元素增加or增大会引发连锁更新，造成性能下降
+- quicklist的解决办法：
+  - 通过控制每个链表节点中的压缩列表的⼤⼩或者元素个数，来规避连锁更新的问题。
+  - 因为压缩列表元素越少或越⼩，连锁更新带来的影响就越⼩，从⽽提供了更好的访问性能。
+  - 在向 quicklist 添加⼀个元素的时候，不会像普通的链表那样，直接新建⼀个链表节点。⽽是会检查插⼊位置的压缩列表是否能容纳该元素，如果能容纳就直接保存到 quicklistNode 结构⾥的压缩列表，如果不能容纳，才会新建⼀个新的 quicklistNode 结构。
+
+```c
+typedef struct quicklist {
+  //quicklist的链表头
+  quicklistNode *head; //quicklist的链表头
+  //quicklist的链表头
+  quicklistNode *tail;
+  //所有压缩列表中的总元素个数
+  unsigned long count;
+  //quicklistNodes的个数
+  unsigned long len;
+  ...
+} quicklist;
+
+typedef struct quicklistNode {
+  //前⼀个quicklistNode
+  struct quicklistNode *prev; //前⼀个quicklistNode
+  //下⼀个quicklistNode
+  struct quicklistNode *next; //后⼀个quicklistNode
+  //quicklistNode指向的压缩列表
+  unsigned char *zl;
+  //压缩列表的的字节⼤⼩
+  unsigned int sz;
+  //压缩列表的元素个数
+  unsigned int count : 16; //ziplist中的元素个数
+  ....
+} quicklistNode;
+```
+
+
+
+![image-20211209123342107](https://tva1.sinaimg.cn/large/008i3skNly1gx7h32j96xj317k0dy3zw.jpg)
+
+## listpack（Redis5.0的新底层数据结构）
+
+- quicklist不能根除连锁更新效应，所以Redis5.0新设计了listpack，它的⽬的是替代压缩列表，它最⼤特点是 listpack 中每个节点不再包含前⼀个节点的⻓度了，压缩列表每个节点正因为需要保存前⼀个节点的⻓度字段，就会有连锁更新的隐患。
+
+  > Redis6.2中hash对象、set对象的底层数据结构仍然是listpack，但最新代码（还未发布）已经将所有用到压缩列表的地方替换成了listpack
+
+- listpack 没有压缩列表中记录前⼀个节点⻓度的字段了，listpack 只记录当前节点的⻓度，当我们向 listpack 加⼊⼀个新元素的时候，不会影响其他节点的⻓度字段的变化，从⽽避免了压缩列表的连锁更新问题。
+
+![image-20211209124601868](https://tva1.sinaimg.cn/large/008i3skNly1gx7hfw7tp4j314g0ccab5.jpg)
+
 ## 第8章　对象
 
 - Redis并没有直接使用这些数据结构来实现键值对数据库，而是基于这些数据结构创建了一个对象系统，这个系统包含字符串对象、列表对象、哈希对象、集合对象和有序集合对象这五种类型的对象，每种对象都用到了至少一种我们前面所介绍的数据结构。
+
 - 使用对象的另一个好处是，我们可以针对不同的使用场景，为对象设置多种不同的数据结构实现，从而优化对象在不同场景下的使用效率。
+
 - 除此之外，Redis的对象系统还实现了基于引用计数技术的内存回收机制，当程序不再使用某个对象的时候，这个对象所占用的内存就会被自动释放；另外，Redis还通过引用计数技术实现了对象共享机制，这一机制可以在适当的条件下，通过让多个数据库键共享同一个对象来节约内存。
+
+- Redis键空间中对象与底层数据结构的关系（from小林图解redis）
+
+  ![image-20211209095826025](https://tva1.sinaimg.cn/large/008i3skNgy1gx7clis0urj313s0gqtb8.jpg)
 
 ### 对象的类型与编码
 
@@ -741,7 +817,7 @@ zset
 
 ![image-20211128150948904](https://tva1.sinaimg.cn/large/008i3skNly1gwuvs45lcpj318i0p0jvh.jpg)
 
-### 列表对象
+### 列表对象（3.2版本后只能由quicklist实现！）
 
 - 列表对象的编码可以是ziplist或者linkedlist。举个例子：
 
