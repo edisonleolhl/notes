@@ -748,11 +748,65 @@ noexcept
 
 Pimpl(pointer to implementation, 指向实现的指针)，公有类拥有一个私有指针，该指针指向隐藏的实现类
 
+用途：将类的private属性隐藏进一个内部类，然后通过一个指针访问（提前声明）它的接口。在头文件中只暴露出应该暴露的功能，然后持有一个Impl的指针，而Impl则具体在MyClass.cc中定义，用户什么都看不到。然后所有的功能都通过Impl完成
+
+```c++
+// 需要暴露头文件，但private数据成员与成员函数不想对外开房
+// MyClass.h
+class MyClass {
+public:
+    void func1();    
+    void func2();
+    
+private:    
+    void func3();    
+    void func4();
+    
+    int a;
+    int b;
+};
+
+
+// pimpl模式
+class MyClass {
+public:    
+    void func1();
+    void func2();
+private:    
+    class impl;    
+    impl* pimpl; // 也可以通过智能指针来管理，这不是重点
+};
+
+// MyClass.cc
+class MyClass::impl {
+public:    
+    void func1();    
+    void func2();
+    
+private:
+    void func3();    
+    void func4();
+    int a;    
+    int b;
+};
+
+MyClass::MyClass() {
+    pimpl = new impl;
+}
+
+void MyClass::func1() {    
+    pimpl->func1();
+}
+
+```
+
 优点如下：
 
 - 降低耦合
-- 信息隐藏
+- 信息隐藏(具体见下)
 - 降低编译依赖，提高编译速度
+  - C++普通的编译：如果头文件里的某些内容变更了，意味着所有引用该头文件的代码都要被重新编译，即使变更的是无法被用户类访问的私有成员。
+  - 通过pimpl技术，这部分私有成员可以移到只被引用编译一次的源文件中，所以可以加快编译速度
 - 接口与实现分离
 
 最主要的缺点是，必须为你创建的每个对象分配并释放实现对象
@@ -808,6 +862,26 @@ C++没有严格的垃圾收集（GC）机制，而C语言又容易产生内存�
     cout << "ps4 is: " << *ps4 << ", ptr value is: " << ps4.get() << endl;
 }
 ```
+
+#### 最佳实践
+
+- 这个对象在对象或方法内部使用时优先使用unique_ptr
+
+- 这个对象需要被多个 Class 同时使用的时候优先使用shared_ptr
+
+- 当出现循环引用的时候，用weak_ptr代替一个类中对其他类的shared_ptr引用
+
+#### 错误用法
+
+- 使用智能指针托管的对象，尽量不要再使用原生指针（容易造成二次释放）
+
+- 不要把一个原生指针交给多个智能指针管理（会导致多次销毁）
+
+- 尽量不要使用 get()获取原生指针
+
+- 不要将 this 指针直接托管智能指针(造成二次释放)
+
+- 智能指针只能管理堆对象，不能管理栈上对象（造成二次释放）
 
 #### make_shared的优缺点
 
@@ -6912,6 +6986,10 @@ from 表名
 where match (全文索引字段1,全文索引字段2,...) against (搜索关键
 字[全文检索方式]);
 ```
+
+#### distinct与groupby的区别
+
+GROUP BY lets you use aggregate functions, like AVG, MAX, MIN, SUM, and COUNT. On the other hand DISTINCT just removes duplicates.
 
 ### 索引
 
