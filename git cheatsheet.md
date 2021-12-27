@@ -413,6 +413,20 @@ git filter-branch --tree-filter 'rm -f passwords.txt' HEAD
 
 > 考虑以下场景，在一次很早的提交中，将一个储存密码的文件passwords.txt提交到了远程仓库，这时如果只是从远程仓库中删除该文件，别人依然可以通过提交历史找到这个文件。因此我们需要从每一个快照中移除该密码文件，该命令执行完会将提交历史中所有提交的passwords.txt文件彻底删除，永远没法通过Git找回。--tree-filter 选项在检出项目的每一个提交后运行指定的命令然后重新提交结果
 
+### 查询删除的文件&恢复删除的文件
+
+- 查看在哪个 commit 中删除了哪些文件。
+
+  ```git
+  git log --diff-filter=D --summary
+  ```
+
+- 检出某次 commit 的上一个commit中的文件（先查出是哪次commit删除了，再把文件恢复到删除之前的样子）
+
+  ```shell
+  git checkout $commit~1 filename
+  ```
+
 ## subtree
 
 简介：git subtree会将某个子仓库合并到项目中的子目录中，主要用来多个项目共用某一段代码，或者希望把一部分代码独立出去成为一个新的git repo，同时又希望能保留历史提交记录
