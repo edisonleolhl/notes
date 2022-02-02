@@ -206,5 +206,219 @@ find /home/admin -cmin -1  1分钟内状态改变过的文件
 find /home/admin -mmin -1  1分钟内修改过的文件
 ```
 
-###### linux下文件的创建时间、访问时间、修改时间和改变时间：https://blog.csdn.net/zyz511919766/article/details/14452027
+>  linux下文件的创建时间、访问时间、修改时间和改变时间：https://blog.csdn.net/zyz511919766/article/details/14452027
 
+## 分析
+
+### uptime 
+
+- 最后三个数字是1、5、15分钟内的平均负载，可以通过这个变化趋势判断负载的变化
+- 平均负载是指数衰减移动平均数
+- 平均负载大于CPU数量，表示CPU不足以服务线程，有些线程在等待，一个有64颗CPU的系统的平均负载为128，这意味着平均每个CPU上有一个线程在运行，还有一个线程在等待
+
+```shell
+$uptime
+17:25:02 up 304 days, 19:57,  1 user,  load average: 7.28, 7.34, 7.40
+```
+
+### vmstat
+
+- 虚拟内存统计信息，第一行是系统启动启动以来的总结信息
+  - swpd：交换出的内存量，单位KB，下同
+  - free：空闲的可用内存
+  - buff：用于缓冲缓存的内存
+  - cache：用于页缓存的内存
+  - **si：换入的内存（换页）**
+  - **so：换出的内存（换页）**
+  - r：运行队列长度——可运行线程总数
+  - us：用户态时间
+  - sy：系统态时间
+  - id：空闲
+  - wa：等待I/O，即线程被阻塞等待磁盘I/O的CPU空闲时间
+
+- 如果si和so列一直非0，那么系统正存在内存压力，可以用其他工具研究什么在消耗内存
+- vmstat参数-S可将输出设置为MB，这样会对齐方便阅读
+
+```shell
+$vmstat 1
+procs -----------memory---------- ---swap-- -----io---- -system-- ------cpu-----
+ r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa st
+ 7  0      0 46135660 1618864 58485956    0    0     5    62    0    0  6  0 93  0  0
+ 7  0      0 46135380 1618868 58485960    0    0     0   104 32964 49973 22  0 77  0  0
+ 7  0      0 46135420 1618868 58485960    0    0     0    12 32842 49997 22  0 77  0  0
+ 7  0      0 46135412 1618868 58485964    0    0     0     0 33431 50544 22  0 77  0  0
+ 7  0      0 46135436 1618868 58485968    0    0     0    16 33263 49721 22  0 77  0  0
+```
+
+### mpstat
+
+- 多处理器统计信息，报告每个CPU的统计信息
+  - CPU：逻辑CPU ID，或者ALL表示总结信息
+  - **%usr：用户态时间**
+  - %nice：以nice优先级运行的进程用户态时间
+  - **%sys：系统态时间（内核）**
+  - %iowait：I/O等待
+  - %irq：硬件中断CPU用量
+  - %soft：软件中断CPU用量
+  - %quest：花在访客虚拟机的时间
+  - **%idle：空闲**
+
+- %usr+%sys达到100%，则说明跑满！
+
+```shell
+$mpstat -P ALL
+05:35:23 PM  CPU    %usr   %nice    %sys %iowait    %irq   %soft  %steal  %guest  %gnice   %idle
+05:35:23 PM  all    6.45    0.00    0.38    0.07    0.00    0.01    0.00    0.00    0.00   93.08
+05:35:23 PM    0    7.95    0.00    0.80    1.03    0.00    0.29    0.00    0.00    0.00   89.94
+05:35:23 PM    1    7.82    0.00    0.32    0.02    0.00    0.00    0.00    0.00    0.00   91.83
+05:35:23 PM    2    6.69    0.00    0.51    0.27    0.00    0.00    0.00    0.00    0.00   92.53
+05:35:23 PM    3    6.39    0.00    0.29    0.02    0.00    0.00    0.00    0.00    0.00   93.30
+...
+```
+
+### sar
+
+- 系统活动报告，system activity information
+
+
+
+### ps
+
+- 进程状态
+
+- 源于BSD的风格
+
+  - a：所有用户
+  - u：扩展信息
+  - x：没有终端的进程
+
+- 源于SVR4
+
+  - -e：所有进程
+  - -f：完整信息
+
+- TIME：进程自创建开始消耗的CPU总时间（用户态+系统态），小时:分钟:秒
+
+- %MEM：主存使用（物理内存、RSS）占总内存的百分比
+
+- RSS：常驻集合大小（KB）
+
+  > 包括系统库在内的映射共享段，如果把所有RSS列求和，可能会超过系统的内存总和，这是因为重复计算了这部分共享内存
+
+- VSZ：虚拟内存大小（KB）
+
+```shell
+$ps aux
+$ps aux  | head
+USER        PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root          1  0.0  0.0 199236  5076 ?        Ss    2021  57:21 /usr/lib/systemd/systemd --switched-root --system --deserialize 21
+root          2  0.0  0.0      0     0 ?        S     2021   0:14 [kthreadd]
+root          3  0.0  0.0      0     0 ?        S     2021  11:11 [ksoftirqd/0]
+root          5  0.0  0.0      0     0 ?        S<    2021   0:00 [kworker/0:0H]
+root          7  0.1  0.0      0     0 ?        S     2021 502:21 [rcu_sched]
+root          8  0.0  0.0      0     0 ?        S     2021   2:44 [rcu_bh]
+root          9  0.0  0.0      0     0 ?        S     2021 116:51 [rcuos/0]
+root         10  0.0  0.0      0     0 ?        S     2021   0:54 [rcuob/0]
+root         11  0.0  0.0      0     0 ?        S     2021   0:26 [migration/0]
+```
+
+### top
+
+- 最消耗CPU的任务，默认按照CPU用量排序
+
+- TIME+：1:36.53代表在CPU上的时间总计为1分36.53秒
+
+  ```shell
+  $top
+  top - 17:58:46 up 304 days, 20:31,  1 user,  load average: 7.45, 7.46, 7.53
+  Tasks: 518 total,   8 running, 494 sleeping,   0 stopped,  16 zombie
+  %Cpu(s): 22.3 us,  0.3 sy,  0.0 ni, 77.4 id,  0.0 wa,  0.0 hi,  0.0 si,  0.0 st
+  KiB Mem : 13146870+total, 46123176 free, 25231976 used, 60113548 buff/cache
+  KiB Swap:        0 total,        0 free,        0 used. 10480180+avail Mem
+  
+     PID USER      PR  NI    VIRT    RES    SHR S  %CPU %MEM     TIME+ COMMAND
+  ```
+
+  > 注意top命令本身也是非常消耗CPU的！
+
+### time
+
+- 用来运行命令并报告CPU用量
+
+  ```shell
+  $time echo "hello"
+  hello
+  
+  real	0m0.000s
+  user	0m0.000s
+  sys	0m0.000s
+  ```
+
+### perf
+
+- 原名为Linux性能计数器，现在是Linux性能事件
+
+### iostat
+
+- 汇总单个磁盘的统计信息，通常是调查磁盘IO问题使用的第一个命令
+
+- -c：显示CPU报告
+
+- -d：显示磁盘报告
+
+- -k/-m：以KB/MB显示
+
+- -x：输出扩展信息
+
+  ```shell
+  $iostat
+  [内核版本 主机名 日期 架构 CPU数量]
+  
+  avg-cpu:  %user   %nice %system %iowait  %steal   %idle
+             6.49    0.00    0.39    0.07    0.00   93.04
+  
+  Device:            tps    kB_read/s    kB_wrtn/s    kB_read    kB_wrtn
+  vda              18.83         7.56       258.81  199523373 6833818632
+  vdb              15.41       159.75      1708.72 4218061185 45118703004
+  ```
+
+  
+
+### netstat
+
+- 网络统计书许
+  - 默认：列出连接socket的信息
+  - -a：列出所有socket的信息
+  - -s：网络栈统计信息
+  - -i：网络接口信息
+  - -r：列出路由表
+  - -n：不解析IP地址为主机名
+  - -c：连续模式，每秒输出最新的统计信息到终端
+
+```shell
+# 网络接口、MTU、接收（RX-）、传输（TX-）指标
+# OK成功传输包，ERR错误数据包，DRP丢包，OVR超限
+$netstat -i
+Kernel Interface table
+Iface      MTU    RX-OK RX-ERR RX-DRP RX-OVR    TX-OK TX-ERR TX-DRP TX-OVR Flg
+docker0   1500        0      0      0 0             0      0      0      0 BMU
+eth0      1500 1041533454      0      0 0      1046421328      0      0      0 BMRU
+lo       65536 298561690      0      0 0      298561690      0      0      0 LRU
+```
+
+### ifconfig
+
+- 即能手动设置网络接口，也可以列出所有网络接口的当前配置，数据与netstat -i一致
+- ifconfig已经被ip命令淘汰
+
+### ip
+
+- 配置网络接口和路由，并且观测它们的状态和统计信息，数据与netstat -i一致
+
+### lsof
+
+- 按进程ID列出包括socket细节在内的打开文件
+
+### ss
+
+- socket统计信息
