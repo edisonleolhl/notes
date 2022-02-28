@@ -195,3 +195,38 @@ ThreadLocal在保存的时候会把自己当做Key存在ThreadLocalMap中，正�
 ### **那为什么ThreadLocalMap的key要设计成弱引用？**
 
 key不设置成弱引用的话就会造成和entry中value一样内存泄漏的场景。
+
+## C++的ThreadLocal
+
+C++11引入了ThreadLocal，但其实现与原理与Java大相庭径
+
+- 它会影响变量的存储周期(Storage duration)，C++中有4种存储周期：
+
+    1. automatic
+    2. static
+    3. dynamic
+    4. thread
+
+- 有且只有thread_local关键字修饰的变量具有线程周期(thread duration)，这些变量(或者说对象）在线程开始的时候被生成(allocated)，在线程结束的时候被销毁(deallocated)。并且每 一个线程都拥有一个独立的变量实例(Each thread has its own instance of the object)。thread_local 可以和static 与 extern关键字联合使用，这将影响变量的链接属性(to adjust linkage)。
+
+- 以下三类变量可以被声明为thread_local：
+
+    1. 命名空间下的全局变量
+    2. 类的static成员变量
+    3. 本地变量
+
+- 引用《C++ Concurrency in Action》书中的例子来说明这3种情况：
+
+    ```c++
+    thread_local int x;  //A thread-local variable at namespace scope
+    class X
+    {
+        static thread_local std::string s; //A thread-local static class data member
+    };
+    static thread_local std::string X::s;  //The definition of X::s is required
+
+    void foo()
+    {
+        thread_local std::vector<int> v;  //A thread-local local variable
+    }
+    ```
