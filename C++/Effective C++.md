@@ -681,10 +681,326 @@ vw.push_back(sw); // sw作为基类对象被拷贝进vw中，派生类特有的�
 
   > STL的unique和Unix的uniq之间有惊人的相似
 
-### 35.   mismatch或lexicographical比 实现简单的忽略大小写字符串比较
+### 35. mismatch或lexicographical比 实现简单的忽略大小写字符串比较
 
 ### 36. 了解copy_if的正确实现
 
 ### 37. 用accumulate或for_each来统计区间
 
-- 
+- count告诉你一个区间有多少个元素
+
+- count_if统计出满足某个判别式的元素个数
+
+- min_element, max_element获得区间最小值与最大值
+
+- accumulate适合更个个性化的统计处理，不在`<algorithm>`中，而是在`<numeric>`中
+  - 形式一：两个迭代器和一个初始值，返回初始值加上区间值的和
+  ```c++
+  list<double> ld;
+  double sum = accumulate(ld.begin(), ld.end(), 0.0); //注意要0.0
+  ```
+  
+  - 形式二：两个迭代器和一个初始值，再加上一个处理函数，返回初始值与所有区间值的经过处理函数后的结果
+  
+    ```c++
+    //自定义处理函数函数
+    string::size_type stringLengthSum(string::size_type sumSoFar, const string& s) {
+      return sumSoFar + s.size();
+    }
+    
+    
+    set<string> ss;
+    string::size_type lengthSum = accumulate(ss.begin(), ss.end(), static_cast<string::size_type>(0), stringLengthSum);
+    
+    
+    // 标准multiplies仿函数
+    vector<float> vf;
+    float  product = accumulate(vf.begin(), vf.end(), 1.0f, multiplies<float>());
+    
+    ```
+  
+    
+
+- For_each对区间每个元素执行操作，返回的是一个函数对象
+
+> 作者更青睐于accumulate，而不是for_each
+
+## 函数子、函数子类、函数及其他
+
+> 函数子即仿函数（functor）
+
+### 38. 遵循按值传递的原则来设计函数子类
+
+- 由于函数对象往往按值传递和返回，所以得确保编写的函数对象在经过了传递之后还能正常工作
+- 这意味着：
+  - 函数对象尽可能小，否则复制开销昂贵
+  -  函数对象必须是单态的（不是多态的），即不能使用虚函数，否则如果形参是基类，实参是派生类，则传递过程中会产生剥离问题（slicing problem）
+
+### 39. 确保判别式是纯函数
+
+- 判别式（predicate）是一个返回值为bool类型的函数，标准关联容器的比较函数就是判别式，find_if等算法也用判别式来作为参数
+- 纯函数（pure function）返回值仅依赖参数，即若x、y是两个对象，当且仅当x或y的值发生变化时，f(x,y)的值才会发生变化
+- 判别式类（predicate class）是一个函数子类/仿函数类，其operator()函数是一个判别式
+- 为啥判别式得是纯函数？因为用做判别式的函数对象经常先被复制，然后存放起来以待之后使用，它不知道这段时间发生什么，如果不是纯函数，可能与预期结果不一致
+
+### 40. 若一个类是函数子，则应使它可配接
+
+### 41. 理解ptr_fun、mem_fun和mem_fun_ref的来由
+
+- For_each函数调用的是容器内对象的非成员函数
+
+  ```c++
+  template<typename InputIterator, typename Function>
+  Function for_each(InputIterator begin, InputIterator end, Function f)
+  {
+  	while (begin != end) f(*begin++);
+  }
+  
+  void test(Widget& w);
+  vector<Widget> vw;
+  for_each(vw.begin(), vw.end(), test); // #1可以编译
+  ```
+
+- 但如果test函数是Widget的成员函数，简单传入成员函数不能编译
+
+  ```c++
+  class Widget {
+    public:
+     void test();
+  }
+  
+  for_each(vw.begin(), vw.end(), &Widget::test); // #2不能编译！
+  ```
+
+- 但如果用的是存放Widget*指针的容器，简单传入成员函数不能编译
+
+  ```c++
+  list<Widget*> lpw;
+  for_each(lpw.begin(), lpw.end(), &Widget::test); // #3不能调用
+  ```
+
+- 总的来说，mem_fun适配语法#3，称为**函数对象适配器(function object adaptor)**，mem_fun带有一个到成员函数的指针 pmf 并返回一个mem_fun_t类型的对象。 是一个仿函数类 容纳成员函数指针， 并提供一个operator() ，在operator()中调用了通过参数传递进来的对象上的该成员函数
+
+  ```c++
+  template<typename R, typename C> // 用于不带参数的non-const成员函数 mem_fun_t<R,C> // 的mem_fun声明。
+  mem_fun(R(C::*pmf)()); // C是类，R是被指向
+  // 的成员函数的返回类型
+  ```
+
+- mem_fun_ref函数适配语法#2到语法#1，并产生mem_fun_ref_t类型的适配器对象
+
+- ptr_func在这里不需要使用，而mem_fun是针对成员函数（member function）的适配器，mem_fun_ref是针对对象容器的适配器，但取名不太雅致
+
+### 42. 确定`less<T>`表示`operator<`
+
+- 假设Widget类有重量和最大速度两个属性，通常大家按照重量排序
+
+  ```c++
+  bool operator<(const Widget& lhs, const Widget& rhs) {
+  	return lhs.weight() < rhs.weight(); 
+  }
+  ```
+
+- 如果我们想建立按照最大速度排序的`mutiset<Widget>`，我们知道默认比较函数`less<Widget>`，而且我们知道默认的`less<Widget>`通过调用Widget的`operator<`来工作，如果特化`less<Widget>`的默认比较函数，让它只关注Widget的最高速度
+
+  ```c++
+  template<>
+  struct std::less<Widget>:
+  public std::binary_function<Widget,
+  // 这是一个std::less
+  // 的Widget的特化;
+  // 也是非常坏的主意
+  Widget, bool> // 关于这个基类更多
+  { // 的信息参见条款40
+  bool operator()(const Widget& lhs, const Widget& rhs) const {
+    return lhs.maxSpeed() < rhs.maxSpeed(); 
+  }
+  ```
+
+- 在程序员们的惯性思维中，operator+做加法，operator-做减法，operator==做比较，而且less等价于使用operator<，让less做operator<意外的事情是对程序员预期的无故破坏，与最小惊讶原则相反
+
+- 当然，对于std::less的特化还是有的，比如boost库的shared_ptr的一部分
+
+  ```c++
+  namespace std {
+    template<typename T> // 这是一个用于boost::shared_ptr<T> struct less<boost::shared_ptr<T> >: // 的std::less的特化
+      public // (boost是一个namespace) binary function<boost::shared_ptr<T>,
+      boost::shared_ptr<T>,// 这是惯例的
+      bool> { // 基类(参见条款40) bool operator()(const boost::shared_ptr<T>& a,
+      const boost::shared_ptr<T>& b) const
+      {
+      	return less<T*>()(a.get(),b.get()); // shared_ptr::get返回
+        
+      }
+    }; 
+  }
+  ```
+
+- 正确的做法，新建一个仿函数类来进行比较
+
+  ```c++
+  struct MaxSpeedCompare:
+  public binary_function<Widget, Widget, bool> {
+  bool operator()(const Widget& lhs, const Widget& rhs) const {
+  	return lhs.maxSpeed() < rhs.maxSpeed(); }
+  };
+  
+  multiset<Widget, MaxSpeedCompare> widgets;
+  ```
+
+## 使用STL编程
+
+### 43. 尽量用算法调用代替手写循环
+
+- STL算法内部都有循环，调用STL算法一般比手写循环更优
+- 效率:算法通常比程序员产生的循环更高效。
+  - 比如，手写循环每次遍历都要调用iter::end()函数检查是否到达末尾，而STL算法完全可以内联减少函数开销
+  - 再比如，库设计者知道最快的遍历方法，而库使用者不知道，举例：deque基于指针的遍历比基于迭代器的遍历更快
+  - STL算法都在性能上达到了精益求精的地步，一般的程序员很难达到，即使是用erase-remove惯用法 所获得的性能也比程序员一般循环要好
+- 正确性:写循环时比调用算法更容易产生错误。
+- 可维护性:算法通常使代码比相应的显式循环更干净、更直观。
+
+- 当然，并不是绝对的， 出于编写的难易程度、可读性、可维护性，可能有时候手写循环会更加一目了然
+
+### 44. 容器的成员函数优先于同名算法
+
+- 有些容器拥有和STL算法同名的成员函数。关联容器提供了count、find、lower_bound、upper_bound和 equal_range，而list提供了remove、remove_if、unique、sort、merge和reverse。大多数情况下，你应该用成员函 数代替算法。这样做有两个理由。首先，成员函数更快。其次，比起算法来，它们与容器结合得更好(尤其 是关联容器)。那是因为同名的算法和成员函数通常并不是是一样的。
+- 比如，成员函数`set<T>::fin(xx)d`调用二分查找，时间复杂度O(logn)，同名STL算法`find(set<T>::iter_begin(), set<T::iter_end(), xxx)`调用线性查找，时间复杂度O(n)
+- 还有一个原因，关联容器使用『等价』来判断相同性，而STL算法使用『相等』来判断相同性，参见第19条款
+- 特别是list，肯定要用它自己提供的成员函数，比如`list::erase`是实实在在地删除了元素，没有必要再调用`erase`了
+
+### 45. 注意count、find、binary_search、lower_bound、upper_bound 和equal_range的区别
+
+- 对于未排序的容器，查找都得线性，可供考虑的只有if与count，如果是想知道某个值在不在容器中，则find性能更好，因为找到就直接停止了
+
+  - count回答的问题是:“是否存在这个值，如果有，那么存在几份拷贝?”
+
+    ```c++
+    list<Widget> lw; // Widget的list Widget w; // 特定的Widget值 ...
+    if (count(lw.begin(), lw.end(), w)) {
+    ... // w在lw中 } else {
+    ... // 不在 }
+    ```
+
+  - 而find回答的问题 是:“是否存在，如果有，那么它在哪儿?”
+
+    ```c++
+    if (find(lw.begin(), lw.end(), w) != lw.end()) {
+    ... // 找到了
+    } else {
+    ... // 没找到
+    }
+    ```
+
+- 有序区间的搜索算法(binary_search、lower_bound、upper_bound和equal_range)是对数时间的
+
+  - binary_search回答这个问题:“它在吗?”不像标准C库中的(因此也是标准C++库中的) bsearch，binary_search只返回一个bool值
+
+  - lower_bound回答这个问题:“它在吗?如果是，第一个拷贝在哪里?如果不是，它将在哪里？lower_bound返回一个迭代器，这个迭代器指向这个值的第一个拷贝(如果找到的话)或者到可以插入这个值的位置(如果没找到)。
+
+    ```c++
+    // 假设我们有一个Timestamp类和一个Timestamp的vector，它按照老的timestamp放在前面 的方法排序
+    // 1. 现在假设我们有一个特殊的timestamp——ageLimit，而且我们从vt中删除所有比ageLimit老的timestamp。即我们需要在vt中找到一个位置:第一个不比ageLimit更老的元素
+    vt.erase(vt.begin(), lower_bound(vt.begin(), // 从vt中排除所有
+    vt.end(), // 排在ageLimit的值 ageLimit)); // 前面的对象
+                                     
+    // 2. 我们要排除所有至少和ageLimit一样老的timestamp，也就是我们需要找到 第一个比ageLimit年轻的timestamp的位置
+                                     vt.erase(vt.begin(), upper_bound(vt.begin(), // 从vt中除去所有 vt.end(), // 排在ageLimit的值前面 ageLimit)); // 或者等价的对象
+    
+    ```
+
+    
+
+  - equal_range回答：“它在吗，如果是，那么在哪儿?”equal_range返回一对迭代器，第一个等于lower_bound返回的迭代 器，第二个等于upper_bound返回的(也就是，等价于要搜索值区间的末迭代器的下一个)
+
+    ```c++
+    VWIterPair p = equal_range(vw.begin(), vw.end(), w);
+    if (p.first != p.second) { // 如果equal_range不返回
+    // 空的区间...
+    ... // 说明找到了，p.first指向
+    // 第一个而p.second
+    // 指向最后一个的下一个
+     else {
+       // 没找到，p.first与p.second都指向搜索值要插入的位置
+     }
+      
+     // equal_range很容易计数，调用distance算法即可
+      distance(p.first, p.second)
+    ```
+
+    > 当然，也许叫equivalent_range（因为是『等价』来判别相同性的）会更好，但叫equal_range也非常好
+
+- count与find算法都用『相等』来搜索，而binary_search、lower_bound、upper_bound和equal_range则用『等价』。
+
+- 对于顺序容器，以上建议非常有用；对于关联容器（set, multiset, map, multimap），调用它们的成员函数往往比STL算法更好
+
+### 46. 考虑使用函数对象代替函数作算法的参数
+
+- 假设要降序排序一个double的vector，可以给sort算法传入函数对象，也可以传普通函数
+
+  ```c++
+  // 函数对象
+  vector<double> v;
+  sort(v.begin(), v.end(), greater<double>());
+  
+  // 普通函数
+  inline
+  bool doubleGreater(double d1, double d2) {
+  	return dl > d2; 
+  }
+  ...
+  sort(v.begin(), v.end(), doubleGreater);
+  ```
+
+- 很多人可能会认为经过内联的普通函数要比函数对象要快，但是实际是函数对象更快，因为函数对象的operator()也是内联，编译器在模板实例化的时候内联了，所以第一个sort没有额外的函数调用。而第二个sort函数实际上传入了一个函数指针，编译器产生间接函数调用
+
+- 把函数指针作为参数会抑制内联的事实解释了一个长期使用C的程序员经常发现却难以相信的现象:在速度 上，C++的sort实际上总是使C的qsort感到窘迫。当然，C++有函数、实例化的类模板和看起来很有趣的 operator()函数需要调用，而C只是进行简单的函数调用，但所有的C++“开销”都在编译期被吸收。在运行 期，sort内联调用它的比较函数(假设比较函数已经被声明为inline而且它的函数体在编译期可以得到)而 qsort通过一个指针调用它的比较函数。结果是sort运行得更快
+
+### 47. 避免产生直写型（write-only）代码
+
+- 直写代码：很容易写，但很难读和理解
+- 代码的读比写更经常，这是软件工程的真理。也就是说软件的维护比开发花费多得多的时间。不能读和理解 的软件不能被维护，不能维护的软件几乎没有不值得拥有
+
+### 48. 总是#include适当的头文件
+
+- 几乎所有的容器都在同名的头文件里，比如，vector在<vector>中声明，list在<list>中声明等。例外的是<set>和<map>。<set>声明了set和multiset，<map>声明了map和multimap。
+- 除了四个算法外，所有的算法都在<algorithm>中声明。例外的是accumulate(参见条款37)、 inner_product、adjacent_difference和partial_sum。这些算法在<numeric>中声明。
+- 特殊的迭代器，包括istream_iterators和istreambuf_iterators(参见条款29)，在<iterator>中声明。
+- 标准仿函数(比如less<T>)和仿函数适配器(比如not1、bind2nd)在<functional>中声明。
+
+### 49. 学习破解有关STL的编译器诊断信息
+
+- string没有带int参数的构造函数，编译器报错如下
+
+  ```c++
+  example.cpp(20): error C2664:'__thiscall std::basic_string<char, struct std::char_traits<char>,class std::allocator<char> >::std::basic_string<char, struct std::char_traits<char>,class std::allocator<char> >(const class std::allocator<char> &)': cannot convert parameter 1 from 'const int' to 'const class std::allocator<char> &' Reason: cannot convert from 'const int' to 'const class std::allocator<char>
+  No constructor could take the source type, or constructor overload resolution was ambiguous
+  ```
+
+- string不是一个类，它是一个typedef，这是因为字符串的C++观念已经被泛化为表示**带有任意字符特性(“traits”)**的**任意字符类型的序列**并储存 在以**任意分配器分类的内存**中。在C++里所有类似字符串的对象实际上都是basic_string模板的实例
+
+  ```c++
+  basic_string<char, char_traits<char>, allocator<char> >
+  
+  // 根据具体平台，下面报错信息更加常见，在脑子里面替换为std::string即可
+  std::basic_string<char, struct std::char_traits<char>, class std::allocator<char> >
+  ```
+
+- 几乎所有STL实现都使用某种内在的模板来实现标准关联容器(set、multiset、map和multimap)。就 像使用string的源代码通常导致诊断信息提及basic_string一样，使用标准关联容器的源代码经常会导致诊断信 息提及一些内在的树模板，比如`std::_Tree`, `std::_tree`, `std::_rb_tree`
+
+- 对于vector和string，迭代器有时是指针，所以如果你用迭代器犯了错误，编译器诊断信息可能会提及 涉及指针类型。例如，如果你的源代码涉及vector<double>::iterator，编译器消息有时会提及double*指 针。
+
+- 提到back_insert_iterator、front_insert_iterator或insert_iterator的消息经常意味着你错误调用了 back_inserter、front_inserter或inserter，一一对应，
+
+- 类似地，如果你得到的一条消息提及binder1st或binder2nd，你或许错误地使用了bind1st或bind2nd。 (bind1st返回binder1st类型的对象，而bind2nd返回binder2nd类型的对象。
+- 输出迭代器(例如ostream_iterator、ostreambuf_iterators(参见条款29)，和从back_inserter、 front_inserter和inserter返回的迭代器)在赋值操作符内部做输出或插入工作，所以如果你错误使用了 这些迭代器类型之一，你很可能得到一条消息，抱怨在你从未听说过的一个赋值操作符里的某个东西
+- 你得到一条源于STL算法实现内部的错误信息(即，源代码引发的错误在<algorithm>中)，也许是你 试图给那算法用的类型出错了。例如，你可能传了错误种类的迭代器
+- 你使用常见的STL组件比如vector、string或for_each算法，而编译器说不知道你在说什么，你也许没有 #include一个需要的头文件
+
+### 50. 让你自己熟悉有关STL的网站
+
+
+
+```
+
+```
