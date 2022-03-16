@@ -1,3 +1,188 @@
+# Effective C++
+
+## 1. Accustoming Yourself to C++
+
+### Item 1: View C++ as a federation of languages
+
+C++应该被视为四个部分组成的联邦
+
+- C：基础C的语法，因为C++兼容C
+- 面向对象的C++：C with Class（ctor&dtor）、封装、继承、多态、虚函数（动态绑定）
+- 模板C++：模板元编程
+- STL
+
+### Item 2: Prefer consts, enums, and inlines to #defines
+
+- #defins对编译报错排查非常不友好
+
+- const在C++中有很多用武之地，比#defines适用广泛
+
+- enum 比const更像#defines，但没有#defines的副作用
+
+- 模板+inlines可以节省函数调用的开销，比#defines好用
+
+  ```c++
+  // #defines函数
+  #define CALL_WITH_MAX(a, b) f((a) > (b) ? (a) : (b))
+  CALL_WITH_MAX(++a, b);          // a is incremented twice
+  
+  // 模板+inlines
+  template<typename T>                               // because we don't
+  inline void callWithMax(const T& a, const T& b)    // know what T is, we
+  {                                                  // pass by reference-to-
+    f(a > b ? a : b);                                // const — see Item 20
+  }
+  
+  
+  ```
+
+### Item 3: Use `const` whenever possible
+
+- constant可以帮助编译器检查使用错误
+
+- constant多才多艺：you can use it for constants at global or namespace scope (see [Item 2](javascript:void(0))), as well as for objects declared `static` at file, function, or block scope. Inside classes, you can use it for both static and non-static data members. For pointers, you can specify whether the pointer itself is `const`, the data it points to is `const`, both, or neither
+
+  ```c++
+  char greeting[] = "Hello";
+  
+  char *p = greeting;                    // non-const pointer,
+                                         // non-const data
+  
+  const char *p = greeting;              // non-const pointer,
+                                         // const data
+  
+  char * const p = greeting;             // const pointer,
+                                         // non-const data
+  
+  const char * const p = greeting;       // const pointer,
+                                         // const data
+  ```
+
+- 注意const_iterator，它表现的像const T*（即指向常量的指针）
+
+  ```c++
+  std::vector<int> vec;
+  ...
+  
+  const std::vector<int>::iterator iter =     // iter acts like a T* const
+    vec.begin();
+  *iter = 10;                                 // OK, changes what iter points to
+  ++iter;                                    // error! iter is const
+  
+  std::vector<int>::const_iterator cIter =   //cIter acts like a const T*
+    vec.begin();
+  *cIter = 10;                               // error! *cIter is const
+  ++cIter;                                  // fine, changes cIter
+  ```
+
+- const成员函数很好用，仅仅是函数的常量性也可以重载成员函数
+
+  ```c++
+  const char&                                       // operator[] for
+   operator[](const std::size_t position) const      // const objects
+   { return text[position]; }
+   char&                                             // operator[] for
+   operator[](const std::size_t position) const      // non-const objects
+   { return text[position]; }
+  ```
+
+- 编译器只能bitwise-constness，即const成员函数不允许修改任何非static的成员变量，但是这样就无法检查那些指针成员变量，这样很可能会与预期不符；但有些时候需要使得成员变量可修改（如在length()成员函数中获取长度），则可以用mutable关键解决。编译器只能这样，但我们编写代码的时候一定要按照logical-constness去编写
+
+- 当const成员函数与非const成员函数有重复代码时，可以用non-const版本去调用const版本，从而节省代码，非const版本对const并没有做出任何承诺，所以自由度更大
+
+### Item 4: Make sure that objects are initialized before they're used
+
+- 分清楚构造函数的初始化与赋值
+
+  ```c++
+  // 这是先给所有成员变量调用默认构造函数进行初始化，然后再给他们赋值
+  ABEntry::ABEntry(const std::string& name, const std::string& address,
+                   const std::list<PhoneNumber>& phones)
+  {
+    theName = name;                       // these are all assignments,
+    theAddress = address;                 // not initializations
+    thePhones = phones
+    numTimesConsulted = 0;
+  }
+  
+  // 直接进行成员变量初始化，而不是赋值，可以节约
+  ABEntry::ABEntry(const std::string& name, const std::string& address,
+                   const std::list<PhoneNumber>& phones)
+  : theName(name),
+    theAddress(address),                  // these are now all initializations
+    thePhones(phones),
+    numTimesConsulted(0)
+  {} 
+  ```
+
+- 注意成员变量初始化的顺序并不是构造函数中写的那样，而是他们在类中的声明顺序！
+
+## 2. Constructors, Destructors, and Assignment Operators
+
+### Item 5: Know what functions C++ silently writes and calls
+
+- 如果你像下面这样简单声明一个类，编译器会给你自动生成默认构造函数、默认析构函数、默认赋值函数
+
+  ```c++
+  
+  class Empty{};
+  
+  class Empty {
+  public:
+    Empty() { ... }                            // default constructor
+    Empty(const Empty& rhs) { ... }            // copy constructor
+  
+    ~Empty() { ... }                           // destructor — 
+    Empty& operator=(const Empty& rhs) { ... } // copy assignment operator
+  };
+  
+  
+  
+  ```
+
+- 如果你写了构造函数，编译器就不会生成默认构造函数
+
+- 默认拷贝构造函数与默认拷贝赋值函数仅仅把非static的成员变量拷贝过去（这又会调用成员变量的拷贝构造函数）
+
+- 如果类的成员变量中有引用类型或者const类型，则**必须**由程序员手动编写拷贝赋值函数，否则编译器不知如何去生成默认的
+
+### Item 6: Explicitly disallow the use of compiler-generated functions you do not want
+
+- 编译器自动生成的四个默认函数都是public的，如果你不想类的使用者调用这些自动生成的默认函数，你可以将它们声明为private
+
+- 进一步地，private函数仍可以被成员函数和友元函数调用，你可以仅声明它们为private，而不实现它，这样，类的使用者在链接阶段就会报错，这在C++的iostreams库中经常使用
+
+  ```c++
+  class Uncopyable {
+  protected:                                   // allow construction
+    Uncopyable() {}                            // and destruction of
+    ~Uncopyable() {}                           // derived objects...
+  
+  private:
+    Uncopyable(const Uncopyable&);             // ...but prevent copying
+    Uncopyable& operator=(const Uncopyable&);
+  };
+  
+  
+  ```
+
+- C++11支持delete关键字，直接在被禁用的函数后面加上delete即可，如果有人使用，编译器会直接报错的
+
+### Item 7: Declare destructors virtual in polymorphic base classes
+
+- when a derived class object is deleted through a pointer to a base class with a non-virtual destructor, results are undefined.
+- 有可能发生的是：派生类的基类部分被析构了，但是派生类所特有的那部分成员变量没有被析构，这就是『部分析构』的问题，造成内存泄露
+- 所以一定要在基类的析构函数前加上virtual关键字，保证这是个虚函数
+- 但如果确定某个类不会被继承，那就不要加virtual关键字，因为虚函数会带来额外的内存开销（虚表指针）
+- 知识点：纯虚函数会让类变成抽象类，抽象类无法实例化，只能作为基类。那如果我想让一个类变成抽象类，但是没有哪个虚函数可以被用作纯虚函数（纯虚函数意味着派生类一定要重写它），这时可以把析构函数声明成纯虚函数
+- 知识点：析构函数的析构顺序是先执行派生类的析构函数，再执行基类的析构函数
+
+### Item 8: Prevent exceptions from leaving destructors
+
+- Destructors should never emit exceptions. If functions called in a destructor may throw, the destructor should catch any exceptions, then swallow them or terminate the program.
+
+- If class clients need to be able to react to exceptions thrown during an operation, the class should provide a regular (i.e., non-destructor) function that performs the operation.
+
 # Effective STL
 
 >  个人建议，看本书前最好看一遍侯捷写的STL源码剖析，知道源码方能理解如何使用
