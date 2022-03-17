@@ -175,13 +175,148 @@ C++应该被视为四个部分组成的联邦
 - 所以一定要在基类的析构函数前加上virtual关键字，保证这是个虚函数
 - 但如果确定某个类不会被继承，那就不要加virtual关键字，因为虚函数会带来额外的内存开销（虚表指针）
 - 知识点：纯虚函数会让类变成抽象类，抽象类无法实例化，只能作为基类。那如果我想让一个类变成抽象类，但是没有哪个虚函数可以被用作纯虚函数（纯虚函数意味着派生类一定要重写它），这时可以把析构函数声明成纯虚函数
-- 知识点：析构函数的析构顺序是先执行派生类的析构函数，再执行基类的析构函数
 
 ### Item 8: Prevent exceptions from leaving destructors
 
 - Destructors should never emit exceptions. If functions called in a destructor may throw, the destructor should catch any exceptions, then swallow them or terminate the program.
 
 - If class clients need to be able to react to exceptions thrown during an operation, the class should provide a regular (i.e., non-destructor) function that performs the operation.
+
+### Item 9: Never call virtual functions during construction or destruction
+
+- 知识点：构造函数的构造顺序是先执行基类的构造函数，再执行派生类的构造函数；析构函数的析构顺序是先执行派生类的析构函数，再执行基类的析构函数；
+- 在构造函数中调用虚函数，可能会读取派生类特有的成员变量，而这些成员变量还未初始化，读取还未初始化的变量是非常危险的，在还未调用派生类构造函数之前，该对象还是基类类型
+- 在析构函数中调用虚函数，可能读取派生类特有的成员变量时，这些成员变量已经析构了，
+
+### Item 10: Have assignment operators return a reference to `*this`
+
+- 建议赋值运算符返回`*this`，这样就可以连续赋值了
+
+  ```c++
+  int x, y, z;
+  
+  x = y = z = 15;                        // chain of assignments
+  x = (y = (z = 15));  									 // 解析顺序
+  ```
+
+- 不仅`operator=`，`operator+=`等赋值运算符建议都这样
+
+  ```c++
+  class Widget {
+  public:
+    ...
+    Widget& operator+=(const Widget& rhs   // the convention applies to
+    {                                      // +=, -=, *=, etc.
+     ...
+     return *this;
+    }
+     Widget& operator=(int rhs)            // it applies even if the
+     {                                     // operator's parameter type
+        ...                                // is unconventional
+        return *this;
+     }
+     ...
+  };
+  ```
+
+- 所有的内置类型以及标准库几乎都这样操作了，你最好也这样，除非你有充足的理由
+
+### Item 11: Handle assignment to self in `operator=`
+
+- 赋值函数的编写要考虑**自赋值**的情况，很多时候使用者会不经意使用了自赋值，如a[i]=a[j] or *p = *q，考虑以下场景：Widget持有一个指向Bitmap的裸指针，这时需要小心处理赋值函数的自赋值情况
+
+  ```c++
+  class Bitmap { ... };
+  
+  class Widget {
+    ...
+  
+  private:
+    Bitmap *pb;                                     // ptr to a heap-allocated object
+  };
+  ```
+
+  
+
+- 方法一（不推荐）：仅使用地址判断，这是一种异常不安全的方法，，假设在new的时候发生异常（比如内存不够），那么pb就指向一个已删除的bitmap，既不能安全的读，也不能安全的删除
+
+  ```c++
+  Widget& Widget::operator=(const Widget& rhs)
+  {
+    if (this == &rhs) return *this;   // identity test: if a self-assignment,
+                                      // do nothing
+    delete pb;
+    pb = new Bitmap(*rhs.pb);
+  
+    return *this;
+  }
+  ```
+
+- 方法二（还可以）：先复制指针，这是一种异常安全的方法，即使在new的时候发生异常，pb也不会便
+
+  ```c++
+  Widget& Widget::operator=(const Widget& rhs)
+  {
+    Bitmap *pOrig = pb;               // remember original pb
+    pb = new Bitmap(*rhs.pb);         // point pb to a copy of rhs's bitmap
+    delete pOrig;                     // delete the original pb
+    return *this;
+  }
+  ```
+
+- 方法三（推荐）：copy-and-swap技巧，非常有用
+
+  ```c++
+  class Widget {
+    ...
+    void swap(Widget& rhs);   // exchange *this's and rhs's data;
+    ...                       // see Item 29 for details
+  };
+  
+  Widget& Widget::operator=(const Widget& rhs)
+  {
+    Widget temp(rhs);             // make a copy of rhs's data
+  
+    swap(temp);                   // swap *this's data with the copy's
+    return *this;
+  }
+  ```
+
+### Item 12: Copy all parts of an object
+
+- 知识点：编译器默认生成的拷贝函数（拷贝构造&&拷贝赋值）会把每个成员变量拷贝过去
+
+- 当你自己编写了拷贝函数，你肯定不喜欢默认的拷贝函数，当你编写了拷贝函数后，又往里面添加了成员变量，如果不修改原来的拷贝函数，那么会造成**部分拷贝**的问题（同时你也要修改构造函数与operator=）
+
+- 当有继承关系时，派生类的拷贝函数别忘记拷贝基类的成员变量
+
+  ```c++
+  class Customer {
+    ...
+  };
+  class PriorityCustomer: public Customer{
+    ...
+  };
+  
+  PriorityCustomer&
+  PriorityCustomer::operator=(const PriorityCustomer& rhs)
+  {
+    logCall("PriorityCustomer copy assignment operator");
+  
+    Customer::operator=(rhs);           // assign base class parts
+    priority = rhs.priority;
+  
+    return *this;
+  }
+  ```
+
+- 不应在拷贝赋值函数中调用拷贝构造函数，因为拷贝赋值函数是在对象已存在的时候才调用的
+
+- 同理，不应在拷贝构造函数中调用拷贝赋值函数，因为拷贝构造函数是在对象还不存在的时候才调用的
+
+- 如果你发现，拷贝构造函数与拷贝赋值函数有许多重复代码段，那么可以抽出一个private成员函数（一般叫init函数）来节省代码
+
+
 
 # Effective STL
 
