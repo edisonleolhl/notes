@@ -316,6 +316,60 @@ C++应该被视为四个部分组成的联邦
 
 - 如果你发现，拷贝构造函数与拷贝赋值函数有许多重复代码段，那么可以抽出一个private成员函数（一般叫init函数）来节省代码
 
+## Resource Management
+
+### Item 13: Use objects to manage resources.（RAII：Resource Acquisition Is Initialization）
+
+- 把对象的指针直接给使用者，很容易造成内存泄露，因为我们没法保证使用者的操作会不会遗漏delete
+- 最好的方法是用工厂方法把对象包裹在指针（特别是引用计数的智能指针，reference-counting smart pointer，RCSP）中，返回给使用者，这样在类的析构函数中就会自动释放内存，不用操心使用者的使用方式了
+- 因为拷贝auto_ptr会置空，所以用tr1::shared_ptr通常是个更好的选择
+
+### Item 14: Think carefully about copying behavior in resource-managing classes.
+
+- 不是所有的资源都是在堆中的， 所以智能指针不合适来管理这些资源
+- 比如，一个叫lock_guard的类来管理lock，这样lock的使用者就不用担心忘记调用unlock了，但是这时lock_guard被拷贝了怎么办？可以为lock_guard禁止拷贝（参考item6，将拷贝函数设为privite，或者用C++11中的delete关键字）
+
+### Item 15: Provide access to raw resources in resource-managing classes.
+
+- 智能指针如shared_ptr提供了get()函数获得原来的裸指针，已获得向C API的兼容
+
+### Item 16: Use the same form in corresponding uses of `new` and `delete`.
+
+- 知识点：new关键字干两件事，通过operator new分配内存，一个或多个构造函数在那片内存上被调用；delete关键字也干两件事，一个或多个析构函数在那片内存上被调用，然后通过operator delete释放内存
+- If you use `[]` in a `new` expression, you must use `[]` in the corresponding `delete` expression. If you don't use `[]` in a `new` expression, you mustn't use `[]` in the corresponding `delete` expression.
+
+### Item 17: Store `newed` objects in smart pointers in standalone statements.
+
+- 使用智能指针管理对象时要在单独声明的语句中执行，否则在异常情况会有内存泄露
+
+  ```c++
+  processWidget(std::tr1::shared_ptr<Widget>(new Widget), priority());
+  ```
+
+- 编译器可能出于效率考虑编排顺序，假设顺序如下，而在priority发生异常时，new出来的内存就会被泄露
+
+  ```c++
+  1. 执行new Widget
+  2. 调用priority()函数
+  3. 调用std::tr1::shared_ptr的构造函数
+  ```
+
+- 感觉这种情况挺极端的，一般大家都会这样写吧
+
+  ```c++
+  std::tr1::shared_ptr<Widget> pw(new Widget);  // store newed object
+                                                // in a smart pointer in a
+                                                // standalone statement
+  
+  processWidget(pw, priority());                // this call won't leak
+  ```
+
+## Designs and Declarations
+
+### Item 18: Make interfaces easy to use correctly and hard to use incorrectly
+
+- Ways to prevent errors include creating new types, restricting operations on types, constraining object values, and eliminating client resource management responsibilities.i
+
 
 
 # Effective STL
