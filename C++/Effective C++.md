@@ -370,7 +370,26 @@ C++应该被视为四个部分组成的联邦
 
 - Ways to prevent errors include creating new types, restricting operations on types, constraining object values, and eliminating client resource management responsibilities.i
 
+### Item 19: Treat class design as type design
 
+- How should objects of your new type be created and destroyed?--`operator new`, `operator new[]`, `operator delete`, and `operator delete[]`
+- How should object initialization differ from object assignment?
+- What does it mean for objects of your new type to be passed by value?--defined by copy constructor
+- What are the restrictions on legal values for your new type?--parameters of ctors must be valid
+-  **Does your new type fit into an inheritance graph?**--如果新类继承自某个基类，那就要遵守已存在的继承体系，如果新类要作为其他类的基类，就要注意virtual的声明
+- What kind of type conversions are allowed for your new type?
+- What standard functions should be disallowed?--用private或delete关键字声明成员函数
+-  **Who should have access to the members of your new type?**--public ? private ?
+- What is the “undeclared interface” of your new type?
+- How general is your new type?
+-  **Is a new type really what you need?** 
+
+### Item 20: Prefer pass-by-reference-to-`const` to pass-by-value
+
+- pass-by-value需要多次调用构造函数和析构函数，传const引用可以节省
+- 传const引用可以避免slicing problem，即当一个派生类对象被按值传递为基类对象，这样就只调用了基类对象的构造函数，派生类对象特有的部分就被sliced off了
+- 对于C++的内置类型，如int，还是pass-by-values效率更高，因为引用在编译器的角度看来就是指针，解引用是需要性能的，主要有些大的内置类型，如STL的容器，里面不止有一个指针，所以还是pass-by-reference-to-const最好
+- 总之，对于内置类型、STL迭代器以及函数对象类型，可以考虑pass-by-value，其他的都可以用paas-by-reference-to-const
 
 # Effective STL
 
