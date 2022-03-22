@@ -391,6 +391,187 @@ C++应该被视为四个部分组成的联邦
 - 对于C++的内置类型，如int，还是pass-by-values效率更高，因为引用在编译器的角度看来就是指针，解引用是需要性能的，主要有些大的内置类型，如STL的容器，里面不止有一个指针，所以还是pass-by-reference-to-const最好
 - 总之，对于内置类型、STL迭代器以及函数对象类型，可以考虑pass-by-value，其他的都可以用paas-by-reference-to-const
 
+### Item 21: Don't try to return a reference when you must return an object
+
+- Never return a pointer or reference to a local stack object, a reference to a heap-allocated object, or a pointer or reference to a local static object if there is a chance that more than one such object will be needed.
+
+  ```c++
+  inline const Rational operator*(const Rational& lhs, const Rational& rhs)
+  {
+    return Rational(lhs.n * rhs.n, lhs.d * rhs.d);
+  }
+  ```
+
+  
+
+### Item 22: Declare data members `private`
+
+- 保持一致性，用户只能使用成员函数来获取成员
+- 这样就可以提供只读、只写、可读写的成员变量
+- 对成员封装，用户看不到实际值，对用户暴露的接口只需要提供不变的语义即可，类的作者可以在后面改变行为，如果一开始就给用户暴露了成员变量，那么推动用户去修改他们的代码是很困难的
+
+### Item 23: Prefer non-member non-friend functions to member functions
+
+- 封装性：我们对一个东西封装得越多，它暴露的东西就越少，那么我们对它的修改灵活性就大大提高了
+- 知识点：only members and friends have access to private members.
+- 因为成员函数还可以看见private成员变量与private函数，所以封装性不如非友元成员函数好，所以我们更希望用non-member non-friend function
+- Putting all convenience functions in multiple header files — but one namespace — also means that clients can easily extend the set of convenience functions. All they have to do is add more non-member non-friend functions to the namespace.
+
+### Item 24: Declare non-member functions when type conversions should apply to all parameters
+
+- If you need type conversions on all parameters to a function (including the one pointed to by the `this` pointer), the function must be a non-member.
+
+  ```c++
+  class Rational {
+  
+    ...                                             // contains no operator*
+  };
+  const Rational operator*(const Rational& lhs,     // now a non-member
+                           const Rational& rhs)     // function
+  {
+    return Rational(lhs.numerator() * rhs.numerator(),
+                    lhs.denominator() * rhs.denominator());
+  }
+  Rational oneFourth(1, 4);
+  Rational result;
+  
+  result = oneFourth * 2;                           // fine
+  result = 2 * oneFourth;                           // hooray, it works!
+  ```
+
+### Item 25: Consider support for a non-throwing `swap`
+
+- swap函数默认调用std::swap，只需要类型T支持拷贝（构造or赋值）即可
+
+  ```c++
+  namespace std {
+  
+    template<typename T>          // typical implementation of std::swap;
+    void swap(T& a, T& b)         // swaps a's and b's values
+    {
+      T temp(a);
+      a = b;
+      b = temp;
+    }
+  }
+  ```
+
+- 但如果你编写的类有pimpl（point to implementation）技法，swap仅需交换两个指针，如果使用std::swap会交换造成三次Widget的拷贝，还会造成三次WidgetImpl的拷贝，非常影响效率
+
+  ```c++
+  class WidgetImpl {                          // class for Widget data;
+  public:                                     // details are unimportant
+    ...
+  
+  private:
+    int a, b, c;                              // possibly lots of data —
+    std::vector<double> v;                    // expensive to copy!
+    ...
+  };
+  
+  class Widget {                              // class using the pimpl idiom
+  public:
+    Widget(const Widget& rhs);
+    Widget& operator=(const Widget& rhs)      // to copy a Widget, copy its
+    {                                         // WidgetImpl object. For
+     ...                                      // details on implementing
+     *pImpl = *(rhs.pImpl);                    // operator= in general,
+     ...                                       // see Items 10, 11, and 12.
+    }
+    ...
+  
+  private:
+    WidgetImpl *pImpl;                         // ptr to object with this
+  };   
+  ```
+
+  这时可以这样编写swap，先写一个swap成员函数，在其中调用swap函数，然后在std命名空间全特化swap函数，这样swap成员函数就会调用这个全特化版本（注意我们一般不给std命名空间**加**模板，但是可以在std命名空间全特化模板）
+
+  ```c++
+  class Widget {                     // same as above, except for the
+  public:                            // addition of the swap mem func
+    ...
+    void swap(Widget& other)
+    {
+      using std::swap;               // the need for this declaration
+                                     // is explained later in this Item
+  
+      swap(pImpl, other.pImpl);      // to swap Widgets, swap their
+    }                                // pImpl pointers
+    ...
+  };
+  
+  namespace std {
+  
+    template<>                       // revised specialization of
+    void swap<Widget>(Widget& a,     // std::swap
+                      Widget& b)
+    {
+      a.swap(b);                     // to swap Widgets, call their
+    }                                // swap member function
+  }
+  
+  
+  ```
+
+- 但， 加入Widget与WidgetImpl不是类，而是类模板，上面的swap方法就行不通了，因为：类模板可以偏特化，但函数模板不能偏特化，所以以下函数模板行不通
+
+  ```c++
+  namespace std {
+    template<typename T>
+    void swap<Widget<T> >(Widget<T>& a,      // error! illegal code!
+                          Widget<T>& b)
+    { a.swap(b); }
+  }
+  ```
+
+- 如果使用了pimpl的类模板在命名空间下，可以这样编写swap，当swap两个Widget<T>对象时，C++的命名查找规则（即argument-dependent lookup）会找到Widget-specific version in WidgetStuff命名空间，这就是我们希望的
+
+  ```c++
+  namespace WidgetStuff {
+    ...                                     // templatized WidgetImpl, etc.
+  
+    template<typename T>                    // as before, including the swap
+    class Widget { ... };                   // member function
+  
+    ...
+  
+    template<typename T>                    // non-member swap function;
+    void swap(Widget<T>& a,                 // not part of the std namespace
+              Widget<T>& b)                                         
+    {
+      a.swap(b);
+    }
+  }
+  ```
+
+  
+
+- 客户端视角的最佳写法，命名查找规则在全局命名空间或一个命名空间中查找T-specific的swap函数，如果没有，则用std::swap（记得用using声明），如果类模板的创建者在std命名空间中还编写了Widget-specific的std::swap特化版本，则会用它
+
+  ```c++
+  template<typename T>
+  void doSomething(T& obj1, T& obj2)
+  {
+    using std::swap;           // make std::swap available in this function
+    ...
+    swap(obj1, obj2);          // call the best swap for objects of type T
+    ...
+  }
+  ```
+
+- 建议：swap成员函数永远不要抛异常，因为swap函数就是帮助类（类模板）提供强有力的异常安全保证。但非成员函数的swap没有这个保证，因为默认的swap是基于拷贝构造与拷贝赋值的，它俩允许抛异常
+
+  ```shell
+  Things to Remember
+  • Provide a swap member function when std::swap would be inefficient for your type. Make sure your swap doesn't throw exceptions.
+  • If you offer a member swap, also offer a non-member swap that calls the member. For classes (not templates), specialize std::swap, too.
+  • When calling swap, employ a using declaration for std::swap, then call swap without namespace qualification.
+  • It's fine to totally specialize std templates for user-defined types, but never try to add something completely new to std.
+  ```
+
+  
+
 # Effective STL
 
 >  个人建议，看本书前最好看一遍侯捷写的STL源码剖析，知道源码方能理解如何使用
