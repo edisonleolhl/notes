@@ -570,7 +570,207 @@ C++应该被视为四个部分组成的联邦
   • It's fine to totally specialize std templates for user-defined types, but never try to add something completely new to std.
   ```
 
+### Item 26: Postpone variable definitions as long as possible.
+
+- 变量的定义要越晚越好，否则有可能白白执行默认构造函数与默认析构函数
+
+- 变量的定义与初始化最好放一起，以提供性能
+
+  ```c++
+  // bad
+    std::string encrypted;                // default-construct encrypted
+    encrypted = password;                 // assign to encrypted
   
+  // good
+  std::string encrypted(password);        // define and initialize
+                                            // via copy constructor
+  ```
+
+- 注意循环内外的变量定义区别，如果你知道赋值函数开销更小，可以使用方法A，特别是当n变大时，如果赋值函数开销很大，可以使用方法B
+
+  > • Approach A: 1 constructor + 1 destructor + `n` assignments.
+
+  > • Approach B: `n` constructors + `n` destructors.
+
+  ```c++
+  // Approach A: define outside loop   // Approach B: define inside loop
+  
+  Widget w;
+  for (int i = 0; i < n; ++i){         for (int i = 0; i < n; ++i) {
+    w = some value dependent on i;       Widget w(some value dependent on i);
+    ...                                  ...
+  }  
+  ```
+
+### Item 27: Minimize casting.
+
+- C风格的老式转换
+
+  ```c++
+  
+  // C-style casts look like this
+  (T) expression                      // cast expression to be of type T
+  
+  // Function-style casts use this syntax:
+  T(expression)                       // cast expression to be of type T
+  ```
+
+>  `const_cast` is typically used to cast away the constness of objects. It is the only C++-style cast that can do this.
+
+> • `dynamic_cast` is primarily used to perform “safe downcasting,” i.e., to determine whether an object is of a particular type in an inheritance hierarchy. It is the only cast that cannot be performed using the old-style syntax. It is also the only cast that may have a significant runtime cost. (I'll provide details on this a bit later.)
+
+> • `reinterpret_cast` is intended for low-level casts that yield implementation-dependent (i.e., unportable) results, e.g., casting a pointer to an `int`. Such casts should be rare outside low-level code. I use it only once in this book, and that's only when discussing how you might write a debugging allocator for raw memory (see [Item 50](javascript:void(0))).
+
+> • `static_cast` can be used to force implicit conversions (e.g., non-`const` object to `const` object (as in [Item 3](javascript:void(0))), `int` to `double`, etc.). It can also be used to perform the reverse of many such conversions (e.g., `void*` pointers to typed pointers, pointer-to-base to pointer-to-derived), though it cannot cast from `const` to non-`const` objects. (Only `const_cast` can do that.)
+
+- 在派生类中想调用有重写的基类函数，可以像下面这样解决
+
+  ```c++
+  class SpecialWindow: public Window {
+  public:
+    virtual void onResize() {
+      Window::onResize();                    // call Window::onResize
+      ...                                    // on *this
+    }
+    ...
+  
+  };
+  ```
+
+- 建议
+
+- > • Avoid casts whenever practical, especially `dynamic_cast`s in performance-sensitive code. If a design requires casting, try to develop a cast-free alternative.
+
+  > • When casting is necessary, try to hide it inside a function. Clients can then call the function instead of putting casts in their own code.
+
+  > • Prefer C++-style casts to old-style casts. They are easier to see, and they are more specific about what they do.
+
+### Item 28: Avoid returning “handles” to object internals.
+
+- 类的private成员变量，如果用public的getter方法把它们的引用暴露出去，则会造成修改
+
+  ```c++
+  struct RectData {                    // Point data for a Rectangle
+    Point ulhc;                        // ulhc = " upper left-hand corner"
+    Point lrhc;                        // lrhc = " lower right-hand corner"
+  };
+  
+  class Rectangle {
+  public:
+    ...
+    Point& upperLeft() const { return pData->ulhc; } // 仅仅声明成const成员函数是没法阻止客户端修改成员变量的
+    Point& lowerRight() const { return pData->lrhc; }
+    ...
+  private:
+    std::tr1::shared_ptr<RectData> pData;
+  };
+  
+  // 客户端代码
+  Point coord1(0, 0);
+  Point coord2(100, 100);
+  
+  const Rectangle rec(coord1, coord2);     // rec is a const rectangle from
+                                           // (0, 0) to (100, 100)
+  
+  rec.upperLeft().setX(50);                // now rec goes from
+                                           // (50, 0) to (100, 100)!
+  ```
+
+- 更好的做法：
+
+  ```c++
+  class Rectangle {
+  public:
+    ...
+    const Point& upperLeft() const { return pData->ulhc; }
+    const Point& lowerRight() const { return pData->lrhc; }
+    ...
+  };
+  ```
+
+### Item 29: Strive for exception-safe code.
+
+- Exception-safe functions offer one of three guarantees:
+
+  > • Functions offering the basic guarantee promise that if an exception is thrown, everything in the program remains in a valid state. 
+  >
+  > • Functions offering the strong guarantee promise that if an exception is thrown, the state of the program is unchanged.
+  >
+  > • Functions offering the nothrow guarantee promise never to throw exceptions, because they always do what they promise to do.
+
+- 锁资源的管理最好由智能指针维护的对象来管理，像下面的代码，如果在new抛出了异常，则lock永远不会被释放
+
+  ```c++
+  void PrettyMenu::changeBackground(std::istream& imgSrc)
+  {
+    lock(&mutex);                      // acquire mutex (as in Item 14)
+  
+    delete bgImage;                    // get rid of old background
+    ++imageChanges;                    // update image change count
+    bgImage = new Image(imgSrc);       // install new background
+  
+    unlock(&mutex);                    // release mutex
+  }
+  ```
+
+- 除了lock的问题，如果new时抛异常，上面的代码会使bgImage指向空，所以最好的做法是用智能指针来管理，只有当new成功时，reset函数才会被调用
+
+  ```c++
+  class PrettyMenu {
+    ...
+    std::tr1::shared_ptr<Image> bgImage;
+    ...
+  };
+  
+  void PrettyMenu::changeBackground(std::istream& imgSrc)
+  {
+    Lock ml(&mutex);
+  
+    bgImage.reset(new Image(imgSrc));  // replace bgImage's internal
+                                       // pointer with the result of the
+                                       // "new Image" expression
+    ++imageChanges;
+  }
+  ```
+
+### Item 30: Understand the ins and outs of inlining.
+
+- 内联函数不需要函数调用开销，非常棒
+
+- Bear in mind that `inline` is a request to compilers, not a command.
+
+- 内联函数必须在头文件中！因为绝大多数构建环境都是在编译阶段做内联，为了用函数体替代函数调用，编译器必须知道函数是什么样子
+
+- 模板也是经常放在头文件，理由同上
+
+- 函数内联需要开销，会导致代码膨胀
+
+- `virtual` means “wait until runtime to figure out which function to call,” and `inline` means “before execution, replace the call site with the called function.
+
+  
+
+- > • Limit most inlining to small, frequently called functions. This facilitates debugging and binary upgradability, minimizes potential code bloat, and maximizes the chances of greater program speed.
+
+  > • Don't declare function templates `inline` just because they appear in header files.
+
+> • Limit most inlining to small, frequently called functions. This facilitates debugging and binary upgradability, minimizes potential code bloat, and maximizes the chances of greater program speed.
+
+> • Don't declare function templates `inline` just because they appear in header files.
+
+### Item 31: Minimize compilation dependencies between files
+
+- Avoid using objects when object references and pointers will do
+- Depend on class declarations instead of class definitions whenever you can（只需要函数声明就可以
+-  Provide separate header files for declarations and definitions
+
+## 6. Inheritance and Object-Oriented Design
+
+### Item 32: Make sure public inheritance models “is-a.”
+
+- 如果类D public继承自类B，这意味着D也是一个B（is-a），但反过来不成立，这意味着使用B的地方，也能使用D，因为D是一个B
+- 这也很容易理解：一个指向基类的指针，同时也可以指向派生类
+
+
 
 # Effective STL
 
