@@ -770,7 +770,336 @@ C++应该被视为四个部分组成的联邦
 - 如果类D public继承自类B，这意味着D也是一个B（is-a），但反过来不成立，这意味着使用B的地方，也能使用D，因为D是一个B
 - 这也很容易理解：一个指向基类的指针，同时也可以指向派生类
 
+### Item 33: Avoid hiding inherited names
 
+- C++的同名局部变量会覆盖同名全局变量，这就是hiding names
+
+- 在继承体系中，基类部分的内容被嵌入（nested）在派生类的作用域中，所以可以在派生类的作用域中调用其基类的方法或者读取成员，或者是enums，内嵌类，typedefs
+
+- 基类的重载函数，会被派生类的同名函数所隐藏，即**重载无法被继承**
+
+  ```c++
+  class Base {
+  private:
+    int x;
+  
+  public:
+    virtual void mf1() = 0;
+    virtual void mf1(int);
+  
+    virtual void mf2();
+  
+    void mf3();
+    void mf3(double);
+    ...
+  };
+  
+  class Derived: public Base {
+  public:
+    virtual void mf1();
+    void mf3();
+    void mf4();
+    ...
+  };
+  
+  d.mf1();                   // fine, calls Derived::mf1
+  d.mf1(x);                  // error! Derived::mf1 hides Base::mf1
+  
+  d.mf2();                   // fine, calls Base::mf2
+  
+  d.mf3();                   // fine, calls Derived::mf3
+  d.mf3(x);                  // error! Derived::mf3 hides Base::mf3
+  ```
+
+- 若想使重载也能被继承，需要使用**using**关键字（注意得在public域中）
+
+  ```c++
+  class Derived: public Base {
+    public:
+    using Base::mf1;       // make all things in Base named mf1 and mf3
+    using Base::mf3;       // visible (and public) in Derived's scope
+  
+    virtual void mf1();
+    void mf3();
+    void mf4();
+    ...
+  };
+  
+  Derived d;
+  int x;
+  
+  ...
+  
+  d.mf1();                 // still fine, still calls Derived::mf1
+  d.mf1(x);                // now okay, calls Base::mf1
+  
+  d.mf2();                 // still fine, still calls Base::mf2
+  
+  d.mf3();                 // fine, calls Derived::mf3
+  d.mf3(x);                // now okay, calls Base::mf3
+  ```
+
+  
+
+### Item 34: Differentiate between inheritance of interface and inheritance of implementation
+
+- 区别接口继承与实现继承，它们正好对应函数声明与函数定义的区别
+
+- 知识点：纯虚函数会使得类变成抽象类，即无法被实例化，只能用于被继承的基类
+
+  ```c++
+  class Shape {
+  public:
+    virtual void draw() const = 0;
+  
+    virtual void error(const std::string& msg);
+  
+    int objectID() const;
+  
+    ...
+  };
+  ```
+
+  
+
+- **声明纯虚函数的意义在于，派生类仅仅继承了函数接口（funciton interface），就像上面的Shape::draw，具体的实现还是要派生类自己去定义**
+
+- 从语法的角度，纯虚函数也可以有定义，调用纯虚函数的唯一方式是通过类名：
+
+  ```c++
+  class Rectangle: public Shape { ... };
+  class Ellipse: public Shape { ... };
+  
+  
+  Shape *ps = new Shape;              // error! Shape is abstract
+  
+  Shape *ps1 = new Rectangle;         // fine
+  ps1->draw();                     // calls Rectangle::draw
+  
+  Shape *ps2 = new Ellipse;           // fine
+  ps2->draw();                     // calls Ellipse::draw
+  
+  ps1->Shape::draw();                 // calls Shape::draw
+  
+  ps2->Shape::draw();                 // calls Shape::draw
+  ```
+
+- **声明虚函数的意义在于，派生类不仅可以继承函数接口，而且还可以继承默认实现，这意味着派生类如果不需要有特殊的实现，完全可以直接使用基类的默认实现**
+
+- 派生类使用基类提供的虚函数默认实现，可能太过于隐式，如果基类作者想让继承者都显式声明一下，可以用下面这个技巧：因为纯虚函数，每个派生类都得重写fly方法，而基类又提供了defaultFly实现，所以派生类完全可以使用基类提供的这个默认实现
+
+  ```c++
+  class Airplane {
+  public:
+    virtual void fly(const Airport& destination) = 0;
+  
+    ...
+  
+  protected:
+    void defaultFly(const Airport& destination) {
+      // default code for flying an airplane to the given destination
+        }
+  };
+  
+  class ModelA: public Airplane {
+  public:
+    virtual void fly(const Airport& destination)
+    { defaultFly(destination); }
+  
+    ...
+  };
+  
+  class ModelB: public Airplane {
+  public:
+    virtual void fly(const Airport& destination)
+    { defaultFly(destination); }
+  
+    ...
+  };
+  
+  ```
+
+- **声明非虚函数的意义在于，派生类继承了函数接口以及强制实现，毕竟非虚函数意味着不变量，不管在继承体系中如何变动**
+
+- 建议：
+
+  - The first mistake is to declare all functions non-virtual.
+  - The other common problem is to declare all member functions virtual.
+
+### Item 35: Consider alternatives to virtual functions
+
+#### NVI / Tmpelate Method
+
+- This basic design — having clients call private virtual functions indirectly through public non-virtual member functions — is known as the non-virtual interface (NVI) idiom. It's a particular manifestation of the more general design pattern called Template Method (模板方法)
+
+  ```c++
+  class GameCharacter {
+  public:
+    virtual int healthValue() const;        // return character's health rating;
+    
+  // NVI/模板方法
+  class GameCharacter {
+  public:
+    int healthValue() const               // derived classes do not redefine
+    {                                     
+  
+      ...                                 // do "before" stuff — see below
+  
+      int retVal = doHealthValue();       // do the real work
+  
+      ...                                 // do "after" stuff — see below
+  
+      return retVal;
+    }
+    ...
+  
+  private:
+    virtual int doHealthValue() const     // derived classes may redefine this
+    {
+      ...                                 // default algorithm for calculating
+    }                                     // character's health
+  };
+  ```
+
+- NVI/模板方法的好处是可以固化before&after stuff，真正执行的代码交给派生类自己去实现，相当于把实现延后定义了
+
+- NVI/模板方法还有一个好处是，固化了虚函数是何时被调用的（在before之后，在after之前），但虚函数是如何被实现的取决于派生类的实现
+
+#### 策略模式
+
+- Replace virtual functions with function pointer data members, a stripped-down manifestation of the Strategy design pattern.
+- Different instances of the same character type can have different health calculation functions.
+
+#### 通过tr1::function实现的策略模式
+
+- Replace virtual functions with tr1::function data members, thus allowing use of any callable entity with a signature compatible with what you need. This, too, is a form of the Strategy design pattern.
+- Replace virtual functions in one hierarchy with virtual functions in another hierarchy. This is the conventional implementation of the Strategy design pattern.
+
+### Item 36: Never redefine an inherited non-virtual function
+
+- 继承体系中的非虚函数是静态绑定的，That means that because `pB` is declared to be of type pointer-to-`B`, non-virtual functions invoked through `pB` will always be those defined for class `B`, even if `pB` points to an object of a class derived from `B`
+
+- 而虚函数是动态绑定的，具体调用基类还是派生类的成员函数，取决于指针指向的对象是哪个
+
+  ```c++
+  class D: public B {
+  public:
+    void mf();                      // hides B::mf; see Item 33
+  
+    ...
+  
+  };
+  
+  D x;                              // x is an object of type D
+  B *pB = &x;  
+  D *pD = &x;
+  
+  pB->mf();                         // calls B::mf
+  
+  pD->mf();                         // calls D::mf
+  ```
+
+- 为什么不要重定义非虚函数：公开继承意味着is-a关系，适用于基类的一切东西应该也适用于派生类，而派生类继承的基类非虚函数也应该能够适用，既然能够适用，就不应该重定义它。如果真的出现要重定义非虚函数的情况，你要看看你的类设计是否合理（比如该方法是否应该变成虚函数）
+
+### Item 37: Never redefine a function's inherited default parameter value
+
+- 静态类型在编译器就决定了，而动态类型在运行时才知道
+
+  ```c++
+  Shape *ps;                       // static type = Shape*
+  Shape *pc = new Circle;          // static type = Shape*
+  Shape *pr = new Rectangle;       // static type = Shape*
+  
+  ps = pc;                       // ps's dynamic type is
+                                 // now Circle*
+  
+  ps = pr;                       // ps's dynamic type is
+                                 // now Rectangle*
+  ```
+
+- virtual functions are dynamically bound(late bound), but default parameter values are statically bound(early bound).
+
+  ```c++
+  class Shape {
+  public:
+    enum ShapeColor { Red, Green, Blue };
+  
+    // all shapes must offer a function to draw themselves
+    virtual void draw(ShapeColor color = Red) const = 0;
+  };
+  class Rectangle: public Shape {
+  public:
+    // notice the different default parameter value — bad!
+    virtual void draw(ShapeColor color = Green) const; // 不会如你所愿的调用Green默认参数
+    ...
+  };
+  
+  Shape *pr = new Rectangle;       // static type = Shape*
+  pr->draw();                       // calls Rectangle::draw(Shape::Red)!
+  ```
+
+- 在继承体系中，如果你想修改虚函数的默认参数，这根本不管用，C++是出于运行时效率考量的，因为如果默认参数还是动态绑定的话，那么在运行时还得去找合适的虚函数默认参数
+
+### Item 38: Model “has-a” or “is-implemented-in-terms-of” through composition
+
+- 组合：Composition is the relationship between types that arises when objects of one type contain objects of another type.
+- 组合意味着has-a的关系，或者是implemented in terms of的关系，has-a的关系很好理解，而implemented in terms of的关系可以这样理解：想象一下你正在设计一个set，但是STL默认的set模板是用二叉搜索树实现的，所以多包含了一些指针，你的程序对内存很吃紧，所以得自己实现一个，你决定用STL的list模板来实现，因为list允许重复，所以你的set肯定不能公开继承list（那意味着is-a）关系，你决定在你的set模板的成员函数中组合一个std::list，这个时候就说明了你的set is implemented in-terms-of std::set！
+- In the application domain, composition means has-a. In the implementation domain, it means is-implemented-in-terms-of.
+
+### Item 39: Use private inheritance judiciously（审慎地）
+
+- 知识点：私有继承不能将派生类转换为基类（就像下面代码出错的那样），以及，私有继承自基类的成员函数，在派生类当中是private的  
+
+  ```c++
+  class Person { ... };
+  class Student: private Person { ... };     // inheritance is now private
+  
+  void eat(const Person& p);                 // anyone can eat
+  
+  void study(const Student& s);              // only students study
+  
+  Person p;                                  // p is a Person
+  Student s;                                 // s is a Student
+  
+  eat(p);                                    // fine, p is a Person
+  
+  eat(s);                                    // error! a Student isn't a Person
+  ```
+
+- 这也就意味着：私有继承是is-implemented-in-terms-of.，实现是被继承的，而接口是被忽略的
+
+- 私有继承与组合一样，都是is-implemented-in-terms-of，use composition whenever you can, and use private inheritance whenever you must
+
+- 一个用于私有继承的例子：empty base optimization (EBO)，仅能用于单层继承
+
+  ```c++
+  class Empty {};                      // has no data, so objects should
+                                       // use no memory
+  // sizeof(Empty) is 1
+  class HoldsAnInt: private Empty {
+  private:
+    int x;
+  };
+  
+  // sizeof(HoldsAnInt) == sizeof(int) // 因为空基类优化，继承空基类不需要额外内存
+  ```
+
+### Item 40: Use multiple inheritance judiciously
+
+- 多重继承可能会导致歧义，当两个基类有同名函数时，派生类不知道调用哪个
+
+- 多重继承会带来菱形继承问题，基类的成员变量在最底下的派生类可能会被复制两次，为了解决这个问题，可以使用虚继承，但是虚继承比普通继承会带来额外开销（size、speed。。），当虚基类没有任何成员变量时，虚继承是很实用的
+
+  ```c++
+  class File { ... };
+  class InputFile: virtual public File { ... };
+  class OutputFile: virtual public File { ... };
+  class IOFile: public InputFile,
+                public OutputFile
+  { ... };
+  ```
+
+- 多重继承很难理解，但还是很有用的，当某个设计必须要用到多重继承时，大胆使用吧，只是要小心上述两个问题
 
 # Effective STL
 
