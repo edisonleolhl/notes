@@ -1101,6 +1101,278 @@ C++应该被视为四个部分组成的联邦
 
 - 多重继承很难理解，但还是很有用的，当某个设计必须要用到多重继承时，大胆使用吧，只是要小心上述两个问题
 
+## 7. Templates and Generic Programming
+
+Templates are a wonderful way to save time and avoid code replication
+
+### Item 41: Understand implicit interfaces and compile-time polymorphism
+
+- 模板元编程，类与模板都支持接口与多态
+
+  ```c++
+  template<typename T>
+  void doProcessing(T& w)
+  {
+    if (w.size() > 10 && w != someNastyWidget) {
+       T temp(w);
+       temp.normalize();
+       temp.swap(w);
+    }
+  }
+  
+  
+  • What's important is that the set of expressions that must be valid in order for the template to compile is the implicit interface that T must support.
+  • The calls to functions involving w such as operator> and operator!= may involve instantiating templates to make these calls succeed. Such instantiation occurs during compilation. Because instantiating function templates with different template parameters leads to different functions being called, this is known as compile-time polymorphism.
+  ```
+
+- An explicit interface typically consists of function signatures, i.e., function names, parameter types, return types, etc. An implicit interface is quite different.It consists of **valid expressions**.比如下面代码中，类型T的size()函数不需要返回整形，只需要operator>能够在类型T与int之间使用即可，甚至可以是另一类型Y，只需要能够有隐式转换从Y到T
+
+  ```c++
+  template<typename T>
+  void doProcessing(T& w)
+  {
+    if (w.size() > 10 && w != someNastyWidget) {
+    ...
+  ```
+
+- 类的接口在函数签名上是显式的；而模板的接口是隐式的，而且是基于valid expression的
+
+- 类的多态是通过虚函数实现的，发生在运行时；而模板的多态发生在模板实例化与函数重载解析时
+
+### Item 42: Understand the two meanings of `typename`
+
+- class关键字与typename关键字在声明模板类型参数时是一样的，但更推荐typename的写法，语义理解不容易出错，T不一定得是个class type，可以是int这种built-in type
+
+  ```c++
+  template<class T> class Widget;                 // uses "class"
+  
+  template<typename T> class Widget;              // uses "typename"
+  ```
+
+- The general rule is simple: anytime you refer to a **nested dependent type name** in a template, you must immediately precede it by the word `typename`.
+
+  ```c++
+  template<typename C>                           // this is valid C++
+  void print2nd(const C& container)
+  {
+    if (container.size() >= 2) {
+      typename C::const_iterator iter(container.begin()); // 如果不用typename关键字告诉编译器这是内嵌类型，编译器根本不知道iter是什么，所以编译就会报错
+      ...
+    }
+  }
+  ```
+
+- 萃取：the type of thing pointed to by objects of type `IterT`，temp变量的类型就是由iter所指向的对象的类型，假设iter是`vector<int>::iterator`，那么temp就是type `int`，假设iter是`list<string>::iterator`，那么temp就是type `string`，`std::iterator_traits<IterT>::value_type`是内嵌类型，所以我们必须用typename关键字声明它
+
+  ```c++
+  template<typename IterT>
+  void workWithIterator(IterT iter)
+  {
+    typename std::iterator_traits<IterT>::value_type temp(*iter);
+    ...
+  }
+  
+  // 为了简洁，可以用typedef
+  typedef typename std::iterator_traits<IterT>::value_type value_type;
+  
+    value_type temp(*iter);
+  ```
+
+### Item 43: Know how to access names in templatized base classes
+
+- 派生类调用基类的方法是可以的，但是模板派生类调用基类的方法不一定能成功
+
+  ```c++
+  class CompanyA {
+  public:
+    ...
+    void sendCleartext(const std::string& msg);
+    void sendEncrypted(const std::string& msg);
+    ...
+  };
+  
+  class CompanyB {
+  public:
+    ...
+    void sendCleartext(const std::string& msg);
+    void sendEncrypted(const std::string& msg);
+    ...
+  };
+  
+  
+  template<typename Company>
+  class MsgSender {
+  public:
+    ...                                   // ctors, dtor, etc.
+  
+    void sendClear(const MsgInfo& info)
+    {
+      std::string msg;
+      create msg from info;
+  
+      Company c;
+      c.sendCleartext(msg);
+    }
+  
+    void sendSecret(const MsgInfo& info)   // similar to sendClear, except
+    { ... }                                // calls c.sendEncrypted
+  };
+  
+  // 假设有需求需要在发送的时候添加日志，这很容易联想到创建一个派生类来完成这项工作，但是编译器会报错！
+  // 因为LoggingMsgSender继承自MsgSender<Company>，它并不知道这个类长什么样，所以就不知道有没有sendClear函数
+  template<typename Company>
+  class LoggingMsgSender: public MsgSender<Company> {
+  public:
+    ...                                    // ctors, dtor, etc.
+    void sendClearMsg(const MsgInfo& info)
+    {
+      write "before sending" info to the log;
+  
+      sendClear(info);                     // call base class function;
+                                           // this code will not compile!
+      write "after sending" info to the log;
+    }
+    ...
+  
+  };
+  // 换个角度进一步说明问题，假设有companyZ，它压根没有sendCleartext函数，所以上面的LoggingMsgSender根本无法适配
+  class CompanyZ {                             // this class offers no
+  public:                                      // sendCleartext function
+    ...
+    void sendEncrypted(const std::string& msg);
+    ...
+  };
+  // 为了纠正这个问题，可以使用模板全特化total template specialization
+  template<>                                 // a total specialization of
+  class MsgSender<CompanyZ> {                // MsgSender; the same as the
+  public:                                    // general template, except
+    ...                                      // sendCleartext is omitted
+    void sendSecret(const MsgInfo& info)
+    { ... }
+  };
+  ```
+
+- 为了解决在模板派生类中无法调用基类函数的问题，有三种方式：
+
+  - this->
+
+    ```c++
+    template<typename Company>
+    class LoggingMsgSender: public MsgSender<Company> {
+    public:
+    
+      ...
+    
+      void sendClearMsg(const MsgInfo& info)
+      {
+        write "before sending" info to the log;
+    
+        this->sendClear(info);                // okay, assumes that
+                                              // sendClear will be inherited
+        write "after sending" info to the log;
+      }
+    
+      ...
+    
+    };
+    ```
+
+  - using声明（注意这和item33的不同，item33阐述了基类函数被隐藏的问题，这里是编译器不去搜索基类空间除非我们显式告诉编译器
+
+    ```c++
+    template<typename Company>
+    class LoggingMsgSender: public MsgSender<Company> {
+    public:
+      using MsgSender<Company>::sendClear;   // tell compilers to assume
+      ...                                    // that sendClear is in the
+                                             // base class
+      void sendClearMsg(const MsgInfo& info)
+      {
+        ...
+        sendClear(info);                   // okay, assumes that
+        ...                                // sendClear will be inherited
+      }
+    
+      ...
+    };
+    ```
+
+  - `baseClass<T>::foo()`显式调用基类命名空间，这是最后考虑的方法，以为如果这个函数是虚函数，显式指定会阻止虚函数动态绑定的行为
+
+    ```c++
+    template<typename Company>
+    class LoggingMsgSender: public MsgSender<Company> {
+    public:
+      ...
+      void sendClearMsg(const MsgInfo& info)
+      {
+        ...
+        MsgSender<Company>::sendClear(info);      // okay, assumes that
+        ...                                       // sendClear will be
+      }        
+      ...
+    };
+    ```
+
+
+### Item 44: Factor parameter-independent code out of templates
+
+- 模板可能会带来代码膨胀，源代码可能看起来很紧凑，但是目标代码会急剧膨胀
+
+- 在没有模板的代码里，我们写代码也会遵从 commonality and variability analysis，在代码复用上不自觉地践行，在非模板代码里，代码重复是显性的，但是在模板代码里，代码重复是隐性的，因为它们来自于同一份源代码
+
+  > • Templates generate multiple classes and multiple functions, so any template code not dependent on a template parameter causes bloat.
+
+  > • Bloat due to non-type template parameters can often be eliminated by replacing template parameters with function parameters or class data members.
+
+  > • Bloat due to type parameters can be reduced by sharing implementations for instantiation types with identical binary representations.
+
+### Item 45: Use member function templates to accept “all compatible types.”
+
+- generalized copy construction，我们可以从shared_ptr<Y>类型来构造shared_ptr<T>类型
+
+  ```c++
+  template<class T> class shared_ptr {
+  public:
+    shared_ptr(shared_ptr const& r);                 // copy constructor
+  
+    template<class Y>                                // generalized
+      shared_ptr(shared_ptr<Y> const& r);            // copy constructor
+  
+    shared_ptr& operator=(shared_ptr const& r);      // copy assignment
+  
+    template<class Y>                                // generalized
+      shared_ptr& operator=(shared_ptr<Y> const& r); // copy assignment
+    ...
+  };
+  ```
+
+- 如果没有用这项技法，那么shared_ptr<Base> 与shared_ptr<Derived>完全是两个类，如果想通过一个构造另一个，得像下面这样
+
+  ```c++
+  template<typename T>
+  class SmartPtr {
+  public:                             // smart pointers are typically
+    explicit SmartPtr(T *realPtr);    // initialized by built-in pointers
+    ...
+  };
+  
+  SmartPtr<Top> pt1 =                 // convert SmartPtr<Middle> ⇒
+    SmartPtr<Middle>(new Middle);     //   SmartPtr<Top>
+  
+  SmartPtr<Top> pt2 =                 // convert SmartPtr<Bottom> ⇒
+    SmartPtr<Bottom>(new Bottom);     //   SmartPtr<Top>
+  
+  SmartPtr<const Top> pct2 = pt1;     // convert SmartPtr<Top> ⇒
+                                      //  SmartPtr<const Top>
+  ```
+
+### Item 46: Define non-member functions inside templates when type conversions are desired
+
+- 与item24一致，只不过是在模板的基础上
+
+- When writing a class template that offers functions related to the template that support implicit type conversions on all parameters, define those functions as friends inside the class template.
+
 # Effective STL
 
 >  个人建议，看本书前最好看一遍侯捷写的STL源码剖析，知道源码方能理解如何使用
