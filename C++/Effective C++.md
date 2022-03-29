@@ -1373,6 +1373,308 @@ Templates are a wonderful way to save time and avoid code replication
 
 - When writing a class template that offers functions related to the template that support implicit type conversions on all parameters, define those functions as friends inside the class template.
 
+### Item 47: Use traits classes for information about types
+
+- 复习五种迭代器
+
+  - input iterator：只能向前移动，每次只能一步，只能向指向的地方读取，istream_iterator是个例子
+
+  - ouptut iterator：只能向前移动，每次只能一步，只能向指向的地方写入，ostream_iterator是个例子
+
+  - forward iterator：可以向指向的地方读取或者写入，是上两个的结合增强
+
+  - bidrectional iterator：在forward iterator的基础上可以向后移动
+
+  - random access iterator：可以向前向后跳跃移动，比如vector、deque、string的迭代器就属于这种
+
+  - C++标准库中有tag struct来区分它们
+
+    ```c++
+    
+    struct input_iterator_tag {};
+    
+    struct output_iterator_tag {};
+    
+    struct forward_iterator_tag: public input_iterator_tag {};
+    
+    struct bidirectional_iterator_tag: public forward_iterator_tag {};
+    
+    struct random_access_iterator_tag: public bidirectional_iterator_tag {};
+    ```
+
+    
+
+- advance是函数模板，用于把指定指针移动指定距离，签名如下
+
+  ```c++
+  template<typename IterT, typename DistT>       // move iter d units
+  void advance(IterT& iter, DistT d);            // forward; if d < 0,
+                                                 // move iter backward
+  ```
+
+- 如果要完全兼容五种迭代器，则advance的实现得逐步遍历（因为前四种不支持运算符operator+=，这需要线性时间，一种优化方法是分辨当前的迭代器类型，再做判断，这正是萃取traits技术的用武之地
+
+  ```c++
+  template<typename IterT, typename DistT>
+  void advance(IterT& iter, DistT d)
+  {
+    if (iter is a random access iterator) {
+       iter += d;                                      // use iterator arithmetic
+    }                                                  // for random access iters
+    else {
+      if (d >= 0) { while (d--) ++iter; }              // use iterative calls to
+      else { while (d++) --iter; }                     // ++ or -- for other
+    }                                                  // iterator categories
+  }
+  ```
+
+- 萃取技术需要用到iterator_traits结构体
+
+  ```c++
+  template<typename IterT>          // template for information about
+  struct iterator_traits;           // iterator types
+  ```
+
+- 对于用户定义的迭代器，每个迭代器类型必须包含内嵌的typedef iterator_category，比如deque与list
+
+  ```c++
+  template < ... >                    // template params elided
+  class deque {
+  public:
+    class iterator {
+    public:
+      typedef random_access_iterator_tag iterator_category;
+      ...
+  
+  
+  template < ... >
+  class list {
+  public:
+    class iterator {
+    public:
+      typedef bidirectional_iterator_tag iterator_category;
+      ...
+  
+  ```
+
+  - iterator_traits结构体中就包含了这个typedef
+
+  ```c++
+    // the iterator_category for type IterT is whatever IterT says it is;
+    // see Item 42 for info on the use of "typedef typename"
+    template<typename IterT>
+    struct iterator_traits {
+      typedef typename IterT::iterator_category iterator_category;
+      ...
+    };
+  ```
+
+- 对于指针，iterator_traits使用了偏特化技术，指针行为类似random access iterator，所以
+
+  ```c++
+  template<typename IterT>               // partial template specialization
+  struct iterator_traits<IterT*>         // for built-in pointer types
+  
+  {
+    typedef random_access_iterator_tag iterator_category;
+    ...
+  };
+  ```
+
+- 现在，我们可以总结traits类的设计实现：
+
+  - Identify some information about types you'd like to make available (e.g., for iterators, their iterator category).
+  - Choose a name to identify that information (e.g., `iterator_category`).
+  - Provide a template and set of specializations (e.g., `iterator_traits`) that contain the information for the types you want to support.
+
+- 现在，我们就可以重新定义advance模板函数了
+
+  ```c++
+  template<typename IterT, typename DistT>
+  void advance(IterT& iter, DistT d)
+  {
+    if (typeid(typename std::iterator_traits<IterT>::iterator_category) ==
+       typeid(std::random_access_iterator_tag))
+    ...
+  }
+  ```
+
+- 但是，上面的代码还是有点问题，if语句在运行时才知道，我们真正需要的是在编译期有条件地构造类型，这正是函数重载的用武之地
+
+  ```c++
+  template<typename IterT, typename DistT>
+  void advance(IterT& iter, DistT d)
+  {
+    doAdvance(                                              // call the version
+      iter, d,                                              // of doAdvance
+      typename                                              // that is
+        std::iterator_traits<IterT>::iterator_category()    // appropriate for
+    );                                                      // iter's iterator
+  }     
+  
+  template<typename IterT, typename DistT>              // use this impl for
+  void doAdvance(IterT& iter, DistT d,                  // random access
+                 std::random_access_iterator_tag)       // iterators
+  
+  {
+    iter += d;
+  }
+  
+  template<typename IterT, typename DistT>              // use this impl for
+  void doAdvance(IterT& iter, DistT d,                  // bidirectional
+                 std::bidirectional_iterator_tag)       // iterators
+  {
+    if (d >= 0) { while (d--) ++iter; }
+    else { while (d++) --iter;         }
+  }
+  
+  template<typename IterT, typename DistT>              // use this impl for
+  void doAdvance(IterT& iter, DistT d,                  // input iterators
+                 std::input_iterator_tag)
+  {
+    if (d < 0 ) {
+       throw std::out_of_range("Negative distance");    // see below
+    }
+    while (d--) ++iter;
+  }
+  
+  
+  ```
+
+### Item 48: Be aware of template metaprogramming
+
+- 模板元编程是用C++写的程序，它的执行时机是**C++的编译期**，产出结果是模板实例化后的C++源代码
+- Template metaprogramming can shift work from runtime to compile-time, thus enabling earlier error detection and higher runtime performance.
+- TMP can be used to generate custom code based on combinations of policy choices, and it can also be used to avoid generating code inappropriate for particular types.
+
+## 8. Customizing new and delete
+
+- C++不像Java有Garbage Collection（GC）机制，主要靠operator new 与opertor delete负责内存的申请与释放，还有个辅助角色：new-handler
+- 多个对象用operator new[]与operator delete[]
+- STL容器的内存由allocator对象管理，而不是直接由new与delete管理
+
+### Item 49: Understand the behavior of the new-handler
+
+- 当operator new无法满足内存申请，就会抛出异常，用户可以用std::set_new_handler来捕获
+
+  ```c++
+  namespace std {
+  
+    typedef void (*new_handler)();
+    new_handler set_new_handler(new_handler p) throw();
+  }
+  
+  
+  // function to call if operator new can't allocate enough memory
+  void outOfMem()
+  {
+    std::cerr << "Unable to satisfy request for memory\n";
+    std::abort();
+  }
+  
+  int main()
+  {
+    std::set_new_handler(outOfMem);
+    int *pBigDataArray = new int[100000000L];
+    ...
+  }
+  ```
+
+- new-handler的设计可以从以下建议中挑选一个：
+
+  - Make more memory available
+  - Install a different new-handler
+  - Deinstall the new-handler
+  - Throw an exception
+  - Not return, typically by calling `abort` or `exit`.
+
+- 可以为不同的类个性化定制new-handler
+
+  ```c++
+  class Widget {
+  public:
+    static std::new_handler set_new_handler(std::new_handler p) throw();
+    static void * operator new(std::size_t size) throw(std::bad_alloc);
+  private:
+    static std::new_handler currentHandler;
+  };
+  
+  // Static class members must be defined outside the class definition
+  std::new_handler Widget::currentHandler = 0;    // init to null in the class
+                                                  // impl. file
+  
+  // 注意Widget类的set_new_handler函数，仅仅做传递，为啥要保存见下面第二点
+  std::new_handler Widget::set_new_handler(std::new_handler p) throw()
+  {
+    std::new_handler oldHandler = currentHandler;
+    currentHandler = p;
+    return oldHandler;
+  }
+  ```
+
+  - 现在，`Widget`'s `operator new`会做下面三件事
+    1. Call the standard `set_new_handler` with `Widget`'s error-handling function. This installs `Widget`'s new-handler as the global new-handler.
+    2. Call the global `operator new` to perform the actual memory allocation. If allocation fails, the global `operator new` invokes `Widget`'s new-handler. In that case, `Widget`'s `operator new` must restore the original global new-handler, then propagate the exception.
+    3. If the global `operator new` was able to allocate enough memory for a `Widget` object, `Widget`'s `operator new` returns a pointer to the allocated memory. 
+
+- new-handler也是资源，根据RAII思想，应该用对象来管理它
+
+  ```c++
+  class NewHandlerHolder {
+  public:
+    explicit NewHandlerHolder(std::new_handler nh)    // acquire current
+    :handler(nh) {}                                   // new-handler
+  
+    ~NewHandlerHolder()                               // release it
+    { std::set_new_handler(handler); }
+  private:
+    std::new_handler handler;                         // remember it
+  
+    NewHandlerHolder(const NewHandlerHolder&);        // prevent copying
+    NewHandlerHolder&                                 // (see Item 14)
+     operator=(const NewHandlerHolder&);
+  };
+  
+  // Widget类的operator new就很简单了
+  void * Widget::operator new(std::size_t size) throw(std::bad_alloc)
+  {
+    NewHandlerHolder                              // install Widget's
+     h(std::set_new_handler(currentHandler));     // new-handler
+  
+    return ::operator new(size);                  // allocate memory
+                                                  // or throw
+    }                                               // restore global
+                                                  // new-handler
+  ```
+
+- 最后，用户使用的代码如下：
+
+  ```c++
+  void outOfMem();                   // decl. of func. to call if mem. alloc.
+                                     // for Widget objects fails
+  
+  Widget::set_new_handler(outOfMem); // set outOfMem as Widget's
+                                     // new-handling function
+  
+  Widget *pw1 = new Widget;          // if memory allocation
+                                     // fails, call outOfMem
+  
+  std::string *ps = new std::string; // if memory allocation fails,
+                                     // call the global new-handling
+                                     // function (if there is one)
+  
+  Widget::set_new_handler(0);        // set the Widget-specific
+                                     // new-handling function to
+                                     // nothing (i.e., null)
+  
+  Widget *pw2 = new Widget;          // if mem. alloc. fails, throw an
+                                     // exception immediately. (There is
+                                     // no new- handling function for
+                                     // class Widget.)
+  ```
+
+  
+
 # Effective STL
 
 >  个人建议，看本书前最好看一遍侯捷写的STL源码剖析，知道源码方能理解如何使用
