@@ -1673,7 +1673,170 @@ Templates are a wonderful way to save time and avoid code replication
                                      // class Widget.)
   ```
 
+### Item 50: Understand when it makes sense to replace `new` and `delete`
+
+- 有时程序员想自定义new与delete的逻辑，出于以下原因：
+
+  - 检测用户错误：用户可能忘记调用delete，或者调用两次
+  - 改进效率：默认的new与delete是通用的，自定义的会更适合自己的程序，提升效率
+  - 收集用户数据
+  - 减少内存开销
+
+- C++要求所有的opeartor new返回的指针对于任意类型是**内存对齐**的，下面代码中返回的是malloc offset by the size of an int，这很有可能会造成崩溃
+
+  ```c++
+  static const int signature = 0xDEADBEEF;
   
+  typedef unsigned char Byte;
+  
+  // this code has several flaws—see below
+  void* operator new(std::size_t size) throw(std::bad_alloc)
+  {
+    using namespace std;
+  
+    size_t realSize = size + 2 * sizeof(int);    // increase size of request so2
+                                                 // signatures will also fit inside
+  
+    void *pMem = malloc(realSize);               // call malloc to get theactual
+    if (!pMem) throw bad_alloc();                // memory
+  
+    // write signature into first and last parts of the memory
+     *(static_cast<int*>(pMem)) = signature;
+    *(reinterpret_cast<int*>(static_cast<Byte*>(pMem)+realSize-sizeof(int))) =
+    signature;
+  
+    // return a pointer to the memory just past the first signature
+    return static_cast<Byte*>(pMem) + sizeof(int);
+  }
+  ```
+
+### Item 51: Adhere to convention when writing `new` and `delete`
+
+- Implementing a conformant `operator new` requires having the right return value, calling the new-handling function when insufficient memory is available (see [Item 49](javascript:void(0))), and being prepared to cope with requests for no memory
+- Return value of operator new:  If you can supply the requested memory, you return a pointer to it. If you can't, you follow the rule described in [Item 49](javascript:void(0)) and throw an exception of type `bad_alloc`.
+- `operator new` should contain an infinite loop trying to allocate memory, should call the new-handler if it can't satisfy a memory request, and should handle requests for zero bytes. Class-specific versions should handle requests for larger blocks than expected.
+- `operator delete` should do nothing if passed a pointer that is null. Class-specific versions should handle blocks that are larger than expected.
+
+### Item 52: Write placement `delete` if you write placement `new`
+
+- new一个对象有两步，调用operator new函数申请内存，然后再调用类的构造函数构造对象，如果第二步失败，则第一步申请的内存必须释放，否则就会内存泄露，用户无法参与到这个内存泄露的处理中来，必须由C++运行时系统来管理，operator delete函数必须找到对应的operator new所申请的内存地址，它才能释放掉这块内存
+
+  ```c++
+  Widget *pw = new Widget;
+  
+  // 默认的new与delete是配对的，C++运行时系统可以很轻松的找到对应的内存去释放
+  void* operator new(std::size_t) throw(std::bad_alloc);
+  
+  void operator delete(void *rawMemory) throw();  // normal signature
+                                                  // at global scope
+  
+  void operator delete(void *rawMemory,           // typical normal
+                       std::size_t size) throw(); // signature at class
+                                                  // scope
+  ```
+
+- 但假设用户自定义了operator new，在上述现象发生时，C++运行时系统找不到对应的内存去释放，会造成内存泄露，
+
+  ```c++
+  void* operator new(std::size_t, void *pMemory) throw();   // "placement
+                                                            // new"
+  ```
+
+- C++标准库的placement new相比operator new有额外的入参，一个void *指针指向了对象在哪里被构建；但从广义上看，只要有额外的入参，都可以算作placement new的语义范畴
+
+  ```c++
+  void* operator new(std::size_t, void *pMemory) throw();   // "placement
+                                                            // new"
+  ```
+
+- 只要用了placement new，就要用对应placement delete，否则就会有细微的、断断续续的内存泄露
+
+- 使用placement new与placement delete时，要注意不要隐藏了普通版本的new与delete
+
+## 9. Miscellany
+
+### Item 53: Pay attention to compiler warnings
+
+- Take compiler warnings seriously, and strive to compile warning-free at the maximum warning level supported by your compilers.
+- Don't become dependent on compiler warnings, because different compilers warn about different things. Porting to a new compiler may eliminate warning messages you've come to rely on.
+
+### Item 54: Familiarize yourself with the standard library, including TR1
+
+- C++98 includes:
+
+  ```shell
+  • The Standard Template Library (STL), including containers (vector, string, map, etc.); iterators; algorithms (find, sort, transform, etc.); function objects (less, greater, etc.); and various container and function object adapters (stack, priority_queue, mem_fun, not1, etc.).
+  • Iostreams, including support for user-defined buffering, internationalized IO, and the predefined objects cin, cout, cerr, and clog.
+  • Support for internationalization, including the ability to have multiple active locales. Types like wchar_t (usually 16 bits/char) and wstring (strings of wchar_ts) facilitate working with Unicode.
+  • Support for numeric processing, including templates for complex numbers (complex) and arrays of pure values (valarray).
+  • An exception hierarchy, including the base class exception, its derived classes logic_error and runtime_error, and various classes that inherit from those.
+  • C89's standard library. Everything in the 1989 C standard library is also in C++.
+  ```
+
+- TR1 (“Technical Report 1” from the C++ Library Working Group)
+
+  - shared_ptr与weak_ptr，shared_ptr有引用计数机制，当最后一个指向对象的指针销毁时，对象所占用的内存自动释放，shared_ptr可以处理无环的数据结构，但无法处理有环的数据结构，因为会出现循环引用的问题，这时weak_ptr就派上用场了，weak_ptr不参与引用计数
+
+  - tr1::function：可以代表任何可调用的实体（如函数或函数对象），比如下面代码可接受任何可调用的实体，只要以std::string作为函数返回值，int作为参数
+
+    ```c++
+    void registerCallback(std::tr1::function<std::string (int)> func);
+                                                     // the param "func" will
+                                                     // take any callable entity
+                                                     // with a sig consistent
+                                                     // with "std::string (int)"
+    ```
+
+  - tr1::bind：完全包含了STL的bind1st与bind2nd的功能
+
+  - Hash Tables: `tr1::unordered_set`, `tr1::unordered_multiset`, `tr1::unordered_map`, and `tr1::unordered_multimap`.
+
+  - Regular expressions
+
+  - Tuples：比pair更强大，支持任意数量
+
+  - tr1::array：STL版本的数组，支持begin、end成员函数，在编译期tr1::array的长度就固定了
+
+  - Trype Trais
+
+  - tr1::result_of
+
+  - and so on
+
+- TR1本身是个标准，需要一个具体的实现，Boost就是个很不错的库
+
+### Item 55: Familiarize yourself with Boost.
+
+- Boost库非常好，与C++标准联系紧密
+
+
+
+# More Effective C++
+
+## Basics
+
+This chapter describes the differences between pointers and references
+
+### Item 1:  Distinguish between pointers and references.
+
+- 引用必须初始化，不能为空；而指针可以
+- 当你需知道你所指向的东西肯定不为空时，可以用引用
+- operator[]返回的是引用，这样就可以直接写：v[5]=10，如果operator[]返回的是指针，你需要这样写：*v[5]=10
+
+### **Item 2:**Prefer C++-style casts.
+
+- C的转换，C++的static_cast都能做
+- const_cast是用来把常量性转换丢弃的，即把常量转换为非常量
+- dynamic_cast是在继承体系中安全地向下转换，即把指向基类的指针或引用转换为指向派生类的，注意不能用于非虚函数，也不能去除常量性
+- reinterpret_cast
+
+### **Item 3:****Never treat arrays polymorphically.**
+
+- C风格的数组，不支持C++的多态，因为array[i]其实是*(array+i)，而`i*sizeof(an object in the array)`是声明数组时的类型，无法保证多态性
+
+### Item 4: Avoid gratuitous default constructors.
+
+- 很多时候，默认的构造函数无法满足的我们对构造函数的要求
 
 # Effective STL
 
