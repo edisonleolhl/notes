@@ -1838,6 +1838,95 @@ This chapter describes the differences between pointers and references
 
 - 很多时候，默认的构造函数无法满足的我们对构造函数的要求
 
+## Operators
+
+重载运算符很酷，但是有些坑需要注意，这个部分就是讲解什么时候、怎么做运算符重载
+
+### Item 5: Be wary of user-defined conversion functions.
+
+- 有经验的程序员会尽量避免隐式转换，比如STL的string就没有从string到char*的隐式转换，但是有显式的c_str成员函数
+- 使用explicitly关键字修饰构造函数，这样就可以避免隐式转换
+
+### Item 6: Distinguish between prefix and postfix forms of increment and decrement operators.
+
+- 前缀++比后缀++性能更好，因为后缀++需要构造临时值再销毁它
+
+  ```c++
+  // prefix form: increment and fetch
+  UPInt& UPInt::operator++()
+  {
+    *this += 1; // increment
+    return *this; // fetch
+  }
+  
+  // postfix form: fetch and increment
+  const UPInt UPInt::operator++(int)
+  {
+    const UPInt oldValue = *this; // fetch
+    ++(*this); // increment
+    return oldValue; // return what was fetched
+  } // 
+  ```
+
+- 因为后缀++返回的是const，所以不能连续两次后缀++
+
+### Item 7: Never overload &&, ||, or ,.
+
+- c++表达式按照短路规则来计算，如果重载了&&或者||这些运算符，那就由短路语义变为函数语义，这就没有短路的用法了
+
+### Item 8: Understand the different meanings of new and delete.
+
+- `string *ps = new string("Memory Management");`这里调用的是new operator，这是内置的，无法改变，就像sizeof一样，先分配内存，再在这块内存上调用构造函数
+
+- new operator无法重载，但是我们可以改变它分配内存的机制，即operator new，它一般声明：`void * operator new(size_t size);`，于是像下面这样用起来：`void *rawMemory = operator new(sizeof(string));`，operator new完全不知道构造函数，所以还需要：
+
+  ```c++
+  string *ps = static_cast<string*>(memory); // make ps point to the new object
+  
+  ```
+
+- placement new 是operator new的特例，可以在指定内存位置上构造对象
+
+  ```c++
+  Widget * constructWidgetInBuffer(void *buffer,
+  int widgetSize)
+  {
+  	return new (buffer) Widget(widgetSize);
+  }
+  
+  void * operator new(size_t, void *location)
+  {
+    return location;
+  }
+  ```
+
+- 三者差别
+
+  - you want to create an object on the heap, use the new operator. It both allocates memory and calls a constructor for the object. 
+
+  - If you only want to allocate memory, call operator new; no constructor will be called. 
+
+  - If you want to customize the memory allocation that takes place when heap objects are created, write your own version of operator new and use the new operator; it will automatically invoke your custom version of operator new. 
+
+  - If you want to construct an object in memory you’ve already got a pointer to, use placement new.
+
+- 为了防止内存泄露，需要调用delete关键字，它先调用析构函数，然后调用operator delete函数回收内存
+
+  ```c++
+  string *ps = new string[10];
+  // call operator new[] to allocate
+   // memory for 10 string objects,
+  // then call the default string
+  // ctor for each array element
+  
+  delete [] ps; // call the string dtor for each
+  // array element, then call
+  // operator delete[] to
+  // deallocate the array’s memory
+  ```
+
+  
+
 # Effective STL
 
 >  个人建议，看本书前最好看一遍侯捷写的STL源码剖析，知道源码方能理解如何使用
