@@ -316,7 +316,1616 @@ C++应该被视为四个部分组成的联邦
 
 - 如果你发现，拷贝构造函数与拷贝赋值函数有许多重复代码段，那么可以抽出一个private成员函数（一般叫init函数）来节省代码
 
+## Resource Management
 
+### Item 13: Use objects to manage resources.（RAII：Resource Acquisition Is Initialization）
+
+- 把对象的指针直接给使用者，很容易造成内存泄露，因为我们没法保证使用者的操作会不会遗漏delete
+- 最好的方法是用工厂方法把对象包裹在指针（特别是引用计数的智能指针，reference-counting smart pointer，RCSP）中，返回给使用者，这样在类的析构函数中就会自动释放内存，不用操心使用者的使用方式了
+- 因为拷贝auto_ptr会置空，所以用tr1::shared_ptr通常是个更好的选择
+
+### Item 14: Think carefully about copying behavior in resource-managing classes.
+
+- 不是所有的资源都是在堆中的， 所以智能指针不合适来管理这些资源
+- 比如，一个叫lock_guard的类来管理lock，这样lock的使用者就不用担心忘记调用unlock了，但是这时lock_guard被拷贝了怎么办？可以为lock_guard禁止拷贝（参考item6，将拷贝函数设为privite，或者用C++11中的delete关键字）
+
+### Item 15: Provide access to raw resources in resource-managing classes.
+
+- 智能指针如shared_ptr提供了get()函数获得原来的裸指针，已获得向C API的兼容
+
+### Item 16: Use the same form in corresponding uses of `new` and `delete`.
+
+- 知识点：new关键字干两件事，通过operator new分配内存，一个或多个构造函数在那片内存上被调用；delete关键字也干两件事，一个或多个析构函数在那片内存上被调用，然后通过operator delete释放内存
+- If you use `[]` in a `new` expression, you must use `[]` in the corresponding `delete` expression. If you don't use `[]` in a `new` expression, you mustn't use `[]` in the corresponding `delete` expression.
+
+### Item 17: Store `newed` objects in smart pointers in standalone statements.
+
+- 使用智能指针管理对象时要在单独声明的语句中执行，否则在异常情况会有内存泄露
+
+  ```c++
+  processWidget(std::tr1::shared_ptr<Widget>(new Widget), priority());
+  ```
+
+- 编译器可能出于效率考虑编排顺序，假设顺序如下，而在priority发生异常时，new出来的内存就会被泄露
+
+  ```c++
+  1. 执行new Widget
+  2. 调用priority()函数
+  3. 调用std::tr1::shared_ptr的构造函数
+  ```
+
+- 感觉这种情况挺极端的，一般大家都会这样写吧
+
+  ```c++
+  std::tr1::shared_ptr<Widget> pw(new Widget);  // store newed object
+                                                // in a smart pointer in a
+                                                // standalone statement
+  
+  processWidget(pw, priority());                // this call won't leak
+  ```
+
+## Designs and Declarations
+
+### Item 18: Make interfaces easy to use correctly and hard to use incorrectly
+
+- Ways to prevent errors include creating new types, restricting operations on types, constraining object values, and eliminating client resource management responsibilities.i
+
+### Item 19: Treat class design as type design
+
+- How should objects of your new type be created and destroyed?--`operator new`, `operator new[]`, `operator delete`, and `operator delete[]`
+- How should object initialization differ from object assignment?
+- What does it mean for objects of your new type to be passed by value?--defined by copy constructor
+- What are the restrictions on legal values for your new type?--parameters of ctors must be valid
+-  **Does your new type fit into an inheritance graph?**--如果新类继承自某个基类，那就要遵守已存在的继承体系，如果新类要作为其他类的基类，就要注意virtual的声明
+- What kind of type conversions are allowed for your new type?
+- What standard functions should be disallowed?--用private或delete关键字声明成员函数
+-  **Who should have access to the members of your new type?**--public ? private ?
+- What is the “undeclared interface” of your new type?
+- How general is your new type?
+-  **Is a new type really what you need?** 
+
+### Item 20: Prefer pass-by-reference-to-`const` to pass-by-value
+
+- pass-by-value需要多次调用构造函数和析构函数，传const引用可以节省
+- 传const引用可以避免slicing problem，即当一个派生类对象被按值传递为基类对象，这样就只调用了基类对象的构造函数，派生类对象特有的部分就被sliced off了
+- 对于C++的内置类型，如int，还是pass-by-values效率更高，因为引用在编译器的角度看来就是指针，解引用是需要性能的，主要有些大的内置类型，如STL的容器，里面不止有一个指针，所以还是pass-by-reference-to-const最好
+- 总之，对于内置类型、STL迭代器以及函数对象类型，可以考虑pass-by-value，其他的都可以用paas-by-reference-to-const
+
+### Item 21: Don't try to return a reference when you must return an object
+
+- Never return a pointer or reference to a local stack object, a reference to a heap-allocated object, or a pointer or reference to a local static object if there is a chance that more than one such object will be needed.
+
+  ```c++
+  inline const Rational operator*(const Rational& lhs, const Rational& rhs)
+  {
+    return Rational(lhs.n * rhs.n, lhs.d * rhs.d);
+  }
+  ```
+
+  
+
+### Item 22: Declare data members `private`
+
+- 保持一致性，用户只能使用成员函数来获取成员
+- 这样就可以提供只读、只写、可读写的成员变量
+- 对成员封装，用户看不到实际值，对用户暴露的接口只需要提供不变的语义即可，类的作者可以在后面改变行为，如果一开始就给用户暴露了成员变量，那么推动用户去修改他们的代码是很困难的
+
+### Item 23: Prefer non-member non-friend functions to member functions
+
+- 封装性：我们对一个东西封装得越多，它暴露的东西就越少，那么我们对它的修改灵活性就大大提高了
+- 知识点：only members and friends have access to private members.
+- 因为成员函数还可以看见private成员变量与private函数，所以封装性不如非友元成员函数好，所以我们更希望用non-member non-friend function
+- Putting all convenience functions in multiple header files — but one namespace — also means that clients can easily extend the set of convenience functions. All they have to do is add more non-member non-friend functions to the namespace.
+
+### Item 24: Declare non-member functions when type conversions should apply to all parameters
+
+- If you need type conversions on all parameters to a function (including the one pointed to by the `this` pointer), the function must be a non-member.
+
+  ```c++
+  class Rational {
+  
+    ...                                             // contains no operator*
+  };
+  const Rational operator*(const Rational& lhs,     // now a non-member
+                           const Rational& rhs)     // function
+  {
+    return Rational(lhs.numerator() * rhs.numerator(),
+                    lhs.denominator() * rhs.denominator());
+  }
+  Rational oneFourth(1, 4);
+  Rational result;
+  
+  result = oneFourth * 2;                           // fine
+  result = 2 * oneFourth;                           // hooray, it works!
+  ```
+
+### Item 25: Consider support for a non-throwing `swap`
+
+- swap函数默认调用std::swap，只需要类型T支持拷贝（构造or赋值）即可
+
+  ```c++
+  namespace std {
+  
+    template<typename T>          // typical implementation of std::swap;
+    void swap(T& a, T& b)         // swaps a's and b's values
+    {
+      T temp(a);
+      a = b;
+      b = temp;
+    }
+  }
+  ```
+
+- 但如果你编写的类有pimpl（point to implementation）技法，swap仅需交换两个指针，如果使用std::swap会交换造成三次Widget的拷贝，还会造成三次WidgetImpl的拷贝，非常影响效率
+
+  ```c++
+  class WidgetImpl {                          // class for Widget data;
+  public:                                     // details are unimportant
+    ...
+  
+  private:
+    int a, b, c;                              // possibly lots of data —
+    std::vector<double> v;                    // expensive to copy!
+    ...
+  };
+  
+  class Widget {                              // class using the pimpl idiom
+  public:
+    Widget(const Widget& rhs);
+    Widget& operator=(const Widget& rhs)      // to copy a Widget, copy its
+    {                                         // WidgetImpl object. For
+     ...                                      // details on implementing
+     *pImpl = *(rhs.pImpl);                    // operator= in general,
+     ...                                       // see Items 10, 11, and 12.
+    }
+    ...
+  
+  private:
+    WidgetImpl *pImpl;                         // ptr to object with this
+  };   
+  ```
+
+  这时可以这样编写swap，先写一个swap成员函数，在其中调用swap函数，然后在std命名空间全特化swap函数，这样swap成员函数就会调用这个全特化版本（注意我们一般不给std命名空间**加**模板，但是可以在std命名空间全特化模板）
+
+  ```c++
+  class Widget {                     // same as above, except for the
+  public:                            // addition of the swap mem func
+    ...
+    void swap(Widget& other)
+    {
+      using std::swap;               // the need for this declaration
+                                     // is explained later in this Item
+  
+      swap(pImpl, other.pImpl);      // to swap Widgets, swap their
+    }                                // pImpl pointers
+    ...
+  };
+  
+  namespace std {
+  
+    template<>                       // revised specialization of
+    void swap<Widget>(Widget& a,     // std::swap
+                      Widget& b)
+    {
+      a.swap(b);                     // to swap Widgets, call their
+    }                                // swap member function
+  }
+  
+  
+  ```
+
+- 但， 加入Widget与WidgetImpl不是类，而是类模板，上面的swap方法就行不通了，因为：类模板可以偏特化，但函数模板不能偏特化，所以以下函数模板行不通
+
+  ```c++
+  namespace std {
+    template<typename T>
+    void swap<Widget<T> >(Widget<T>& a,      // error! illegal code!
+                          Widget<T>& b)
+    { a.swap(b); }
+  }
+  ```
+
+- 如果使用了pimpl的类模板在命名空间下，可以这样编写swap，当swap两个Widget<T>对象时，C++的命名查找规则（即argument-dependent lookup）会找到Widget-specific version in WidgetStuff命名空间，这就是我们希望的
+
+  ```c++
+  namespace WidgetStuff {
+    ...                                     // templatized WidgetImpl, etc.
+  
+    template<typename T>                    // as before, including the swap
+    class Widget { ... };                   // member function
+  
+    ...
+  
+    template<typename T>                    // non-member swap function;
+    void swap(Widget<T>& a,                 // not part of the std namespace
+              Widget<T>& b)                                         
+    {
+      a.swap(b);
+    }
+  }
+  ```
+
+  
+
+- 客户端视角的最佳写法，命名查找规则在全局命名空间或一个命名空间中查找T-specific的swap函数，如果没有，则用std::swap（记得用using声明），如果类模板的创建者在std命名空间中还编写了Widget-specific的std::swap特化版本，则会用它
+
+  ```c++
+  template<typename T>
+  void doSomething(T& obj1, T& obj2)
+  {
+    using std::swap;           // make std::swap available in this function
+    ...
+    swap(obj1, obj2);          // call the best swap for objects of type T
+    ...
+  }
+  ```
+
+- 建议：swap成员函数永远不要抛异常，因为swap函数就是帮助类（类模板）提供强有力的异常安全保证。但非成员函数的swap没有这个保证，因为默认的swap是基于拷贝构造与拷贝赋值的，它俩允许抛异常
+
+  ```shell
+  Things to Remember
+  • Provide a swap member function when std::swap would be inefficient for your type. Make sure your swap doesn't throw exceptions.
+  • If you offer a member swap, also offer a non-member swap that calls the member. For classes (not templates), specialize std::swap, too.
+  • When calling swap, employ a using declaration for std::swap, then call swap without namespace qualification.
+  • It's fine to totally specialize std templates for user-defined types, but never try to add something completely new to std.
+  ```
+
+### Item 26: Postpone variable definitions as long as possible.
+
+- 变量的定义要越晚越好，否则有可能白白执行默认构造函数与默认析构函数
+
+- 变量的定义与初始化最好放一起，以提供性能
+
+  ```c++
+  // bad
+    std::string encrypted;                // default-construct encrypted
+    encrypted = password;                 // assign to encrypted
+  
+  // good
+  std::string encrypted(password);        // define and initialize
+                                            // via copy constructor
+  ```
+
+- 注意循环内外的变量定义区别，如果你知道赋值函数开销更小，可以使用方法A，特别是当n变大时，如果赋值函数开销很大，可以使用方法B
+
+  > • Approach A: 1 constructor + 1 destructor + `n` assignments.
+
+  > • Approach B: `n` constructors + `n` destructors.
+
+  ```c++
+  // Approach A: define outside loop   // Approach B: define inside loop
+  
+  Widget w;
+  for (int i = 0; i < n; ++i){         for (int i = 0; i < n; ++i) {
+    w = some value dependent on i;       Widget w(some value dependent on i);
+    ...                                  ...
+  }  
+  ```
+
+### Item 27: Minimize casting.
+
+- C风格的老式转换
+
+  ```c++
+  
+  // C-style casts look like this
+  (T) expression                      // cast expression to be of type T
+  
+  // Function-style casts use this syntax:
+  T(expression)                       // cast expression to be of type T
+  ```
+
+>  `const_cast` is typically used to cast away the constness of objects. It is the only C++-style cast that can do this.
+
+> • `dynamic_cast` is primarily used to perform “safe downcasting,” i.e., to determine whether an object is of a particular type in an inheritance hierarchy. It is the only cast that cannot be performed using the old-style syntax. It is also the only cast that may have a significant runtime cost. (I'll provide details on this a bit later.)
+
+> • `reinterpret_cast` is intended for low-level casts that yield implementation-dependent (i.e., unportable) results, e.g., casting a pointer to an `int`. Such casts should be rare outside low-level code. I use it only once in this book, and that's only when discussing how you might write a debugging allocator for raw memory (see [Item 50](javascript:void(0))).
+
+> • `static_cast` can be used to force implicit conversions (e.g., non-`const` object to `const` object (as in [Item 3](javascript:void(0))), `int` to `double`, etc.). It can also be used to perform the reverse of many such conversions (e.g., `void*` pointers to typed pointers, pointer-to-base to pointer-to-derived), though it cannot cast from `const` to non-`const` objects. (Only `const_cast` can do that.)
+
+- 在派生类中想调用有重写的基类函数，可以像下面这样解决
+
+  ```c++
+  class SpecialWindow: public Window {
+  public:
+    virtual void onResize() {
+      Window::onResize();                    // call Window::onResize
+      ...                                    // on *this
+    }
+    ...
+  
+  };
+  ```
+
+- 建议
+
+- > • Avoid casts whenever practical, especially `dynamic_cast`s in performance-sensitive code. If a design requires casting, try to develop a cast-free alternative.
+
+  > • When casting is necessary, try to hide it inside a function. Clients can then call the function instead of putting casts in their own code.
+
+  > • Prefer C++-style casts to old-style casts. They are easier to see, and they are more specific about what they do.
+
+### Item 28: Avoid returning “handles” to object internals.
+
+- 类的private成员变量，如果用public的getter方法把它们的引用暴露出去，则会造成修改
+
+  ```c++
+  struct RectData {                    // Point data for a Rectangle
+    Point ulhc;                        // ulhc = " upper left-hand corner"
+    Point lrhc;                        // lrhc = " lower right-hand corner"
+  };
+  
+  class Rectangle {
+  public:
+    ...
+    Point& upperLeft() const { return pData->ulhc; } // 仅仅声明成const成员函数是没法阻止客户端修改成员变量的
+    Point& lowerRight() const { return pData->lrhc; }
+    ...
+  private:
+    std::tr1::shared_ptr<RectData> pData;
+  };
+  
+  // 客户端代码
+  Point coord1(0, 0);
+  Point coord2(100, 100);
+  
+  const Rectangle rec(coord1, coord2);     // rec is a const rectangle from
+                                           // (0, 0) to (100, 100)
+  
+  rec.upperLeft().setX(50);                // now rec goes from
+                                           // (50, 0) to (100, 100)!
+  ```
+
+- 更好的做法：
+
+  ```c++
+  class Rectangle {
+  public:
+    ...
+    const Point& upperLeft() const { return pData->ulhc; }
+    const Point& lowerRight() const { return pData->lrhc; }
+    ...
+  };
+  ```
+
+### Item 29: Strive for exception-safe code.
+
+- Exception-safe functions offer one of three guarantees:
+
+  > • Functions offering the basic guarantee promise that if an exception is thrown, everything in the program remains in a valid state. 
+  >
+  > • Functions offering the strong guarantee promise that if an exception is thrown, the state of the program is unchanged.
+  >
+  > • Functions offering the nothrow guarantee promise never to throw exceptions, because they always do what they promise to do.
+
+- 锁资源的管理最好由智能指针维护的对象来管理，像下面的代码，如果在new抛出了异常，则lock永远不会被释放
+
+  ```c++
+  void PrettyMenu::changeBackground(std::istream& imgSrc)
+  {
+    lock(&mutex);                      // acquire mutex (as in Item 14)
+  
+    delete bgImage;                    // get rid of old background
+    ++imageChanges;                    // update image change count
+    bgImage = new Image(imgSrc);       // install new background
+  
+    unlock(&mutex);                    // release mutex
+  }
+  ```
+
+- 除了lock的问题，如果new时抛异常，上面的代码会使bgImage指向空，所以最好的做法是用智能指针来管理，只有当new成功时，reset函数才会被调用
+
+  ```c++
+  class PrettyMenu {
+    ...
+    std::tr1::shared_ptr<Image> bgImage;
+    ...
+  };
+  
+  void PrettyMenu::changeBackground(std::istream& imgSrc)
+  {
+    Lock ml(&mutex);
+  
+    bgImage.reset(new Image(imgSrc));  // replace bgImage's internal
+                                       // pointer with the result of the
+                                       // "new Image" expression
+    ++imageChanges;
+  }
+  ```
+
+### Item 30: Understand the ins and outs of inlining.
+
+- 内联函数不需要函数调用开销，非常棒
+
+- Bear in mind that `inline` is a request to compilers, not a command.
+
+- 内联函数必须在头文件中！因为绝大多数构建环境都是在编译阶段做内联，为了用函数体替代函数调用，编译器必须知道函数是什么样子
+
+- 模板也是经常放在头文件，理由同上
+
+- 函数内联需要开销，会导致代码膨胀
+
+- `virtual` means “wait until runtime to figure out which function to call,” and `inline` means “before execution, replace the call site with the called function.
+
+  
+
+- > • Limit most inlining to small, frequently called functions. This facilitates debugging and binary upgradability, minimizes potential code bloat, and maximizes the chances of greater program speed.
+
+  > • Don't declare function templates `inline` just because they appear in header files.
+
+> • Limit most inlining to small, frequently called functions. This facilitates debugging and binary upgradability, minimizes potential code bloat, and maximizes the chances of greater program speed.
+
+> • Don't declare function templates `inline` just because they appear in header files.
+
+### Item 31: Minimize compilation dependencies between files
+
+- Avoid using objects when object references and pointers will do
+- Depend on class declarations instead of class definitions whenever you can（只需要函数声明就可以
+-  Provide separate header files for declarations and definitions
+
+## 6. Inheritance and Object-Oriented Design
+
+### Item 32: Make sure public inheritance models “is-a.”
+
+- 如果类D public继承自类B，这意味着D也是一个B（is-a），但反过来不成立，这意味着使用B的地方，也能使用D，因为D是一个B
+- 这也很容易理解：一个指向基类的指针，同时也可以指向派生类
+
+### Item 33: Avoid hiding inherited names
+
+- C++的同名局部变量会覆盖同名全局变量，这就是hiding names
+
+- 在继承体系中，基类部分的内容被嵌入（nested）在派生类的作用域中，所以可以在派生类的作用域中调用其基类的方法或者读取成员，或者是enums，内嵌类，typedefs
+
+- 基类的重载函数，会被派生类的同名函数所隐藏，即**重载无法被继承**
+
+  ```c++
+  class Base {
+  private:
+    int x;
+  
+  public:
+    virtual void mf1() = 0;
+    virtual void mf1(int);
+  
+    virtual void mf2();
+  
+    void mf3();
+    void mf3(double);
+    ...
+  };
+  
+  class Derived: public Base {
+  public:
+    virtual void mf1();
+    void mf3();
+    void mf4();
+    ...
+  };
+  
+  d.mf1();                   // fine, calls Derived::mf1
+  d.mf1(x);                  // error! Derived::mf1 hides Base::mf1
+  
+  d.mf2();                   // fine, calls Base::mf2
+  
+  d.mf3();                   // fine, calls Derived::mf3
+  d.mf3(x);                  // error! Derived::mf3 hides Base::mf3
+  ```
+
+- 若想使重载也能被继承，需要使用**using**关键字（注意得在public域中）
+
+  ```c++
+  class Derived: public Base {
+    public:
+    using Base::mf1;       // make all things in Base named mf1 and mf3
+    using Base::mf3;       // visible (and public) in Derived's scope
+  
+    virtual void mf1();
+    void mf3();
+    void mf4();
+    ...
+  };
+  
+  Derived d;
+  int x;
+  
+  ...
+  
+  d.mf1();                 // still fine, still calls Derived::mf1
+  d.mf1(x);                // now okay, calls Base::mf1
+  
+  d.mf2();                 // still fine, still calls Base::mf2
+  
+  d.mf3();                 // fine, calls Derived::mf3
+  d.mf3(x);                // now okay, calls Base::mf3
+  ```
+
+  
+
+### Item 34: Differentiate between inheritance of interface and inheritance of implementation
+
+- 区别接口继承与实现继承，它们正好对应函数声明与函数定义的区别
+
+- 知识点：纯虚函数会使得类变成抽象类，即无法被实例化，只能用于被继承的基类
+
+  ```c++
+  class Shape {
+  public:
+    virtual void draw() const = 0;
+  
+    virtual void error(const std::string& msg);
+  
+    int objectID() const;
+  
+    ...
+  };
+  ```
+
+  
+
+- **声明纯虚函数的意义在于，派生类仅仅继承了函数接口（funciton interface），就像上面的Shape::draw，具体的实现还是要派生类自己去定义**
+
+- 从语法的角度，纯虚函数也可以有定义，调用纯虚函数的唯一方式是通过类名：
+
+  ```c++
+  class Rectangle: public Shape { ... };
+  class Ellipse: public Shape { ... };
+  
+  
+  Shape *ps = new Shape;              // error! Shape is abstract
+  
+  Shape *ps1 = new Rectangle;         // fine
+  ps1->draw();                     // calls Rectangle::draw
+  
+  Shape *ps2 = new Ellipse;           // fine
+  ps2->draw();                     // calls Ellipse::draw
+  
+  ps1->Shape::draw();                 // calls Shape::draw
+  
+  ps2->Shape::draw();                 // calls Shape::draw
+  ```
+
+- **声明虚函数的意义在于，派生类不仅可以继承函数接口，而且还可以继承默认实现，这意味着派生类如果不需要有特殊的实现，完全可以直接使用基类的默认实现**
+
+- 派生类使用基类提供的虚函数默认实现，可能太过于隐式，如果基类作者想让继承者都显式声明一下，可以用下面这个技巧：因为纯虚函数，每个派生类都得重写fly方法，而基类又提供了defaultFly实现，所以派生类完全可以使用基类提供的这个默认实现
+
+  ```c++
+  class Airplane {
+  public:
+    virtual void fly(const Airport& destination) = 0;
+  
+    ...
+  
+  protected:
+    void defaultFly(const Airport& destination) {
+      // default code for flying an airplane to the given destination
+        }
+  };
+  
+  class ModelA: public Airplane {
+  public:
+    virtual void fly(const Airport& destination)
+    { defaultFly(destination); }
+  
+    ...
+  };
+  
+  class ModelB: public Airplane {
+  public:
+    virtual void fly(const Airport& destination)
+    { defaultFly(destination); }
+  
+    ...
+  };
+  
+  ```
+
+- **声明非虚函数的意义在于，派生类继承了函数接口以及强制实现，毕竟非虚函数意味着不变量，不管在继承体系中如何变动**
+
+- 建议：
+
+  - The first mistake is to declare all functions non-virtual.
+  - The other common problem is to declare all member functions virtual.
+
+### Item 35: Consider alternatives to virtual functions
+
+#### NVI / Tmpelate Method
+
+- This basic design — having clients call private virtual functions indirectly through public non-virtual member functions — is known as the non-virtual interface (NVI) idiom. It's a particular manifestation of the more general design pattern called Template Method (模板方法)
+
+  ```c++
+  class GameCharacter {
+  public:
+    virtual int healthValue() const;        // return character's health rating;
+    
+  // NVI/模板方法
+  class GameCharacter {
+  public:
+    int healthValue() const               // derived classes do not redefine
+    {                                     
+  
+      ...                                 // do "before" stuff — see below
+  
+      int retVal = doHealthValue();       // do the real work
+  
+      ...                                 // do "after" stuff — see below
+  
+      return retVal;
+    }
+    ...
+  
+  private:
+    virtual int doHealthValue() const     // derived classes may redefine this
+    {
+      ...                                 // default algorithm for calculating
+    }                                     // character's health
+  };
+  ```
+
+- NVI/模板方法的好处是可以固化before&after stuff，真正执行的代码交给派生类自己去实现，相当于把实现延后定义了
+
+- NVI/模板方法还有一个好处是，固化了虚函数是何时被调用的（在before之后，在after之前），但虚函数是如何被实现的取决于派生类的实现
+
+#### 策略模式
+
+- Replace virtual functions with function pointer data members, a stripped-down manifestation of the Strategy design pattern.
+- Different instances of the same character type can have different health calculation functions.
+
+#### 通过tr1::function实现的策略模式
+
+- Replace virtual functions with tr1::function data members, thus allowing use of any callable entity with a signature compatible with what you need. This, too, is a form of the Strategy design pattern.
+- Replace virtual functions in one hierarchy with virtual functions in another hierarchy. This is the conventional implementation of the Strategy design pattern.
+
+### Item 36: Never redefine an inherited non-virtual function
+
+- 继承体系中的非虚函数是静态绑定的，That means that because `pB` is declared to be of type pointer-to-`B`, non-virtual functions invoked through `pB` will always be those defined for class `B`, even if `pB` points to an object of a class derived from `B`
+
+- 而虚函数是动态绑定的，具体调用基类还是派生类的成员函数，取决于指针指向的对象是哪个
+
+  ```c++
+  class D: public B {
+  public:
+    void mf();                      // hides B::mf; see Item 33
+  
+    ...
+  
+  };
+  
+  D x;                              // x is an object of type D
+  B *pB = &x;  
+  D *pD = &x;
+  
+  pB->mf();                         // calls B::mf
+  
+  pD->mf();                         // calls D::mf
+  ```
+
+- 为什么不要重定义非虚函数：公开继承意味着is-a关系，适用于基类的一切东西应该也适用于派生类，而派生类继承的基类非虚函数也应该能够适用，既然能够适用，就不应该重定义它。如果真的出现要重定义非虚函数的情况，你要看看你的类设计是否合理（比如该方法是否应该变成虚函数）
+
+### Item 37: Never redefine a function's inherited default parameter value
+
+- 静态类型在编译器就决定了，而动态类型在运行时才知道
+
+  ```c++
+  Shape *ps;                       // static type = Shape*
+  Shape *pc = new Circle;          // static type = Shape*
+  Shape *pr = new Rectangle;       // static type = Shape*
+  
+  ps = pc;                       // ps's dynamic type is
+                                 // now Circle*
+  
+  ps = pr;                       // ps's dynamic type is
+                                 // now Rectangle*
+  ```
+
+- virtual functions are dynamically bound(late bound), but default parameter values are statically bound(early bound).
+
+  ```c++
+  class Shape {
+  public:
+    enum ShapeColor { Red, Green, Blue };
+  
+    // all shapes must offer a function to draw themselves
+    virtual void draw(ShapeColor color = Red) const = 0;
+  };
+  class Rectangle: public Shape {
+  public:
+    // notice the different default parameter value — bad!
+    virtual void draw(ShapeColor color = Green) const; // 不会如你所愿的调用Green默认参数
+    ...
+  };
+  
+  Shape *pr = new Rectangle;       // static type = Shape*
+  pr->draw();                       // calls Rectangle::draw(Shape::Red)!
+  ```
+
+- 在继承体系中，如果你想修改虚函数的默认参数，这根本不管用，C++是出于运行时效率考量的，因为如果默认参数还是动态绑定的话，那么在运行时还得去找合适的虚函数默认参数
+
+### Item 38: Model “has-a” or “is-implemented-in-terms-of” through composition
+
+- 组合：Composition is the relationship between types that arises when objects of one type contain objects of another type.
+- 组合意味着has-a的关系，或者是implemented in terms of的关系，has-a的关系很好理解，而implemented in terms of的关系可以这样理解：想象一下你正在设计一个set，但是STL默认的set模板是用二叉搜索树实现的，所以多包含了一些指针，你的程序对内存很吃紧，所以得自己实现一个，你决定用STL的list模板来实现，因为list允许重复，所以你的set肯定不能公开继承list（那意味着is-a）关系，你决定在你的set模板的成员函数中组合一个std::list，这个时候就说明了你的set is implemented in-terms-of std::set！
+- In the application domain, composition means has-a. In the implementation domain, it means is-implemented-in-terms-of.
+
+### Item 39: Use private inheritance judiciously（审慎地）
+
+- 知识点：私有继承不能将派生类转换为基类（就像下面代码出错的那样），以及，私有继承自基类的成员函数，在派生类当中是private的  
+
+  ```c++
+  class Person { ... };
+  class Student: private Person { ... };     // inheritance is now private
+  
+  void eat(const Person& p);                 // anyone can eat
+  
+  void study(const Student& s);              // only students study
+  
+  Person p;                                  // p is a Person
+  Student s;                                 // s is a Student
+  
+  eat(p);                                    // fine, p is a Person
+  
+  eat(s);                                    // error! a Student isn't a Person
+  ```
+
+- 这也就意味着：私有继承是is-implemented-in-terms-of.，实现是被继承的，而接口是被忽略的
+
+- 私有继承与组合一样，都是is-implemented-in-terms-of，use composition whenever you can, and use private inheritance whenever you must
+
+- 一个用于私有继承的例子：empty base optimization (EBO)，仅能用于单层继承
+
+  ```c++
+  class Empty {};                      // has no data, so objects should
+                                       // use no memory
+  // sizeof(Empty) is 1
+  class HoldsAnInt: private Empty {
+  private:
+    int x;
+  };
+  
+  // sizeof(HoldsAnInt) == sizeof(int) // 因为空基类优化，继承空基类不需要额外内存
+  ```
+
+### Item 40: Use multiple inheritance judiciously
+
+- 多重继承可能会导致歧义，当两个基类有同名函数时，派生类不知道调用哪个
+
+- 多重继承会带来菱形继承问题，基类的成员变量在最底下的派生类可能会被复制两次，为了解决这个问题，可以使用虚继承，但是虚继承比普通继承会带来额外开销（size、speed。。），当虚基类没有任何成员变量时，虚继承是很实用的
+
+  ```c++
+  class File { ... };
+  class InputFile: virtual public File { ... };
+  class OutputFile: virtual public File { ... };
+  class IOFile: public InputFile,
+                public OutputFile
+  { ... };
+  ```
+
+- 多重继承很难理解，但还是很有用的，当某个设计必须要用到多重继承时，大胆使用吧，只是要小心上述两个问题
+
+## 7. Templates and Generic Programming
+
+Templates are a wonderful way to save time and avoid code replication
+
+### Item 41: Understand implicit interfaces and compile-time polymorphism
+
+- 模板元编程，类与模板都支持接口与多态
+
+  ```c++
+  template<typename T>
+  void doProcessing(T& w)
+  {
+    if (w.size() > 10 && w != someNastyWidget) {
+       T temp(w);
+       temp.normalize();
+       temp.swap(w);
+    }
+  }
+  
+  
+  • What's important is that the set of expressions that must be valid in order for the template to compile is the implicit interface that T must support.
+  • The calls to functions involving w such as operator> and operator!= may involve instantiating templates to make these calls succeed. Such instantiation occurs during compilation. Because instantiating function templates with different template parameters leads to different functions being called, this is known as compile-time polymorphism.
+  ```
+
+- An explicit interface typically consists of function signatures, i.e., function names, parameter types, return types, etc. An implicit interface is quite different.It consists of **valid expressions**.比如下面代码中，类型T的size()函数不需要返回整形，只需要operator>能够在类型T与int之间使用即可，甚至可以是另一类型Y，只需要能够有隐式转换从Y到T
+
+  ```c++
+  template<typename T>
+  void doProcessing(T& w)
+  {
+    if (w.size() > 10 && w != someNastyWidget) {
+    ...
+  ```
+
+- 类的接口在函数签名上是显式的；而模板的接口是隐式的，而且是基于valid expression的
+
+- 类的多态是通过虚函数实现的，发生在运行时；而模板的多态发生在模板实例化与函数重载解析时
+
+### Item 42: Understand the two meanings of `typename`
+
+- class关键字与typename关键字在声明模板类型参数时是一样的，但更推荐typename的写法，语义理解不容易出错，T不一定得是个class type，可以是int这种built-in type
+
+  ```c++
+  template<class T> class Widget;                 // uses "class"
+  
+  template<typename T> class Widget;              // uses "typename"
+  ```
+
+- The general rule is simple: anytime you refer to a **nested dependent type name** in a template, you must immediately precede it by the word `typename`.
+
+  ```c++
+  template<typename C>                           // this is valid C++
+  void print2nd(const C& container)
+  {
+    if (container.size() >= 2) {
+      typename C::const_iterator iter(container.begin()); // 如果不用typename关键字告诉编译器这是内嵌类型，编译器根本不知道iter是什么，所以编译就会报错
+      ...
+    }
+  }
+  ```
+
+- 萃取：the type of thing pointed to by objects of type `IterT`，temp变量的类型就是由iter所指向的对象的类型，假设iter是`vector<int>::iterator`，那么temp就是type `int`，假设iter是`list<string>::iterator`，那么temp就是type `string`，`std::iterator_traits<IterT>::value_type`是内嵌类型，所以我们必须用typename关键字声明它
+
+  ```c++
+  template<typename IterT>
+  void workWithIterator(IterT iter)
+  {
+    typename std::iterator_traits<IterT>::value_type temp(*iter);
+    ...
+  }
+  
+  // 为了简洁，可以用typedef
+  typedef typename std::iterator_traits<IterT>::value_type value_type;
+  
+    value_type temp(*iter);
+  ```
+
+### Item 43: Know how to access names in templatized base classes
+
+- 派生类调用基类的方法是可以的，但是模板派生类调用基类的方法不一定能成功
+
+  ```c++
+  class CompanyA {
+  public:
+    ...
+    void sendCleartext(const std::string& msg);
+    void sendEncrypted(const std::string& msg);
+    ...
+  };
+  
+  class CompanyB {
+  public:
+    ...
+    void sendCleartext(const std::string& msg);
+    void sendEncrypted(const std::string& msg);
+    ...
+  };
+  
+  
+  template<typename Company>
+  class MsgSender {
+  public:
+    ...                                   // ctors, dtor, etc.
+  
+    void sendClear(const MsgInfo& info)
+    {
+      std::string msg;
+      create msg from info;
+  
+      Company c;
+      c.sendCleartext(msg);
+    }
+  
+    void sendSecret(const MsgInfo& info)   // similar to sendClear, except
+    { ... }                                // calls c.sendEncrypted
+  };
+  
+  // 假设有需求需要在发送的时候添加日志，这很容易联想到创建一个派生类来完成这项工作，但是编译器会报错！
+  // 因为LoggingMsgSender继承自MsgSender<Company>，它并不知道这个类长什么样，所以就不知道有没有sendClear函数
+  template<typename Company>
+  class LoggingMsgSender: public MsgSender<Company> {
+  public:
+    ...                                    // ctors, dtor, etc.
+    void sendClearMsg(const MsgInfo& info)
+    {
+      write "before sending" info to the log;
+  
+      sendClear(info);                     // call base class function;
+                                           // this code will not compile!
+      write "after sending" info to the log;
+    }
+    ...
+  
+  };
+  // 换个角度进一步说明问题，假设有companyZ，它压根没有sendCleartext函数，所以上面的LoggingMsgSender根本无法适配
+  class CompanyZ {                             // this class offers no
+  public:                                      // sendCleartext function
+    ...
+    void sendEncrypted(const std::string& msg);
+    ...
+  };
+  // 为了纠正这个问题，可以使用模板全特化total template specialization
+  template<>                                 // a total specialization of
+  class MsgSender<CompanyZ> {                // MsgSender; the same as the
+  public:                                    // general template, except
+    ...                                      // sendCleartext is omitted
+    void sendSecret(const MsgInfo& info)
+    { ... }
+  };
+  ```
+
+- 为了解决在模板派生类中无法调用基类函数的问题，有三种方式：
+
+  - this->
+
+    ```c++
+    template<typename Company>
+    class LoggingMsgSender: public MsgSender<Company> {
+    public:
+    
+      ...
+    
+      void sendClearMsg(const MsgInfo& info)
+      {
+        write "before sending" info to the log;
+    
+        this->sendClear(info);                // okay, assumes that
+                                              // sendClear will be inherited
+        write "after sending" info to the log;
+      }
+    
+      ...
+    
+    };
+    ```
+
+  - using声明（注意这和item33的不同，item33阐述了基类函数被隐藏的问题，这里是编译器不去搜索基类空间除非我们显式告诉编译器
+
+    ```c++
+    template<typename Company>
+    class LoggingMsgSender: public MsgSender<Company> {
+    public:
+      using MsgSender<Company>::sendClear;   // tell compilers to assume
+      ...                                    // that sendClear is in the
+                                             // base class
+      void sendClearMsg(const MsgInfo& info)
+      {
+        ...
+        sendClear(info);                   // okay, assumes that
+        ...                                // sendClear will be inherited
+      }
+    
+      ...
+    };
+    ```
+
+  - `baseClass<T>::foo()`显式调用基类命名空间，这是最后考虑的方法，以为如果这个函数是虚函数，显式指定会阻止虚函数动态绑定的行为
+
+    ```c++
+    template<typename Company>
+    class LoggingMsgSender: public MsgSender<Company> {
+    public:
+      ...
+      void sendClearMsg(const MsgInfo& info)
+      {
+        ...
+        MsgSender<Company>::sendClear(info);      // okay, assumes that
+        ...                                       // sendClear will be
+      }        
+      ...
+    };
+    ```
+
+
+### Item 44: Factor parameter-independent code out of templates
+
+- 模板可能会带来代码膨胀，源代码可能看起来很紧凑，但是目标代码会急剧膨胀
+
+- 在没有模板的代码里，我们写代码也会遵从 commonality and variability analysis，在代码复用上不自觉地践行，在非模板代码里，代码重复是显性的，但是在模板代码里，代码重复是隐性的，因为它们来自于同一份源代码
+
+  > • Templates generate multiple classes and multiple functions, so any template code not dependent on a template parameter causes bloat.
+
+  > • Bloat due to non-type template parameters can often be eliminated by replacing template parameters with function parameters or class data members.
+
+  > • Bloat due to type parameters can be reduced by sharing implementations for instantiation types with identical binary representations.
+
+### Item 45: Use member function templates to accept “all compatible types.”
+
+- generalized copy construction，我们可以从shared_ptr<Y>类型来构造shared_ptr<T>类型
+
+  ```c++
+  template<class T> class shared_ptr {
+  public:
+    shared_ptr(shared_ptr const& r);                 // copy constructor
+  
+    template<class Y>                                // generalized
+      shared_ptr(shared_ptr<Y> const& r);            // copy constructor
+  
+    shared_ptr& operator=(shared_ptr const& r);      // copy assignment
+  
+    template<class Y>                                // generalized
+      shared_ptr& operator=(shared_ptr<Y> const& r); // copy assignment
+    ...
+  };
+  ```
+
+- 如果没有用这项技法，那么shared_ptr<Base> 与shared_ptr<Derived>完全是两个类，如果想通过一个构造另一个，得像下面这样
+
+  ```c++
+  template<typename T>
+  class SmartPtr {
+  public:                             // smart pointers are typically
+    explicit SmartPtr(T *realPtr);    // initialized by built-in pointers
+    ...
+  };
+  
+  SmartPtr<Top> pt1 =                 // convert SmartPtr<Middle> ⇒
+    SmartPtr<Middle>(new Middle);     //   SmartPtr<Top>
+  
+  SmartPtr<Top> pt2 =                 // convert SmartPtr<Bottom> ⇒
+    SmartPtr<Bottom>(new Bottom);     //   SmartPtr<Top>
+  
+  SmartPtr<const Top> pct2 = pt1;     // convert SmartPtr<Top> ⇒
+                                      //  SmartPtr<const Top>
+  ```
+
+### Item 46: Define non-member functions inside templates when type conversions are desired
+
+- 与item24一致，只不过是在模板的基础上
+
+- When writing a class template that offers functions related to the template that support implicit type conversions on all parameters, define those functions as friends inside the class template.
+
+### Item 47: Use traits classes for information about types
+
+- 复习五种迭代器
+
+  - input iterator：只能向前移动，每次只能一步，只能向指向的地方读取，istream_iterator是个例子
+
+  - ouptut iterator：只能向前移动，每次只能一步，只能向指向的地方写入，ostream_iterator是个例子
+
+  - forward iterator：可以向指向的地方读取或者写入，是上两个的结合增强
+
+  - bidrectional iterator：在forward iterator的基础上可以向后移动
+
+  - random access iterator：可以向前向后跳跃移动，比如vector、deque、string的迭代器就属于这种
+
+  - C++标准库中有tag struct来区分它们
+
+    ```c++
+    
+    struct input_iterator_tag {};
+    
+    struct output_iterator_tag {};
+    
+    struct forward_iterator_tag: public input_iterator_tag {};
+    
+    struct bidirectional_iterator_tag: public forward_iterator_tag {};
+    
+    struct random_access_iterator_tag: public bidirectional_iterator_tag {};
+    ```
+
+    
+
+- advance是函数模板，用于把指定指针移动指定距离，签名如下
+
+  ```c++
+  template<typename IterT, typename DistT>       // move iter d units
+  void advance(IterT& iter, DistT d);            // forward; if d < 0,
+                                                 // move iter backward
+  ```
+
+- 如果要完全兼容五种迭代器，则advance的实现得逐步遍历（因为前四种不支持运算符operator+=，这需要线性时间，一种优化方法是分辨当前的迭代器类型，再做判断，这正是萃取traits技术的用武之地
+
+  ```c++
+  template<typename IterT, typename DistT>
+  void advance(IterT& iter, DistT d)
+  {
+    if (iter is a random access iterator) {
+       iter += d;                                      // use iterator arithmetic
+    }                                                  // for random access iters
+    else {
+      if (d >= 0) { while (d--) ++iter; }              // use iterative calls to
+      else { while (d++) --iter; }                     // ++ or -- for other
+    }                                                  // iterator categories
+  }
+  ```
+
+- 萃取技术需要用到iterator_traits结构体
+
+  ```c++
+  template<typename IterT>          // template for information about
+  struct iterator_traits;           // iterator types
+  ```
+
+- 对于用户定义的迭代器，每个迭代器类型必须包含内嵌的typedef iterator_category，比如deque与list
+
+  ```c++
+  template < ... >                    // template params elided
+  class deque {
+  public:
+    class iterator {
+    public:
+      typedef random_access_iterator_tag iterator_category;
+      ...
+  
+  
+  template < ... >
+  class list {
+  public:
+    class iterator {
+    public:
+      typedef bidirectional_iterator_tag iterator_category;
+      ...
+  
+  ```
+
+  - iterator_traits结构体中就包含了这个typedef
+
+  ```c++
+    // the iterator_category for type IterT is whatever IterT says it is;
+    // see Item 42 for info on the use of "typedef typename"
+    template<typename IterT>
+    struct iterator_traits {
+      typedef typename IterT::iterator_category iterator_category;
+      ...
+    };
+  ```
+
+- 对于指针，iterator_traits使用了偏特化技术，指针行为类似random access iterator，所以
+
+  ```c++
+  template<typename IterT>               // partial template specialization
+  struct iterator_traits<IterT*>         // for built-in pointer types
+  
+  {
+    typedef random_access_iterator_tag iterator_category;
+    ...
+  };
+  ```
+
+- 现在，我们可以总结traits类的设计实现：
+
+  - Identify some information about types you'd like to make available (e.g., for iterators, their iterator category).
+  - Choose a name to identify that information (e.g., `iterator_category`).
+  - Provide a template and set of specializations (e.g., `iterator_traits`) that contain the information for the types you want to support.
+
+- 现在，我们就可以重新定义advance模板函数了
+
+  ```c++
+  template<typename IterT, typename DistT>
+  void advance(IterT& iter, DistT d)
+  {
+    if (typeid(typename std::iterator_traits<IterT>::iterator_category) ==
+       typeid(std::random_access_iterator_tag))
+    ...
+  }
+  ```
+
+- 但是，上面的代码还是有点问题，if语句在运行时才知道，我们真正需要的是在编译期有条件地构造类型，这正是函数重载的用武之地
+
+  ```c++
+  template<typename IterT, typename DistT>
+  void advance(IterT& iter, DistT d)
+  {
+    doAdvance(                                              // call the version
+      iter, d,                                              // of doAdvance
+      typename                                              // that is
+        std::iterator_traits<IterT>::iterator_category()    // appropriate for
+    );                                                      // iter's iterator
+  }     
+  
+  template<typename IterT, typename DistT>              // use this impl for
+  void doAdvance(IterT& iter, DistT d,                  // random access
+                 std::random_access_iterator_tag)       // iterators
+  
+  {
+    iter += d;
+  }
+  
+  template<typename IterT, typename DistT>              // use this impl for
+  void doAdvance(IterT& iter, DistT d,                  // bidirectional
+                 std::bidirectional_iterator_tag)       // iterators
+  {
+    if (d >= 0) { while (d--) ++iter; }
+    else { while (d++) --iter;         }
+  }
+  
+  template<typename IterT, typename DistT>              // use this impl for
+  void doAdvance(IterT& iter, DistT d,                  // input iterators
+                 std::input_iterator_tag)
+  {
+    if (d < 0 ) {
+       throw std::out_of_range("Negative distance");    // see below
+    }
+    while (d--) ++iter;
+  }
+  
+  
+  ```
+
+### Item 48: Be aware of template metaprogramming
+
+- 模板元编程是用C++写的程序，它的执行时机是**C++的编译期**，产出结果是模板实例化后的C++源代码
+- Template metaprogramming can shift work from runtime to compile-time, thus enabling earlier error detection and higher runtime performance.
+- TMP can be used to generate custom code based on combinations of policy choices, and it can also be used to avoid generating code inappropriate for particular types.
+
+## 8. Customizing new and delete
+
+- C++不像Java有Garbage Collection（GC）机制，主要靠operator new 与opertor delete负责内存的申请与释放，还有个辅助角色：new-handler
+- 多个对象用operator new[]与operator delete[]
+- STL容器的内存由allocator对象管理，而不是直接由new与delete管理
+
+### Item 49: Understand the behavior of the new-handler
+
+- 当operator new无法满足内存申请，就会抛出异常，用户可以用std::set_new_handler来捕获
+
+  ```c++
+  namespace std {
+  
+    typedef void (*new_handler)();
+    new_handler set_new_handler(new_handler p) throw();
+  }
+  
+  
+  // function to call if operator new can't allocate enough memory
+  void outOfMem()
+  {
+    std::cerr << "Unable to satisfy request for memory\n";
+    std::abort();
+  }
+  
+  int main()
+  {
+    std::set_new_handler(outOfMem);
+    int *pBigDataArray = new int[100000000L];
+    ...
+  }
+  ```
+
+- new-handler的设计可以从以下建议中挑选一个：
+
+  - Make more memory available
+  - Install a different new-handler
+  - Deinstall the new-handler
+  - Throw an exception
+  - Not return, typically by calling `abort` or `exit`.
+
+- 可以为不同的类个性化定制new-handler
+
+  ```c++
+  class Widget {
+  public:
+    static std::new_handler set_new_handler(std::new_handler p) throw();
+    static void * operator new(std::size_t size) throw(std::bad_alloc);
+  private:
+    static std::new_handler currentHandler;
+  };
+  
+  // Static class members must be defined outside the class definition
+  std::new_handler Widget::currentHandler = 0;    // init to null in the class
+                                                  // impl. file
+  
+  // 注意Widget类的set_new_handler函数，仅仅做传递，为啥要保存见下面第二点
+  std::new_handler Widget::set_new_handler(std::new_handler p) throw()
+  {
+    std::new_handler oldHandler = currentHandler;
+    currentHandler = p;
+    return oldHandler;
+  }
+  ```
+
+  - 现在，`Widget`'s `operator new`会做下面三件事
+    1. Call the standard `set_new_handler` with `Widget`'s error-handling function. This installs `Widget`'s new-handler as the global new-handler.
+    2. Call the global `operator new` to perform the actual memory allocation. If allocation fails, the global `operator new` invokes `Widget`'s new-handler. In that case, `Widget`'s `operator new` must restore the original global new-handler, then propagate the exception.
+    3. If the global `operator new` was able to allocate enough memory for a `Widget` object, `Widget`'s `operator new` returns a pointer to the allocated memory. 
+
+- new-handler也是资源，根据RAII思想，应该用对象来管理它
+
+  ```c++
+  class NewHandlerHolder {
+  public:
+    explicit NewHandlerHolder(std::new_handler nh)    // acquire current
+    :handler(nh) {}                                   // new-handler
+  
+    ~NewHandlerHolder()                               // release it
+    { std::set_new_handler(handler); }
+  private:
+    std::new_handler handler;                         // remember it
+  
+    NewHandlerHolder(const NewHandlerHolder&);        // prevent copying
+    NewHandlerHolder&                                 // (see Item 14)
+     operator=(const NewHandlerHolder&);
+  };
+  
+  // Widget类的operator new就很简单了
+  void * Widget::operator new(std::size_t size) throw(std::bad_alloc)
+  {
+    NewHandlerHolder                              // install Widget's
+     h(std::set_new_handler(currentHandler));     // new-handler
+  
+    return ::operator new(size);                  // allocate memory
+                                                  // or throw
+    }                                               // restore global
+                                                  // new-handler
+  ```
+
+- 最后，用户使用的代码如下：
+
+  ```c++
+  void outOfMem();                   // decl. of func. to call if mem. alloc.
+                                     // for Widget objects fails
+  
+  Widget::set_new_handler(outOfMem); // set outOfMem as Widget's
+                                     // new-handling function
+  
+  Widget *pw1 = new Widget;          // if memory allocation
+                                     // fails, call outOfMem
+  
+  std::string *ps = new std::string; // if memory allocation fails,
+                                     // call the global new-handling
+                                     // function (if there is one)
+  
+  Widget::set_new_handler(0);        // set the Widget-specific
+                                     // new-handling function to
+                                     // nothing (i.e., null)
+  
+  Widget *pw2 = new Widget;          // if mem. alloc. fails, throw an
+                                     // exception immediately. (There is
+                                     // no new- handling function for
+                                     // class Widget.)
+  ```
+
+### Item 50: Understand when it makes sense to replace `new` and `delete`
+
+- 有时程序员想自定义new与delete的逻辑，出于以下原因：
+
+  - 检测用户错误：用户可能忘记调用delete，或者调用两次
+  - 改进效率：默认的new与delete是通用的，自定义的会更适合自己的程序，提升效率
+  - 收集用户数据
+  - 减少内存开销
+
+- C++要求所有的opeartor new返回的指针对于任意类型是**内存对齐**的，下面代码中返回的是malloc offset by the size of an int，这很有可能会造成崩溃
+
+  ```c++
+  static const int signature = 0xDEADBEEF;
+  
+  typedef unsigned char Byte;
+  
+  // this code has several flaws—see below
+  void* operator new(std::size_t size) throw(std::bad_alloc)
+  {
+    using namespace std;
+  
+    size_t realSize = size + 2 * sizeof(int);    // increase size of request so2
+                                                 // signatures will also fit inside
+  
+    void *pMem = malloc(realSize);               // call malloc to get theactual
+    if (!pMem) throw bad_alloc();                // memory
+  
+    // write signature into first and last parts of the memory
+     *(static_cast<int*>(pMem)) = signature;
+    *(reinterpret_cast<int*>(static_cast<Byte*>(pMem)+realSize-sizeof(int))) =
+    signature;
+  
+    // return a pointer to the memory just past the first signature
+    return static_cast<Byte*>(pMem) + sizeof(int);
+  }
+  ```
+
+### Item 51: Adhere to convention when writing `new` and `delete`
+
+- Implementing a conformant `operator new` requires having the right return value, calling the new-handling function when insufficient memory is available (see [Item 49](javascript:void(0))), and being prepared to cope with requests for no memory
+- Return value of operator new:  If you can supply the requested memory, you return a pointer to it. If you can't, you follow the rule described in [Item 49](javascript:void(0)) and throw an exception of type `bad_alloc`.
+- `operator new` should contain an infinite loop trying to allocate memory, should call the new-handler if it can't satisfy a memory request, and should handle requests for zero bytes. Class-specific versions should handle requests for larger blocks than expected.
+- `operator delete` should do nothing if passed a pointer that is null. Class-specific versions should handle blocks that are larger than expected.
+
+### Item 52: Write placement `delete` if you write placement `new`
+
+- new一个对象有两步，调用operator new函数申请内存，然后再调用类的构造函数构造对象，如果第二步失败，则第一步申请的内存必须释放，否则就会内存泄露，用户无法参与到这个内存泄露的处理中来，必须由C++运行时系统来管理，operator delete函数必须找到对应的operator new所申请的内存地址，它才能释放掉这块内存
+
+  ```c++
+  Widget *pw = new Widget;
+  
+  // 默认的new与delete是配对的，C++运行时系统可以很轻松的找到对应的内存去释放
+  void* operator new(std::size_t) throw(std::bad_alloc);
+  
+  void operator delete(void *rawMemory) throw();  // normal signature
+                                                  // at global scope
+  
+  void operator delete(void *rawMemory,           // typical normal
+                       std::size_t size) throw(); // signature at class
+                                                  // scope
+  ```
+
+- 但假设用户自定义了operator new，在上述现象发生时，C++运行时系统找不到对应的内存去释放，会造成内存泄露，
+
+  ```c++
+  void* operator new(std::size_t, void *pMemory) throw();   // "placement
+                                                            // new"
+  ```
+
+- C++标准库的placement new相比operator new有额外的入参，一个void *指针指向了对象在哪里被构建；但从广义上看，只要有额外的入参，都可以算作placement new的语义范畴
+
+  ```c++
+  void* operator new(std::size_t, void *pMemory) throw();   // "placement
+                                                            // new"
+  ```
+
+- 只要用了placement new，就要用对应placement delete，否则就会有细微的、断断续续的内存泄露
+
+- 使用placement new与placement delete时，要注意不要隐藏了普通版本的new与delete
+
+## 9. Miscellany
+
+### Item 53: Pay attention to compiler warnings
+
+- Take compiler warnings seriously, and strive to compile warning-free at the maximum warning level supported by your compilers.
+- Don't become dependent on compiler warnings, because different compilers warn about different things. Porting to a new compiler may eliminate warning messages you've come to rely on.
+
+### Item 54: Familiarize yourself with the standard library, including TR1
+
+- C++98 includes:
+
+  ```shell
+  • The Standard Template Library (STL), including containers (vector, string, map, etc.); iterators; algorithms (find, sort, transform, etc.); function objects (less, greater, etc.); and various container and function object adapters (stack, priority_queue, mem_fun, not1, etc.).
+  • Iostreams, including support for user-defined buffering, internationalized IO, and the predefined objects cin, cout, cerr, and clog.
+  • Support for internationalization, including the ability to have multiple active locales. Types like wchar_t (usually 16 bits/char) and wstring (strings of wchar_ts) facilitate working with Unicode.
+  • Support for numeric processing, including templates for complex numbers (complex) and arrays of pure values (valarray).
+  • An exception hierarchy, including the base class exception, its derived classes logic_error and runtime_error, and various classes that inherit from those.
+  • C89's standard library. Everything in the 1989 C standard library is also in C++.
+  ```
+
+- TR1 (“Technical Report 1” from the C++ Library Working Group)
+
+  - shared_ptr与weak_ptr，shared_ptr有引用计数机制，当最后一个指向对象的指针销毁时，对象所占用的内存自动释放，shared_ptr可以处理无环的数据结构，但无法处理有环的数据结构，因为会出现循环引用的问题，这时weak_ptr就派上用场了，weak_ptr不参与引用计数
+
+  - tr1::function：可以代表任何可调用的实体（如函数或函数对象），比如下面代码可接受任何可调用的实体，只要以std::string作为函数返回值，int作为参数
+
+    ```c++
+    void registerCallback(std::tr1::function<std::string (int)> func);
+                                                     // the param "func" will
+                                                     // take any callable entity
+                                                     // with a sig consistent
+                                                     // with "std::string (int)"
+    ```
+
+  - tr1::bind：完全包含了STL的bind1st与bind2nd的功能
+
+  - Hash Tables: `tr1::unordered_set`, `tr1::unordered_multiset`, `tr1::unordered_map`, and `tr1::unordered_multimap`.
+
+  - Regular expressions
+
+  - Tuples：比pair更强大，支持任意数量
+
+  - tr1::array：STL版本的数组，支持begin、end成员函数，在编译期tr1::array的长度就固定了
+
+  - Trype Trais
+
+  - tr1::result_of
+
+  - and so on
+
+- TR1本身是个标准，需要一个具体的实现，Boost就是个很不错的库
+
+### Item 55: Familiarize yourself with Boost.
+
+- Boost库非常好，与C++标准联系紧密
+
+
+
+# More Effective C++
+
+## Basics
+
+This chapter describes the differences between pointers and references
+
+### Item 1:  Distinguish between pointers and references.
+
+- 引用必须初始化，不能为空；而指针可以
+- 当你需知道你所指向的东西肯定不为空时，可以用引用
+- operator[]返回的是引用，这样就可以直接写：v[5]=10，如果operator[]返回的是指针，你需要这样写：*v[5]=10
+
+### **Item 2:**Prefer C++-style casts.
+
+- C的转换，C++的static_cast都能做
+- const_cast是用来把常量性转换丢弃的，即把常量转换为非常量
+- dynamic_cast是在继承体系中安全地向下转换，即把指向基类的指针或引用转换为指向派生类的，注意不能用于非虚函数，也不能去除常量性
+- reinterpret_cast
+
+### **Item 3:****Never treat arrays polymorphically.**
+
+- C风格的数组，不支持C++的多态，因为array[i]其实是*(array+i)，而`i*sizeof(an object in the array)`是声明数组时的类型，无法保证多态性
+
+### Item 4: Avoid gratuitous default constructors.
+
+- 很多时候，默认的构造函数无法满足的我们对构造函数的要求
+
+## Operators
+
+重载运算符很酷，但是有些坑需要注意，这个部分就是讲解什么时候、怎么做运算符重载
+
+### Item 5: Be wary of user-defined conversion functions.
+
+- 有经验的程序员会尽量避免隐式转换，比如STL的string就没有从string到char*的隐式转换，但是有显式的c_str成员函数
+- 使用explicitly关键字修饰构造函数，这样就可以避免隐式转换
+
+### Item 6: Distinguish between prefix and postfix forms of increment and decrement operators.
+
+- 前缀++比后缀++性能更好，因为后缀++需要构造临时值再销毁它
+
+  ```c++
+  // prefix form: increment and fetch
+  UPInt& UPInt::operator++()
+  {
+    *this += 1; // increment
+    return *this; // fetch
+  }
+  
+  // postfix form: fetch and increment
+  const UPInt UPInt::operator++(int)
+  {
+    const UPInt oldValue = *this; // fetch
+    ++(*this); // increment
+    return oldValue; // return what was fetched
+  } // 
+  ```
+
+- 因为后缀++返回的是const，所以不能连续两次后缀++
+
+### Item 7: Never overload &&, ||, or ,.
+
+- c++表达式按照短路规则来计算，如果重载了&&或者||这些运算符，那就由短路语义变为函数语义，这就没有短路的用法了
+
+### Item 8: Understand the different meanings of new and delete.
+
+- `string *ps = new string("Memory Management");`这里调用的是new operator，这是内置的，无法改变，就像sizeof一样，先分配内存，再在这块内存上调用构造函数
+
+- new operator无法重载，但是我们可以改变它分配内存的机制，即operator new，它一般声明：`void * operator new(size_t size);`，于是像下面这样用起来：`void *rawMemory = operator new(sizeof(string));`，operator new完全不知道构造函数，所以还需要：
+
+  ```c++
+  string *ps = static_cast<string*>(memory); // make ps point to the new object
+  
+  ```
+
+- placement new 是operator new的特例，可以在指定内存位置上构造对象
+
+  ```c++
+  Widget * constructWidgetInBuffer(void *buffer,
+  int widgetSize)
+  {
+  	return new (buffer) Widget(widgetSize);
+  }
+  
+  void * operator new(size_t, void *location)
+  {
+    return location;
+  }
+  ```
+
+- 三者差别
+
+  - you want to create an object on the heap, use the new operator. It both allocates memory and calls a constructor for the object. 
+
+  - If you only want to allocate memory, call operator new; no constructor will be called. 
+
+  - If you want to customize the memory allocation that takes place when heap objects are created, write your own version of operator new and use the new operator; it will automatically invoke your custom version of operator new. 
+
+  - If you want to construct an object in memory you’ve already got a pointer to, use placement new.
+
+- 为了防止内存泄露，需要调用delete关键字，它先调用析构函数，然后调用operator delete函数回收内存
+
+  ```c++
+  string *ps = new string[10];
+  // call operator new[] to allocate
+   // memory for 10 string objects,
+  // then call the default string
+  // ctor for each array element
+  
+  delete [] ps; // call the string dtor for each
+  // array element, then call
+  // operator delete[] to
+  // deallocate the array’s memory
+  ```
+
+  
 
 # Effective STL
 
