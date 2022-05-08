@@ -124,6 +124,20 @@ rwatch(rw) a：当读取变量a时，程序就会暂停住（只对硬件观察�
 
 awatch(aw) a：当发生读取变量a或改变变量a值的行为，程序就会暂停住（只对硬件观察点生效
 
+使用数据断点时，需要注意：
+
+- 当监控变量为局部变量时，一旦局部变量失效，数据断点也会失效
+- 如果监控的是指针变量p，则watch *p监控的是p所指内存数据的变化情况，而watch p监控的是p指针本身有没有改变指向
+- 最常见的数据断点应用场景：「定位堆上的结构体内部成员何时被修改」。由于指针一般为局部变量，为了解决断点失效，一般有两种方法。
+
+```c++
+命令 作用
+print &variable 查看变量的内存地址
+watch *(type *)address 通过内存地址间接设置断点
+watch -l variable 指定location参数
+watch variable thread 1 仅编号为1的线程修改变量var值时会中断
+```
+
 ### catchpoint
 
 简介：use catchpoints to cause the debugger to stop for certain kinds of program events, such as C++ exceptions or the loading of a shared library
@@ -136,7 +150,7 @@ catch syscall [name | number]：为指定的系统调用设定catchpoint，系�
 
 ### 打印
 
-set print elements number-of-elements：打印大数组的元素时缺省最多200个，该命令可以修改该限制    
+set print elements number-of-elements：打印大数组的元素时缺省最多200个，该命令可以修改该限制
 
 p array[index]@num：打印数组中任意连续元素的值
 
@@ -151,6 +165,8 @@ bt full -n：从外向内打印n个栈帧的局部变量
 info locals：打印当前函数局部变量的值
 
 p 'stataic-1.c'::var：打印指定文件的静态变量的值
+
+`print *(struct xxx*)ptr` ：查看指向的结构体的内容
 
 whatis he：打印变量he的类型
 
@@ -174,7 +190,7 @@ set print object on：设置打印按照派生对象的类型，设置后会修�
 
 p func_in_frame2::b：直接打印调用栈帧中的变量值，不需要先切换到对应栈帧再打印变量值
 
-### 多进程/线程
+### 多进程
 
 $ gdb programe -p / --pid：调试已经运行的进程
 
@@ -182,15 +198,21 @@ attach pid：gdb启动后，调用该命令调试已经运行的进程
 
 detach：退出当前正在调试的进程
 
-set follow-fork-mode child：设置调试子进程，父进程退出后程序会自动调试子进程
+set follow-fork-mode parent：追踪父进程
+
+set follow-fork-mode child：追踪子进城，父进程退出后程序会自动调试子进程
+
+set detach-on-fork on：fork调用时只追踪其中一个进程
 
 set detach-on-fork off：gdb默认只会跟踪父进程，子进程不受控制，该命令可以同时调试父子进程
 
+set schedule-multiple on：默认情况下，除了当前调试的进程，其他进程都处于挂起状态，所以，如果需要在调试当前进程的时候，其他进程也能正常执行，则执行该命令
+
 info inferiors：查看进程状态，显示*的是当前正在调试的进程
 
-info threads [threadnum]：查看所有线程信息，LWP是lightweight process（轻量级进程）
+### 多线程
 
-set schedule-multiple on：gdb默认不能同时运行父子进程，该命令可以同时执行父子进程
+info threads [threadnum]：查看所有线程信息，LWP是lightweight process（轻量级进程）
 
 thread <ID> 切换调试的线程为指定ID的线程。
 
@@ -223,8 +245,6 @@ disassemble /m fun：将函数内所有代码与汇编指令映射起来
 disassemble 0x4004e9, 0x40050c：只查看某条语句对应的汇编代码
 
 > i line 13：Line 13 of "foo.c" starts at address 0x4004e9 <main+37> and ends at 0x40050c <main+72>.
-
-
 
 display /ni $pc：当程序停止时，该指令可以显示将要执行的n行汇编指令
 
@@ -302,7 +322,7 @@ Ctrl + L：刷新窗口
 
 ### 命令的缩写
 
-```
+```shell
 b -> break
 c -> continue
 d -> delete
@@ -317,7 +337,7 @@ s -> step
 u -> until
 ```
 
-```
+```shell
 aw -> awatch
 bt -> backtrace
 dir -> directory
@@ -334,7 +354,105 @@ win -> winheight
 
 另外，如果直接按回车键，会重复执行上一次的命令。
 
+## 原理
 
+by <https://mp.weixin.qq.com/s/-6cM77W85IF-MuRvXGBTMQ>
 
+### ptrace
 
+- gdb 通过系统调用 ptrace 来接管一个进程的执行。ptrace 系统调用提供了一种方法使得父进程可以观察和控制其它进程的执行，检查和改变其核心映像以及寄存器。它主要用来实现断点调试和系统调用跟踪。
 
+- ptrace系统调用定义如下：
+
+```c++
+# include <sys/ptrace.h>
+long ptrace(enum __ptrace_request request, pid_t pid, void *addr, void *data)
+```
+
+- pid_t pid：指示 ptrace 要跟踪的进程
+- void *addr：指示要监控的内存地址
+- enum__ptrace_request request：决定了系统调用的功能，几个主要的选项：
+  - PTRACE_TRACEME：表示此进程将被父进程跟踪，任何信号（除了 SIGKILL）都会暂停子进程，接着阻塞于 wait() 等待的父进程被唤醒。子进程内部对 exec() 的调用将发出 SIGTRAP 信号，这可以让父进程在子进程新程序开始运行之前就完全控制它
+  - PTRACE_ATTACH：attach 到一个指定的进程，使其成为当前进程跟踪的子进程，而子进程的行为等同于它进行了一次 PTRACE_TRACEME 操作。但需要注意的是，虽然当前进程成为被跟踪进程的父进程，但是子进程使用 getppid() 的到的仍将是其原始父进程的pid
+  - PTRACE_CONT：继续运行之前停止的子进程。可同时向子进程交付指定的信号
+
+### 调试原理
+
+运行并调试新进程，步骤如下：
+
+- 运行gdb exe
+- 输入run命令，gdb执行以下操作：
+  - 通过fork()系统调用创建一个新进程
+  - 在新创建的子进程中执行ptrace(PTRACE_TRACEME, 0, 0, 0)操作
+  - 在子进程中通过execv()系统调用加载指定的可执行文件
+
+gdb attach pid来调试一个运行的进程，gdb将对指定进程执行ptrace(PTRACE_ATTACH, pid, 0, 0)操作。
+
+### 断点原理
+
+- 实现原理：当被调试的程序运行到断点的时候，产生SIGTRAP信号。该信号被gdb捕获并 进行断点命中判断。
+- 设置原理：在程序中设置断点，就是先在该位置保存原指令，然后在该位置写入int 3。当执行到int 3时，发生软中断，内核会向子进程发送SIGTRAP信号。当然，这个信号会转发给父进程。然后用保存的指令替换int 3并等待操作恢复。
+- 命中判断：gdb将所有断点位置存储在一个链表中。命中判定将被调试程序的当前停止位置与链表中的断点位置进行比较，以查看断点产生的信号。
+
+## 其他工具
+
+### pstack
+
+此命令可显示每个进程的栈跟踪
+
+这个命令在排查进程问题时非常有用，比如我们发现一个服务一直处于work状态（如假死状态，好似死循环），使用这个命令就能轻松定位问题所在；可以在一段时间内，多执行几次pstack，若发现代码栈总是停在同一个位置，那个位置就需要重点关注，很可能就是出问题的地方；
+
+### ldd
+
+在我们编译过程中通常会提示编译失败，通过输出错误信息发现是找不到函数定义，再或者编译成功了，但是运行时候失败(往往是因为依赖了非正常版本的lib库导致)，这个时候，我们就可以通过ldd来分析该可执行文件依赖了哪些库以及这些库所在的路径。
+
+```shell
+ldd -r ./test_thread
+ linux-vdso.so.1 =>  (0x00007ffde43bc000)
+ libpthread.so.0 => /lib64/libpthread.so.0 (0x00007f8c5e310000)
+ libstdc++.so.6 => /lib64/libstdc++.so.6 (0x00007f8c5e009000)
+ libm.so.6 => /lib64/libm.so.6 (0x00007f8c5dd07000)
+ libgcc_s.so.1 => /lib64/libgcc_s.so.1 (0x00007f8c5daf1000)
+ libc.so.6 => /lib64/libc.so.6 (0x00007f8c5d724000)
+ /lib64/ld-linux-x86-64.so.2 (0x00007f8c5e52c000)
+```
+
+在上述输出中：
+
+- 第一列：程序需要依赖什么库
+- 第二列：系统提供的与程序需要的库所对应的库
+- 第三列：库加载的开始地址
+
+如果提示某个库找不到，有两种方法
+
+- 临时方法：LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/path/to/libxx.so
+- 永久方法：修改/etc/ld.so.conf，在该文件的后面加上需要的路径
+
+```shell
+include ld.so.conf.d/*.conf
+/path/to/
+
+#通过以下命令永久生效
+/sbin/ldconfig
+```
+
+### c++filt
+
+因为c++支持重载，也就引出了编译器的name mangling机制，对函数进行重命名。
+
+我们通过strings命令查看test_thread中的函数信息(仅输出fun等相关)
+
+```shell
+strings test_thread | grep fun_
+in fun_int n =
+in fun_string s =
+_GLOBAL__sub_I__Z7fun_inti
+_Z10fun_stringRKSs
+```
+
+可以看到_Z10fun_stringRKSs这个函数，如果想知道这个函数定义的话，可以使用c++filt命令，如下：
+
+```shell
+ c++filt _Z10fun_stringRKSs
+fun_string(std::basic_string<char, std::char_traits<char>, std::allocator<char> > const&)
+```
