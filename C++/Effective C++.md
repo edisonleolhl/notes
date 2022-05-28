@@ -1925,7 +1925,626 @@ This chapter describes the differences between pointers and references
   // deallocate the array’s memory
   ```
 
+## Exceptions
+
+C语言习惯了用状态码、返回值来返回异常信息，为什么还需要用异常？
+
+因为异常可以强迫使用者检查异常，从而不会造成持久的错误
+
+### Item 9: Use destructors to prevent resource leaks.
+
+- 用原生指针，可能会发生下面这种情况
+
+  ```c++
+  void processAdoptions(istream& dataSource)
+  {
+    while (dataSource) { // while there’s data
+      ALA *pa = readALA(dataSource); // get next animal
+      pa->processAdoption(); // process adoption
+      delete pa; // delete object that
+    } // readALA returned
+  }
   
+  // 如果pa->processAdoption抛异常，那么pa就永远无法delete，所以要try-catch
+  
+  void processAdoptions(istream& dataSource)
+  {
+    while (dataSource) {
+      ALA *pa = readALA(dataSource);
+      try {
+  	    pa->processAdoption();
+      } catch (...) {
+        // catch all exceptions
+        delete pa; // avoid resource leak when an
+        // exception is thrown
+        throw; // propagate exception to caller
+        }
+      delete pa; // avoid resource leak when no
+    } // exception is thrown
+  }
+  ```
+
+- 用智能指针可以避免每次都要把delete pa放入catch语句里（原文是auto_ptr，但现在使用shared_ptr更好
+
+  ```c++
+  void processAdoptions(istream& dataSource)
+  {
+    while (dataSource) {
+      auto_ptr<ALA> pa(readALA(dataSource));
+      pa->processAdoption();
+    }
+  }
+  ```
+
+### Item 10: Prevent resource leaks in constructors.
+
+- C++ destroys only *fully constructed* objects
+
+- 只有当new operator成功时，返回的指针才不是空指针
+
+- 为了防止在构造函数中出现异常而产生的内存泄露，构造函数需要用try-catch包围
+
+  ```c++
+  BookEntry::BookEntry(const string& name, const string& address, const string& imageFileName, const string& audioClipFileName) : theName(name), theAddress(address), theImage(0), theAudioClip(0) {
+    try { 
+      if (imageFileName != "") {
+      	theImage = new Image(imageFileName); 
+      }
+      if (audioClipFileName != "") {
+  	    theAudioClip = new AudioClip(audioClipFileName);
+      }
+    }
+    catch (...) {
+      delete theImage; 
+      delete theAudioClip;
+      throw;
+    }
+  }
+  
+  ```
+
+- 最好的解决方法还是智能指针
+
+### Item 11: Prevent exceptions from leaving destructors.
+
+- 析构函数的异常不应被传播出析构函数的范围，也就是说，得在析构函数内try-catch起来
+
+### Item 12: Understand how throwing an exception differs from passing a parameter or calling a virtual function.
+
+- 你可以传递函数参数与异常by value、by reference、or by pointer，但是它们的区别很大
+
+- 传递异常，比如`throw xxlocalsobject`语句，是通过拷贝来传递，为啥不是引用？因为xxlocalobject离开了作用域，localobject会被析构，这样传给外层的xxlocalsobject就是析构后的对象，所以throw抛出的肯定是拷贝过的对象
+
+- 下面两种抛异常的方式还是有区别的，除了第二种需要拷贝的开销之外，第一种原封不动的抛出异常，即使w是Widget的派生类对象，第二种只会拷贝w的Widget类部分，如果w是Widget派生类对象，则拷贝只会拷贝基类的部分（这也是object slicing）
+
+  ```c++
+  catch (Widget& w) {
+  	...
+  	throw;
+  }
+  catch (Widget& w) {
+  	...
+    throw w;
+  }
+  ```
+
+- catch也有三种方法，catch by value（在catch时执行一次拷贝），catch by reference，catch by pointer，如果throw也是用的拷贝，则catch by value 会有两次额外的拷贝
+
+- A catch clause for `runtime_errors` can catch exceptions of type range_error, underflow_error, and overflow_error, too, and a catch clause accepting an object of the root class `exception` can catch any kind of exception derived from this hierarchy.
+
+- never put a catch clause for a base class before a catch clause for a derived class.否则派生类的catch永远也不会执行到
+
+### Item 13: Catch exceptions by reference.
+
+- 如果catch by pointer，
+
+  - 如果exception是local variable，catch的就是null pointer
+  - 如果exception是通过new操作符建立在堆上，则必须delete，但是编写catch的人不知道是否建立在堆上，如果不是建立在堆上的pointer，delete 会有undefined behavior
+
+- 如果catch by value，
+
+  - 会有拷贝的开销
+  - 会有派生类slicing的问题
+
+- 最好的做法：catch by reference！
+
+  ```C++
+  void someFunction() // nothing changes in this
+  {
+  	...
+    if (a validation test fails) { 
+      throw Validation_error();
+    }
+    ...
+  }
+  
+  void doSomething() {
+    try { 
+      someFunction();
+    }
+    catch (exception& ex) {
+  	  cerr << ex.what(); ...
+  	} 
+  }
+  ```
+
+### Item 14: Use exception specifications judiciously.
+
+- The default be- havior for unexpected is to call terminate, and the default behavior for terminate is to call abort, so the default behavior for a program with a violated exception specification is to halt.
+
+### Item 15: Understand the costs of exception handling.
+
+- 即使你没用try-throw-catch，异常处理也是有开销的，一定的空间用来记录哪些对象是fully constructed的，一定的时间来让它们保持更新，不支持异常的编译要比有异常的编译要快很多（当然，异常是C++的一个特性，肯定要支持）
+- try语句块也是有开销的，不同厂商编译器的实现不一样，大概估算一下，仅仅是使用try语句块的代码，其代码大小与运行时开销相比没有try的代码增长5~10%，所以**尽量减少不必要的try**
+- 有异常的开销更大，虽然异常不常见，但是抛异常会比普通代码运行慢三个数量级，所以在可能的情况下要尽量减少抛出异常
+- 这些数据都是有benchmark支撑的
+
+## Efficiency
+
+If you want to write an efficient C++ program, you must first be able to write an efficient *program*.
+
+### Item 16: Remember the 80-20 rule.
+
+- 80%的程序资源被20%的代码使用；80%的运行时间被20%的代码占据；
+- 使用profiler来采样程序的性能，观察到底是哪部分代码运行时间最久，占据资源最多
+
+### Item 17: Consider using lazy evaluation.
+
+- lazy evaluation的例子：引用计数、lazy fetching等
+- 在C++中，mutable也是为了突破const的限制而设置的，被mutable修饰的变量将永远处于可变的状态。
+  - mutable的作用有两点： （1）保持常量对象中大部分数据成员仍然是“只读”的情况下，实现对个别数据成员的修改； （2）使类的const函数可以修改对象的mutable数据成员。
+  - 注意事项： （1）mutable只能作用于类的非静态和非常量数据成员。 （2）在一个类中，应尽量或者不用mutable，大量使用mutable表示程序设计存在缺陷。
+- lazy evaluation的例子：Lazy Expression Evaluation，比如矩形m3本来用作存放m1+m3的和，但后来要被用作存放m1*m3的积，lazy evaluation就不会执行加法操作
+- c++实现单例模式也有懒汉式
+
+### Item 18: Amortize the cost of expected computations.
+
+- *over-eager evaluation*：doing things *before* you’re asked to do them.
+- 如果一个请求要被多次调用，可以用某种数据结构当做cache，在第一次就把结果记录下来，省的以后调用时要反复计算
+- 磁盘的prefetching会一次性读一整块数据，根据经验，一次读请求到达磁盘，很有可能周围的数据接下来会被读到，这就是locality of reference现象
+- 很多编程语言内置的动态数组可以自动扩容，以两倍扩容可以有效减少扩容次数，这也是over-eager evaluation的思想
+
+### Item 19: Understand the origin of temporary objects.
+
+- temp变量在c++代码中应该是看不到的，比如传入函数参数的隐式转换与函数返回值的无名变量，有必要搞清楚它们的起源，否则构造与析构的开销不容忽视
+- 函数参数的隐式转换：比如一个函数接受const string&参数，但是传入的是`char*`，这时C++编译器就会构造一个临时的string对象，它以传入的`char*`作为构造参数，在函数结束时，该临时string对象也随即析构
+- 这种隐式转换在pass-by-value与pass-by-const-reference时合法的，但是对于pass-by-reference是不合法的，因为我们可能需要改变原来的对象，但可惜只能改变中间的临时变量，这与我们预期不一致
+- 函数返回值：除了隐式转换，还有一种temp变量不容忽视，那就是函数返回值，有两种方法可以避免，第一种是换方法，比如`operator+`换成`operator+=`，第二种是是哦那个返回值优化（Return Value Optimization, RVO）
+
+### Item 20: Facilitate the return value optimization.
+
+- 函数返回值是不可避免的，要想办法避免中间临时变量
+
+- 一个可行的做法是，返回构造函数参数，而不是对象本身
+
+  ```c++
+  // an efficient and correct way to implement a // function that returns an object
+  const Rational operator*(const Rational& lhs,
+  const Rational& rhs)
+  {
+    return Rational(lhs.numerator() * rhs.numerator(),
+    lhs.denominator() * rhs.denominator());
+  }
+  ```
+
+- 但这样还是需要构造与析构，但是c++编译器可以进行返回值优化，像下面样，只需要付出构造c的开销即可，`operator*`中没有局部变量的构造与析构，也没有返回时临时变量的构造与析构，非常完美
+
+  ```c++
+  Rational a = 10; 
+  Rational b(1, 2);
+  Rational c = a * b;
+  ```
+
+- 更进一步，如果你想消除函数开销，可以使用inline关键字
+
+### Item 21: Overload to avoid implicit type conversions.
+
+- 假设有一个类是UPInt，有两个构造函数，一个不需要参数，一个接受int参数，还重载了`operator+`
+
+  ```c++
+  class UPInt { 
+    public:
+  		UPInt(); 
+    	UPInt(int value); ...
+      const UPInt operator+(const UPInt& lhs, const UPInt& rhs);
+  
+  };
+  ```
+
+- 两个UPInt进行+操作很容易理解，但是如果是一个int和一个UPInt进行+呢？同样可以成功，但是执行了从int到UPInt的隐式转换，调用了有参的构造函数
+
+  ```c++
+  upi3 = upi1 + 10;
+  upi3 = 10 + upi2;
+  ```
+
+- 为了避免这个开销，可以继续重载`operator+`，显式接收参数int与UPInt，以及参数UPInt与int
+
+  ```c++
+  const UPInt operator+(const UPInt& lhs, int rhs);// add UPInt // and int
+  
+  
+  const UPInt operator+(int lhs,
+  const UPInt& rhs);// add int and // UPInt
+  
+  ```
+
+### Item 22: Consider using *op=* instead of stand-alone *op*.
+
+- 对于用户定义的类，`operator+=`与`operator+`没有任何关系，除非是用`operator+=`来实现的`operator+`，这样只需要维护一个实现就行了
+
+  ```c++
+  const Rational operator+(const Rational& lhs,
+  const Rational& rhs)
+  {
+  	return Rational(lhs) += rhs;
+  }
+  ```
+
+- 从效率的角度出发，赋值版本的效率更高，因为stand-alone版本返回一个新对象，需要构造和析构
+
+- 如果你同时提供两个版本，用户会陷入抉择，作为库设计者，你应该两者都提供给，对于应用开发者，你应该考虑只使用赋值版本的，出于性能考虑
+
+  ```c++
+  // stand-alone版本，符合编程习惯，但需要三个临时变量，每个调用operator+
+  Rational a, b, c, d, result; ...
+  result=a+b+c+d;
+  
+  // 赋值版本，没有临时变量生成，效率最高，但不易阅读和debug 
+  result = a; result += b; result += c; result += d;
+  ```
+
+### Item 23: Consider alternative libraries.
+
+- The ideal library is small, fast, powerful, flexible, extensible, intuitive, universally available, well supported, free of use restrictions, and bug-free. It is also nonexistent.
+- 库设计者一般会权衡得与失，比如尽量把库做的小而快，但可能会与平台有关
+- 如果你对性能要求苛刻，可以考虑换一个追求性能的库
+
+### Item 24: Understand the costs of virtual functions, multiple inheritance, virtual base classes, and RTTI.
+
+#### 虚函数
+
+- 虚函数被调用时，要执行的代码必须与对象的动态类型相符，大多数编译器都是用虚函数表vtabls与虚函数表指针vptrs来实现虚函数的
+
+- 虚表通常是一个指向函数的指针数组，有些编译器使用的是链表而不是数组，每个有虚函数的类都有自己的虚表，虚表中的每一项都指向了虚函数的具体实现 
+
+  - 虚表的大小与虚函数数量有关
+  - 每个类都有唯一的虚表
+
+- 虚表存放于哪？有两种阵营
+
+  - 提供编译器与链接器的厂商，把虚表存放于需要的每个目标文件，链接器丢弃重复的拷贝，保证最终的可执行文件或库只有一份虚表
+  - 更通常的做法，启发式决定虚表存放于哪个目标文件，一般存放于这种目标文件中，这种目标文件包含类的第一个非inline非纯虚函数的定义
+
+- 有虚表了，虚表指针也是有很大开销的，每个对象都要有虚表指针，如果对象的成员变量只占据四字节，那么虚表指针的额外空间开销（假设指针是四字节）会使大小翻倍
+
+- 虚函数的执行可以这样翻译（假设i是f1函数在虚表中的偏移量），仅仅比普通的函数多了个几个指令而已
+
+  ```c++
+  pC1->f1();
+  
+  (*pC1->vptr[i])(pC1);
+  ```
+
+- 虚函数就意味着放弃了内联，因为内联是在编译器完成的，而虚函数是在运行时去决定哪个函数被调用
+
+#### 多重继承
+
+- 多重继承意味着每个对象有多个虚表指针，这样每个对象的空间大小会增长
+- 菱形继承问题，因为派生类的虚表得知道祖先的虚函数，所以菱形继承下会有重复的虚表指针
+
+#### RTTI（Runtime Type Identification)
+
+- RTTI机制允许我们查看运行时对象的类型，每个类对象都有type_info对象来指示当前类对象的类型信息，我们可以用typeid操作符查询
+- 每个类都只需要一份RTTI信息的拷贝，但是每个类对象都要能获取它，所以RTTI一般用虚表来实现，虚表的最上方就是类的type_info对象，接下来才是指向虚函数的指针
+
+## Techniques
+
+   本章的techniques，也可以说是idioms，或者是patterns
+
+### Item 25: Virtualizing constructors and non-member functions.
+
+- 虚拷贝构造函数，一般名为copySelft、clone等，像下面的clone函数一样，注意派生类覆写的clone函数，其返回值可以是指向派生类对象的指针，因为基类函数的返回值就是指向基类函数的指针，这是允许的
+
+  ```c++
+  class NLComponent {
+  public:
+    // declaration of virtual copy constructor
+    virtual NLComponent * clone() const = 0;
+    ...
+  };
+  class TextBlock: public NLComponent {
+  public:
+    virtual TextBlock * clone() const // virtual copy
+    { return new TextBlock(*this); } // constructor
+    ...
+  };
+  class Graphic: public NLComponent {
+    public:
+    virtual Graphic * clone() const // virtual copy
+    { return new Graphic(*this); } // constructor
+    ...
+  };
+  ```
+
+- 有了虚拷贝构造函数，就可以实现普通的拷贝构造函数了，因为NewsLetter的component既有text又有graghic，所以拷贝构造时得分别调用它们的拷贝构造函数，这就是通过虚拷贝构造实现的
+
+  ```c++
+  NewsLetter::NewsLetter(const NewsLetter& rhs)
+  {
+    // iterate over rhs’s list, using each element’s
+    // virtual copy constructor to copy the element into
+    // the components list for this object. For details on
+    // how the following code works, see Item 35.
+    for (list<NLComponent*>::const_iterator it =
+        rhs.components.begin();
+        it != rhs.components.end();
+        ++it) {
+      // "it" points to the current element of rhs.components,
+      // so call that element’s clone function to get a copy
+      // of the element, and add that copy to the end of
+      // this object’s list of components
+      components.push_back((*it)->clone());
+    }
+  }
+  ```
+
+- 有时需要把非成员函数赋予虚函数的特性：根据参数的动态类型来执行逻辑，但如果简单地将其变为成员函数，不一定优雅，比如成员函数版的`operator<<`如下，使用者必须把对象写在cout的左边，非常别扭
+
+  ```c++
+  class NLComponent {
+    public:
+    // unconventional declaration of output operator
+    virtual ostream& operator<<(ostream& str) const = 0;
+    ...
+  };
+  class TextBlock: public NLComponent {
+    public:
+    // virtual output operator (also unconventional)
+    virtual ostream& operator<<(ostream& str) const;
+  };
+  class Graphic: public NLComponent {
+    public:
+    // virtual output operator (still unconventional)
+    virtual ostream& operator<<(ostream& str) const;
+  };
+  TextBlock t;
+  Graphic g;
+  ...
+  t << cout; // print t on cout via
+  	// virtual operator<<; note
+  	// unconventional syntax
+  g << cout; // print g on cout via
+    // virtual operator<<; note
+  	// unconventional syntax
+  ```
+
+- 最好的解决办法，为继承体系声明一个名为print的虚函数，同时重载非成员函数`operator<<`，然后在重载函数中调用print虚函数！以此又能让用户优雅使用，又能赋予虚函数特性
+
+  ```c++
+  class NLComponent {
+    public:
+    virtual ostream& print(ostream& s) const = 0;
+    ...
+  };
+  class TextBlock: public NLComponent {
+    public:
+    virtual ostream& print(ostream& s) const;
+    ...
+  };
+  class Graphic: public NLComponent {
+  	public:
+    virtual ostream& print(ostream& s) const;
+    ...
+  };
+  inline
+  ostream& operator<<(ostream& s, const NLComponent& c)
+  {
+  	return c.print(s);
+  }
+  ```
+
+### Item 26: Limiting the number of objects of a class.
+
+- 把构造函数设为私有，这样对象就无法构造，也就限制了类的对象
+
+- 提供一个public的获得自身对象的函数，在函数中返回static的类自身对象，这样很像单例，只有一个类的对象
+
+  ```c++
+  class Printer {
+  public:
+    xxx();
+    friend Printer& thePrinter();
+  pivate:
+    Printer();
+  	Printer(const Printer& rhs);
+  ...
+  };
+  
+  Printer& thePrinter() {
+    static Printer p; // the single printer object
+  	return p;
+  }
+  
+  //用户使用
+  thePrinter().xxx();
+  ```
+
+- 也可以用static函数来代替，但是用户使用起来就麻烦一点点
+
+  ```c++
+  class Printer {
+    public:
+    	xxx();
+    	static Printer& thePrinter();
+    	...
+    private:
+      Printer();
+      Printer(const Printer& rhs);
+      ...
+  };
+  Printer& Printer::thePrinter(){
+    static Printer p;
+    return p;
+  }
+  
+  //用户使用
+  Printer::thePrinter().xxx();
+  ```
+
+- 函数中的static对象只在第一次调用的时候被创建，如果函数不被调用，则static对象也不会被创建
+
+- 注意上述的thePrinter不能声明为inline，因为非成员函数有着internal linkage，这有可能会导致函数会重复，这也就意味着static变量可能不止一份
+
+- 另外一种限制对象个数的方法非常直观，直接用类静态变量来记录对象的个数
+
+  ```c++
+  
+  class Printer {
+    public:
+      class TooManyObjects{}; // exception class for use
+      // when too many objects
+      // are requested
+      Printer();
+      ~Printer();
+      ...
+    private:
+      static size_t numObjects;
+      Printer(const Printer& rhs); // there is a limit of 1
+      // printer, so never allow
+  };
+  
+  // Obligatory definition of the class static
+  size_t Printer::numObjects = 0;
+  
+  Printer::Printer(){
+    if (numObjects >= 1) {
+    	throw TooManyObjects();
+  	}
+    proceed with normal construction here;
+    ++numObjects;
+  }
+  
+  Printer::~Printer(){
+    perform normal destruction here;
+    --numObjects;
+  }
+  ```
+
+- 当需要被限制个数的类有了派生类时，情况就变得微妙，假设colorPrint派生自print，那么当colorPrint对象构造时，它的print基类部分也会被构造，这就突破了对象个数限制
+
+- 同理，如果print作为其他类的内嵌类，其他类如果构造了多个，那么print也会被构造多个
+
+- 如果你不想限制对象的个数，但不想类被继承，可以将构造函数设为私有，然后开设公开的获取类对象的函数
+
+  ```c++
+  class FSA {
+  public:
+  // pseudo-constructors
+  static FSA * makeFSA();
+  static FSA * makeFSA(const FSA& rhs);
+  ...
+  private:
+  FSA();
+  FSA(const FSA& rhs);
+  ...
+  };
+  FSA * FSA::makeFSA()
+  { return new FSA(); } // 这里用智能指针更加
+  FSA * FSA::makeFSA(const FSA& rhs)
+  { return new FSA(rhs); } // 这里用智能指针更加
+  ```
+
+- 很多类都有类似printer的诉求，可以直接整一个模板基类
+
+  ```c++
+  template<class BeingCounted>
+  class Counted {
+  public:
+  class TooManyObjects{}; // for throwing exceptions
+  static size_t objectCount() { return numObjects; }
+  protected:
+  Counted();
+  Counted(const Counted& rhs);
+  ~Counted() { --numObjects; }
+  private:
+  static size_t numObjects;
+  static const size_t maxObjects;
+  void init(); // to avoid ctor code
+  }; // duplication
+  template<class BeingCounted>
+  Counted<BeingCounted>::Counted()
+  { init(); }
+  template<class BeingCounted>
+  Counted<BeingCounted>::Counted(const Counted<BeingCounted>&)
+  { init(); }
+  template<class BeingCounted>
+  void Counted<BeingCounted>::init()
+  {
+  if (numObjects >= maxObjects) throw TooManyObjects();
+  ++numObjects;
+  }
+  ```
+
+### Item 27: Requiring or prohibiting heap-based objects.
+
+- 定义一个只能在堆上创建的类
+
+  - 将析构函数设为private，类对象就无法建立在栈上了。
+  - 类对象只能创建在堆上，就是**不能静态创建类对象**，即**不能直接调用类的构造函数**，即`A a;`时会报错
+  - 因为当对象建立在栈上面时，是由编译器分配内存空间的，调用构造函数来构造栈对象。当对象使用完后，编译器会调用析构函数来释放栈对象所占的空间。编译器管理了对象的整个生命周期，如果析构函数是私有的，则编译器无法调用析构函数，所以类对象无法在栈上创建。
+  - 如果将析构函数设为protected，则解决了private不能继承的问题。因为protected，编译器无法调用析构函数，但是子类可以调用基类的析构函数
+
+- 定义一个只能在栈上创建的类
+  - 仅当使用new运算符，对象才会建立在堆上。因此，只要禁用new运算符就可以实现类对象只能建立在栈上。将operator new()设为私有即可，即`A* a = new A;`会报错
+
+### Item 28: Smart pointers.
+
+### Item 29: Reference counting.
+
+- 引用计数是个很好的技巧，对于那些需要记账的资源，引用计数可以节约成本，引用计数还可以理解为垃圾回收的简易版
+
+### Item 30: Proxy classes.
+
+## Miscellany
+
+### Item 31: Making functions virtual with respect to more than one object.
+
+### Item 32: Program in the future tense.
+
+### Item 33: Make non-leaf classes abstract.
+
+### Item 34: Understand how to combine C++ and C in the same program.
+
+- 两种语言都需要使用的函数，请使用extern "C"
+
+  ```c++
+  // declare a function called drawLine; don’t mangle
+  // its name
+  extern "C"
+  void drawLine(int x1, int y1, int x2, int y2);
+  ```
+
+- C++预处理器定义了__cplusplus，所以像下面这样声明与c的混用
+
+  ```c++
+  #ifdef __cplusplus
+  extern "C" {
+  #endif
+  void drawLine(int x1, int y1, int x2, int y2);
+  void twiddleBits(unsigned char bits);
+  void simulate(int iterations);
+  ...
+  #ifdef __cplusplus
+  }
+  #endif
+  ```
+
+- 在main函数开始之前，有静态初始化的过程，main函数结束之后，有静态析构的过程
+
+### Item 35: Familiarize yourself with the language standard.
+
+
 
 # Effective STL
 
