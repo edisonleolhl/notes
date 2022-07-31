@@ -7766,7 +7766,7 @@ binlog日志格式，通过`binlog-format`指定：
 - 主要有点是速度快，因为在内存中，类似于hash
 - 主要缺点是容量受到内存的限制，不支持海量数据
 
-### Redis应用场景
+#### Redis应用场景
 
 1. 会话缓存：相比于memcached，Redis提供持久化
 2. 全页缓存：因为有磁盘的持久化
@@ -7774,7 +7774,7 @@ binlog日志格式，通过`binlog-format`指定：
 4. 排行榜/计数器：Redis对数字的递增或递减的实现非常高效
 5. 发布/订阅
 
-### Redis里有1亿个key，如何找出其中10w个以某个固定前缀开头的可以
+#### Redis里有1亿个key，如何找出其中10w个以某个固定前缀开头的可以
 
 用keys指令可以扫除指定模式的key列表
 
@@ -7788,11 +7788,16 @@ binlog日志格式，通过`binlog-format`指定：
 
 解决：读Redis（热数据基本都在Redis），写MySQL（增删改都是在MySQL），更新Redis数据（先写入MySQL，再更新到Redis）
 
-### Redis和Memcached的区别
+#### Redis和Memcached的区别
 
 - 数据类型：Redis支持String、List、Set等等；Memcached只支持简单数据类型
 - 持久性：Redis可以将内存中的数据定期存入磁盘，有持久性；Memcached不支持持久性
 - 分布式存储：Redis支持主从复制模式；Memcached本身不支持分布式，但可以使用一致性hash
+
+#### Redis 演进架构
+
+[一文搞懂 Redis 架构演化之路
+](https://mp.weixin.qq.com/s/QssILJLna_v7XQWtV5UMzA)
 
 ## 数据结构与算法
 
