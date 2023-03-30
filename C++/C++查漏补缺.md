@@ -36,11 +36,11 @@ double：1bit（符号位） 11bits（指数位） 52bits（尾数位）
 
 const与指针
 
-- 指向常量的指针（底层指针），`const int *ptr;`
+- 指向常量的指针（底层const），`const int *ptr;`
   - 不必初始化
   - 不能通过指针来修改对象的值
   - 允许把非const对象的地址赋给指向const对象的指针。
-- 常指针（顶层指针），`int num=0; int * const ptr=&num;`
+- 常量指针（顶层const），`int num=0; int * const ptr=&num;`
   - const指针必须初始化
   - 不能把一个const对象的地赋给常指针
 - 指向常量的常指针，`const int p = 3; const int * const ptr = &p;`
@@ -55,10 +55,22 @@ const与函数
   - 常量or常指针，传递过来的参数及指针本身在函数内不可变，所以顶层const无意义
 
     ```c++
-    void func(const int var); // 传递过来的参数不可变
+    void func(const int var); // 传递过来的参数不可变，实参可以传入const int也可以传入普通int
+    void func(int *var); // 不能传指向const int的指针，因为函数内可能会改变var所指内容
+    void func(int &var); // 不能传const int的引用，因为函数内可能会改变var引用的内容
     void func(int *const var); // 指针本身不可变
     ```
 
+  - 实参初始化形参会忽略顶层const，但不会忽略底层const，所以还是可以通过底层const的不同来重载
+
+    ```c++
+    void func(int);
+    void func(const int); // 重复声明，顶层const
+    void func(int *);
+    void func(int * const); // 重复声明，顶层const
+    void func(const int&); // 新函数！
+    void func(const int*); // 新函数！
+    ```
   - 指向常量的指针，参数指针所指内容为常量不可变，`void StringCopy(char *dst, const char *src);`，不允许修改src
   - const引用，增加效率（避免复制开销）以及防止被修改，`void func(const A &a)`
 
@@ -74,12 +86,25 @@ const与迭代器
 - iterator可以看做是指针的一种实现，即`T*`，const iterator即为该指针为const，即`T* const`，所以it++会出错
 - 如果要表示迭代器所指的内容是常量，需要用const_iterator，即`const T*`
 
+### 说一说constexpr
+
+- 编译器常量，必须用常量表达式初始化
+- constexpr指针既可以指常量也可以指非常量，与普通的常量指针类似
+- constexpr仅对指针本身有效，对其所指向对象无效
+
+  ```c++
+  const int *p = nullptr;       // p是一个指向整数常量的指针/底层指针
+  constexpr int *q = nullptr;   // q是一个指向整数的常量指针/顶层指针
+  ```
+
+- constexpr修饰函数，函数的返回值类型与所有形参类型都得是字面值类型，函数体中有且仅有一条return语句
+
 ### 说一说static关键字
 
 1. 全局静态变量，存储在静态存储区，未经初始化的变量自动初始为0（对象的话是任意的），其他文件不可见
 2. 局部静态变量，存储在静态存储区，未经初始化的变量自动初始为0（对象的话是任意的），作用域仍为局部作用域，当定义它的函数或语句块结束时，局部静态变量不销毁，而是驻留在内存中，只不过不能进行访问，当下次再进入函数或语句块时，局部静态变量的值不改变。
 3. 静态函数，不能被其他文件所用，建议不要在头文件声明static全局函数，不要在cpp文件内声明非static全局函数，如果要在多个cpp文件内复用，就把声明放在头文件里面，否则cpp内部的声明需要加上static修饰
-4. 类的静态成员，静态成员可以实现多个对象之间的数据共享，并且使用静态数据成员还不会破坏隐藏的原则，即保证了安全性。因此，静态成员是类的所有对象中共享的成员，而不是某个对象的成员，注意**不能在类中初始化，也不能在main函数中初始化（可以在main函数之前执行），如果类的静态成员是私有的，则要遵循私有访问限制的原则**。
+4. 类的静态成员，静态成员可以实现多个对象之间的数据共享，并且使用静态数据成员还不会破坏隐藏的原则，即保证了安全性。因此，静态成员是类的所有对象中共享的成员，而不是某个对象的成员，注意**不能在类中初始化（除非是const整数类型的类内初始值，也不能在main函数中初始化（可以在main函数之前执行），如果类的静态成员是私有的，则要遵循私有访问限制的原则**。
 5. 类的静态函数，同上，都属于类的静态成员，它们都不是对象成员。因此，对静态成员的引用不需要用对象名。在静态成员函数的实现中不能访问类的非静态成员，**可以访问类的静态成员**（这点非常重要）。如果静态成员函数中要引用非静态成员时，可通过对象来引用。从中可看出，调用静态成员函数使用如下格式：<类名>::<静态成员函数名>(<参数表>);
 
 静态变量什么时候初始化
@@ -146,16 +171,23 @@ int main(){
 - 友元关系的单向性：类A为类B的友元，类B不是类A的友元
 - 友元声明的形式及数量不受限制
 
-### 说一说using关键字
+### 说一说using关键字/typedef关键字
 
 - 指定使用哪个作用域：可以在全局和局部作用域之间切换，`using <namespace>`
 - 改变访问性：派生类私有继承了基类，它是无法访问基类的成员变量的，但如果使用using语句，可以改变访问性
 - 取代typedef，给某个类型一个别名
 
-```c++
-typedef vector<int> V1;
-using V2 = vector<int>;
-```
+    ```c++
+    typedef vector<int> V1;
+    using V2 = vector<int>;
+    ```
+
+- 注意：如果类型别名取代的是复合类型或常量，是不能尝试直接用类型别名替换它本来的样子
+
+    ```c++
+    typedef char *pstring;
+    const pstring cstr = 0; // cstr是指向char的常量指针（顶层），不能理解成const char * cstr = 0（底层指针
+    const pstring *ps;      // ps是一直震，它的对象是指向char的常量指针
 
 ### 说一说extern关键字的作用
 
@@ -460,6 +492,7 @@ try catch throw
 4. 当数组作为函数参数传入时，会自动变化为指针，指向数组首位
 5. 不能对数组名直接复制，但可以对指针直接复制
 6. 用运算符sizeof可以得到数组字节数（数组大小），但只能得到指针类型本身的字节数
+7. 内置的下标运算符的索引值不是无符号类型，这与vector这种STL容器不一样，所以内置的下标运算符支持负值
 
 ```c++
 void testArray(int a[]) {
@@ -470,6 +503,42 @@ void testArray(int a[]) {
 }
 int a[3] = {1,2,3};
 testArray(a);
+
+int i = ia[2];
+int *p = ia; // p 指向首元素
+i = *(p+2); // 等价于i = ia[2]
+int *p = &ia[2]; // p指向索引为2的元素
+int k = p[-2]; // p[-2]是ia[0]表示的那个元素
+
+int *ip[4]; // 整型指针的数组
+int (*ip)[4]; // 指向含有4个整数的数组
+
+void print(const int*);
+void print(const int[]);
+void print(const int[10]); // 以上三种形式等价，维度为10仅表示程序员的期望，实际不一定
+```
+
+### 多维数组
+
+- 严格来说，没有多维数组，应该是数组的数组
+
+```c++
+int ia[3][4]; // 大小为3的数组，每个元素是含有4个整数的数组
+int (*p)[4] = ia; // p指向含有4个整数的数组
+p = &ia[2]; // p指向ia的最后一个元素
+```
+
+- 初始化，嵌套花括号是非必需的
+
+```c++
+int ia[3][4] = {
+    {0, 1, 2, 3},
+    {4, 5, 6, 7},
+    {8, 9, 10, 11}
+};
+int ia[3][4] = {0,1,2,3,4,5,6,7,8,9,10,11}; // 同上等价
+int ia[3][4] = {{0}, {4}, {8}}; //仅初始化每行首元素，其他元素默认值初始化
+int ix[3][4] = {0,3,6,9}; // 显式初始化每行首元素
 ```
 
 ### 函数指针
@@ -540,6 +609,19 @@ int f(f_ptr fp, int a); // 化简写法
 
 void (*(*f_ptr)())() = f; // 将函数名f『赋值』给f_ptr，f_ptr是返回函数指针的函数指针
 f_ptr (*ff)() = f; // 化简写法
+```
+
+或者使用尾置返回类型
+
+```c++
+auto f1(int) -> int(*)(int*, int); //f1函数返回一个函数指针
+```
+
+或者结合decltype
+
+```c++
+string::size_type sumLength(const string&, const string&);
+decltype(sumLength) *getFcn(const string&); // 牢记decltype返回的函数类型，而不是指针类型，所以要显式地加上*
 ```
 
 再把数组扯进来
@@ -876,6 +958,43 @@ C++没有严格的垃圾收集（GC）机制，而C语言又容易产生内存�
 }
 ```
 
+#### shared_ptr与new
+
+- 接受指针参数的智能指针构造函数是explicit的，因为不能将内置指针隐式转换成智能指针，必须使用直接初始化形式
+- reset方法以改变shared_ptr
+
+```c++
+shared_ptr<int> p1 = new int(1024); // 错误，必须使用直接初始化
+shared_ptr<int> p2(new int(1024)); // 正确，使用直接初始化形式
+
+// 若p是唯一指向其对象的shared_ptr，reset会释放对象，若传递了可选参数内置指针q，则令p指向q，若传递了d，则会调用d而不是delete来释放q
+p.reset()
+p.reset(q)
+p.reset(q, d)
+```
+
+- 不要混合使用智能指针和普通指针
+- 若发生异常，普通指针不会自动销毁对象，但智能指针可以
+- 如果用智能指针管理的资源不是new分配的内存，记得传递一个删除器
+
+#### unique_ptr
+
+- 一般使用release切断unique_ptr与它原来所管理的对象间的联系
+- unique_ptr在函数返回时会执行一种特殊的拷贝
+
+```c++
+u.release() // 放弃对指针的控制权，返回指针，并将u置空
+u.reset() // 释放u指向的对象
+u.reset() // 如果提供内置指针q，令u指向这个对象；否则将u置空
+
+unique_ptr<string> p2(p1.release()); // 所有权转移，p1置空
+p2.reset(p3.release()) // reset释放了p2原来指向的内存
+
+p2.release() // 错误，p2不会释放内存，而且丢失了指针
+auto p = p2.release // 正确，但记得delete(p)
+```
+
+
 #### 最佳实践
 
 - 这个对象在对象或方法内部使用时优先使用unique_ptr
@@ -1185,7 +1304,7 @@ auto bound_member_data = std::bind (&MyPair::a,ten_two); // 返回 ten_two.a
 std::cout << bound_member_data() << '\n'; // 输出 10
 ```
 
-考虑到函数式编程（如std::bind）在使用时，是对参数直接拷贝，而不是引用。所以引入std::ref对对象施加引用
+考虑到函数式编程（如std::bind）在使用时，是对参数直接拷贝，而不是引用。所以引入std::ref对对象施加引用，标准库中还有std::cref，生成一个const引用的类，ref和cref定义在头文件functional中
 
 ### 函数对象/lambda表达式
 
@@ -1231,17 +1350,28 @@ auto print = print_class();
 
 mutable标记使捕获的内容可更改(缺省不可更改捕获的值，相当于定义了`operator()(...) const)`
 
+当我们需要为一个lambda定义返回类型，必须使用尾置返回类型，否则编译错误
+
+```c++
+transform(vi.begin(), vi.end(), vi.begin(),
+            [] (int i) -> int
+            {if (i < 0) return -i; else return i; }););
+```
+
 ### 匿名函数的捕获
 
 值捕获是不改变原有变量的值，引用捕获是可以在Lambda表达式中**改变原有变量的值**，而且避免复制的开销
 
-[捕获值列表]:
+捕获值列表:
 
 1. 空。没有使用任何函数对象参数。
 
-2. =。函数体内可以使用Lambda所在作用范围内所有可见的局部变量（包括Lambda所在类的this），并且是值传递方式（相当于编译器自动为我们按值传递了所有局部变量）。
+2. =。隐式值捕获，函数体内可以使用Lambda所在作用范围内所有可见的局部变量（包括Lambda所在类的this），并且是值传递方式（相当于编译器自动为我们按值传递了所有局部变量）。
+   1. 注意是创建lambda时拷贝，被捕获的值随后被修改不会影响到lambda内对应的值
+   2. 如果想改变被拷贝的值，可以使用mutable关键字，加在参数列表前面
 
-3. &。函数体内可以使用Lambda所在作用范围内所有可见的局部变量（包括Lambda所在类的this），并且是引用传递方式（相当于编译器自动为我们按引用传递了所有局部变量）。
+3. &。隐式引用捕获，函数体内可以使用Lambda所在作用范围内所有可见的局部变量（包括Lambda所在类的this），并且是引用传递方式（相当于编译器自动为我们按引用传递了所有局部变量）。
+   1. 引用捕获与返回引用有着同样的限制，必须确保lambda被执行时，被引用的变量还存在
 
 4. this。函数体内可以使用Lambda所在类中的成员变量。
 
@@ -1260,13 +1390,20 @@ mutable标记使捕获的内容可更改(缺省不可更改捕获的值，相当
 auto关键字：编译器根据初始值自动推导出类型，但是不能用于函数传参以及数组类型的推导，这是编译器在**编译阶段**完成的，没有改变C++是静态语言的事实。
 
 - auto 是值类型
+- auto 一般会忽略顶层const，请显式的指定const autos
 - auto& 是左值引用类型
 - auto&& 是转发引用(可以是左值引用，也可以是右值引用)
 - 但如果想根据表达式获得对应的值类别，C++14可以使用`decltype(auto) a = expr;`，之前只能使用啰嗦地`decltyp(expr) a = expr;`
 
 nullptr：一种特殊的空指针类型，能转换成其他任意类型的指针，而NULL一般被宏定义为0，遇到重载时可能会出现问题
 
-decltype：查询表达式的类型，不会对表达式求值，经常与auto配合追踪函数的返回值类型
+decltype：查询表达式的类型，不会对表达式求值，经常与auto配合追踪函数的返回值类型，
+
+- decltype可返回表达式所表示类型（包括顶层const与引用）
+- `decltype((variable))`的结果永远是引用，而`decltype(variable)`的结果只有当variable本身是引用时才是引用
+
+尾置返回类型： `auto func(int i) -> int(*)[10];` 返回值是一个指针，指向含有10个整数的数组，这种写法要不普通函数返回函数指针要清晰很多
+
 
 no except：对于某个函数，保证不抛出异常，可以给编译器更大的优化空间。
 
@@ -1418,6 +1555,11 @@ struct与class一样，可以包括成员函数，可以实现继承，可以实
 2. 如果用户没有定义析构函数，则编译器会自动生成一个合成的/缺省的析构函数，即使用户自定义了析构函数，合成的析构函数还是有的
 3. 如果类中有指针，并且在使用的过程中动态申请了内存，那么最好就应该显式定义析构函数，在其中释放申请的内存空间
 4. 析构顺序（正好与构造相反）：子类析构函数-》对象成员析构函数-》父类析构函数
+
+### 可变数据成员与const成员函数
+
+- 一个可变数据成员（mutable data member）永远不会是const，即使它是const对象的成员，const成员函数也可以修改可变数据成员的值
+- 一个const成员函数如果以引用形式返回*this，则是常量引用
 
 ### 手动实现一个String类
 
@@ -1660,6 +1802,32 @@ class A{
     }
 };
 ```
+
+### 委托构造函数
+
+- 当一个构造函数委托给另一个构造函数时，受委托的构造函数的初始值列表和函数体被依次执行
+- 如果被委托的函数体包含代码，先执行这些代码，然后控制权才会交还给委托者的函数体
+
+```c++
+class Sales_data {
+public:
+    Sales_data(std::string s, unsigned cnt, double price) : bookNo(s), units(sold(cnt), reenue(cnt*price) {} 
+    Sales_data() : Sales_data("", 0, 0) {}
+    Sales_data(std::string s) : Sales_data(s, 0, 0) {}
+    Sales_data(std::istream &is) :
+        Sales_data() // 委托默认构造函数
+    {
+        read(is, *this);
+    }
+}
+```
+
+### explicit阻止构造函数的隐式转换
+
+- 仅对单实参的构造函数有效，因为多实参本身就不能用于隐式转换，无需explicit
+- 只能在类内声明使用explicit，类外定义不能使用explicit
+- explicit只能用于直接初始化，拷贝等构造函数不行
+- 我们可以使用static_cast显式地转换
 
 ### C++虚函数的内存模型
 
@@ -1943,7 +2111,7 @@ class B
 
 - **静态函数属于类**，不属于特定对象，本身就是一个实体，而虚函数需要在类对象的虚函数表中去查找
 
-- 内联函数在编译时就会展开函数体，而虚函数在运行时才有实体，**但是使用了不会报错，只是虚函数不会有多态性**
+- 内联函数在编译时就会展开函数体，而虚函数在运行时才有实体，**但是使用了不会报错，只是虚函数不会有多态性**，定义在类内部的成员是自动inline的
 
 - 编译器需要在编译时确定虚函数表大小，而模板可能会有多个实例化，如果模板成员函数为虚函数，那会造成虚函数表大小不确定
 
@@ -2379,7 +2547,7 @@ new一个类A的对象分为二步：
   - 在那些直到内存被用到时才去提交实际内存的系统之上，检查new失败通常是没有意义的。
   - 在拥有虚拟内存的系统上，new失败几乎不会发生，因为早在虚拟内存耗尽之前，系统
   - 通常就已经开始颠簸了，而此时系统管理员自然会杀掉一些进程。
-  - 除了一些特殊情况之外，通常即便你检测到了ew失败，要是真的没内存剩下了的话，那么你也就做不了什么了。
+  - 除了一些特殊情况之外，通常即便你检测到了new失败，要是真的没内存剩下了的话，那么你也就做不了什么了。
 
 ### 定义一个只能new出来的类/定义一个不能new的类
 
@@ -3127,12 +3295,13 @@ allocator是C++中的空间配置器，用于封装STL容器在内存管理上�
 
 迭代器类型：
 
-- input：支持++，支持解引用，支持比较
-- output：解引用只能用来写，不能用来读
-- forward：支持多次++，可保存该迭代器来重新遍历对象，比如forward_list的迭代器
-- bidirection：还支持--，比如list的迭代器
-- random：还支持在整数类型上+、-、+=、-=，跳跃式的移动迭代器，还支持[]下标式访问，deque可以满足
+- input：只读不写，单遍扫描，只能递增，支持解引用，支持比较
+- output：只读不写，单遍扫描，只能递增，解引用只能用来写，不能用来读
+- forward：可读写，多遍扫描，只能递增，支持多次++，可保存该迭代器来重新遍历对象，比如forward_list的迭代器
+- bidirection：可读写，多遍扫描，支持递增递减，比如list的迭代器
+- random：可读写，多遍扫描，支持全部迭代器运算，还支持在整数类型上+、-、+=、-=，跳跃式的移动迭代器，还支持[]下标式访问，deque可以满足
 - contiguous(C++20)：保证迭代器所指对象在内存中是连续的，vector和array满足
+- 对每个迭代器参数来说，其能力必须与规定的最小能力相当，向算法传递一个能力更差的迭代器会产生错误
 
 指针与迭代器的区别/迭代器的特点
 
@@ -3140,11 +3309,58 @@ allocator是C++中的空间配置器，用于封装STL容器在内存管理上�
 - 迭代器不是指针，它是类模板，一般里面会有指针成员，模拟指针功能，重载了`++ -- * ->`等操作符
 - 迭代器作为一种**粘合剂**，在容器和泛型算法中广泛使用
 
+如果容器为空，begin和end返回同一个迭代器，都是尾后迭代器
+
 注意：迭代器的解引用操作返回的是对象引用而不是对象的值，因为可以通过迭代器的解引用去修改原对象
 
 C++17之前，container.begin()与container.end()返回的类型必须相同，从C++17开始，两者可以返回不同的类型
 
-常见的输出迭代器包括back_insert返回的类型back_inserter_iterator，可以方便地在尾部进行插入；还有ostream_iterator，方便把容器内容“拷贝”到输出流
+输出迭代器
+
+- 常见的输出迭代器包括back_insert返回的类型back_inserter_iterator，可以方便地在尾部进行插入；
+- inserter创建一个使用insert的迭代器，元素被插入到给定迭代器所表示的元素之前
+- 只有容器支持push_back才能使用back_inserter，只有容器支持push_front才能使用front_inserter
+- 还有ostream_iterator，方便把容器内容“拷贝”到输出流；虽然iostream不是容器
+
+```c++
+// back_inserter
+vector<int> vec;
+auto it = back_inserter(vec);
+*it = 42;
+// 每次都会在vec上调用push_back
+fill_n(back_inserter(vec), 10, 0);
+
+// front_inserter
+list<int> lst = {1,2,3,4};
+list<int> lst2,lst3;
+// 拷贝完成后，lst2包含4 3 2 1
+copy(lst.cbegin(), lst.cend(), front_inserter(lst2));
+// 拷贝完成后，lst2包含1 2 3 4
+copy(lst.cbegin(), lst.cend(), inserter(lst3, lst3.begin()));;
+
+// inserter
+// 假设it是inserter(c, iter)生成的迭代器，下面的1,2等效
+*it = val; // 1
+it = c.inserter(it, val); // 2.1
+++it; // 2.2
+```
+
+反向迭代器
+
+- 反向迭代器也有++和—-操作，反向迭代器的--等同于正向迭代器的++
+- 反向迭代器.base()会返回普通迭代器
+- begin()与rend()指向的是不同元素，实际上begin()指向容器正向第一个元素，rend()指向容器正向第一个元素之前的那个不存在的元素，end()与rbegin()同理；iter与iter.base()指向的同样不是同一个元素
+- 反向迭代器的目的是表示元素范围，而这些范围是不对称的（左闭合），所以当我们用普通迭代器初始化反向迭代器时，或是给反向迭代器赋值时，结果迭代器与原迭代器指向的并不是相同的元素
+
+```c++
+// 在逗号分隔的列表中寻找第一个单词
+auto comma = find(line, cbegin(), cend(), ',');;
+cout << string(line.cbegin(), comma);
+// 如果希望找最后一个单词，则用反向迭代器
+auto rcomma = find(line.crbegin(), line.crend(), ',');
+cout << string(line.crbegin(), rcomma); // 错误写法，在LAST,MIDDLE,LAST列表中会输出TSAL
+cout << string(line.crbegin().base(), rcomma); // 正确写法
+```
 
 ### string
 
@@ -3155,6 +3371,32 @@ c_str与data的争执：
 - `const char* string::c_str () const`：返回string存储的C风格的字符串，末尾有'\0`，注意返回值是string拥有的，所以调用者不能修改或者释放返回值
 - `const char* string::data () const`：返回string存储的字符串，末尾没有'\0'，所以不是严格意义上的C风格字符串，注意返回值是string拥有的，所以调用者不能修改或者释放返回值。
 - 但是C++11之后，data()也会保证是以'\0'结尾的，所以c_str()与data()的效果是一样的
+- 其他方法如：substr、额外的insert和erase（可一次性操作多个字符）、append、replace（等效于erase+insert）
+- string搜索：
+
+```c++
+s.find(args); // 查找s中args第一次出现的位置
+s.rfind(args); // 查找s中args最后一次出现的位置
+s.find_first_of(args); // 在s中查找args中任何一个字符第一次出现的位置
+s.find_last_of(args);
+s.find_first_not_of(args);
+s.find_last_not_of(args);
+
+// args必须是以下形式：
+// c,pos
+// s2,pos
+// cp,pos
+// cp,pos,n
+```
+
+- 特别的构造方法：
+
+```c++
+string s(cp); // cp是const char*，拷贝cp直至遇到空字符
+string s(cp, n); // s是cp指向的数组的前n个字符的拷贝，此数组至少应该包含n个字符
+string s(s2, pos2); // s是string s2从下标pos2开始的字符的拷贝，若pos2>s2.size()，则该构造函数的行为未定义
+string s(s2, pos2, len2); // // s是string s2从下标pos2开始的len2个字符的拷贝，若pos2>s2.size()，则该构造函数的行为未定义
+```
 
 ### vector
 
@@ -3164,9 +3406,13 @@ reserve(size_type n)：改变当前容器的**最大容量（capacity）**,它�
 
 vector::capacity()返回容器当前的容量，初始vector为空时，capacity为0，添加元素后，每次扩容时乘以2（GCC编译器），所以是0、1、2、4、8
 
+shrink_to_fit指示容器应退还多余内存，但是标准库并不一定保证退还
+
 vector::max_size()返回容器的最大可以存储多少个元素，这个数很大很大，一般用不到这么大的
 
 vector::clear()函数的作用是清空容器中的内容，但如果是指针对象的话，并不能清空其内容，必须要像以下方法一样才能达到清空指针对象的内容：
+
+vector不支持push_front
 
 ```c++
 vector<int*> xx;
@@ -3237,6 +3483,8 @@ C++11提供了单向链表forward_list
 - 单向链表对于insert操作比较麻烦，因为要找到前驱节点得从头开始遍历，所以forward_list提供了一个insert_after
 - 相比于list，forward_list还提供了back(), size(), push_back(), emplace_back(), pop_back()方法
 - 在元素较小的情况下，单向链表能节约内存，这牺牲了双向查找的遍历
+- 单向列表未定义insert, emplace, erase，而是定义了insert_after, emplace_after, erase_after
+- 还定义了首前迭代器，这个迭代器允许我们在链表首元素之前并不存在的元素“之后”添加或删除元素，有点像dummy节点
 
 ### deque
 
@@ -3248,16 +3496,14 @@ C++11提供了单向链表forward_list
 
 deque头文件只包含deque
 
-queue头文件包含deque、queue、priority_queue
-
-stack头文件包含deque、stack
-
 ![dequeiterator](../image/dequeiterator.png)
 
-### queue、stack
+### 容器适配器：queue、stack和priority_queue
 
 - queue、stack、priority_queue**不是容器，而是容器适配器，都没有迭代器**
-- queue与stack底层使用了deque，但也可以用list
+- queue与stack底层使用了deque
+- stack只要求push_back, pop_back, back，所以能使用除array和forward_list以外的所有容器构造
+- queue要求back, push_back, front, push_front，所以只能构造与list或者deque，不能用vector构造
 
 queue缺省用deque实现，FIFO，具有如下特点：
 
@@ -3272,16 +3518,19 @@ stack缺省用deque实现，LIFO，具有如下特点：
 - 没有begin()与end()，没有迭代器
 - 唯一的访问接口是top()
 - 用emplace代替emplace_back，用push代替push_back，用pop代替pop_back，没有insert和erase
+- 虽然用deque实现，但是不能直接调用deque的方法
 
+queue头文件包含deque、queue、priority_queue
+stack头文件包含deque、stack
 queue与stack的pop()的**返回值是void**，而top()/front()可以返回**指定元素的引用**
 
 - 这样设计可以减少pop的开销，如果要返回指定元素，因为要删除它，所以不能是引用，所以得拷贝构造一个，这就有开销了
 - 在pop时构造的元素需要分配内存，可能会产生异常，而此时元素已经删除了，所以会导致得不到想要的元素，所以在C++98的设计中，就让pop返回空，这样是异常安全的
 - 若要做到并发安全，得用wait_and_pop与try_pop，用锁或者原子量来做，可以参考无锁队列的实现，本篇中有对于陈皓博客的总结
 
-### priority_queue
+#### priority_queue
 
-- priority_queue底层支持vector、deque容器，但不支持list、map、set
+- priority_queue要求front、push_back和pop_back，所以底层支持vector、deque容器，但不支持list、map、set
 - 默认最大堆：使用缺省的less作为其Compare模板参数时，最大的数值会出现在容器的“顶部”。
 - 如果需要最小的数值出现在容器顶部，则可以传递greater函数对象作为其Compare模板参数。
 - pq是个模板，模板里的第一个类型时存储元素的类型，第二个类型时底层容器（默认用vector），第三个类型是compare类型，默认是less
@@ -3328,6 +3577,58 @@ set的key是value,value也是key。
   - 如果存在则返回true，如果不存在则返回false。
   - 事实上binary_search便是利用lower-bound先找出"假设value存在的话应该出现的位置"，然后再对比该位置上的值是否为我们所要查找的目标，并返回对比结果。
 
+### 顺序容器的初始化
+
+- C++11 可以使用列表初始化
+- 只有顺序容器的构造函数才接受参数大小，关联容器并不支持
+- 如果元素类型没有默认构造函数，则顺序容器使用大小参数进行初始化之外，还需要显式指定元素初始值
+
+```c++
+vector<int> ivec(10, -1); // 10个元素，每个元素都是-1
+list<string> svec(10, "hi!"); // 10个元素，每个元素都是"hi!"
+forward_list<int> ivec(10); // 10个元素，每个元素都是0
+deque<string> svec(10); // 10个元素，每个元素都是空string
+```
+
+### 顺序容器的insert与erase
+
+- 通过insert的返回值，可以实现在同一个位置反复插入元素
+- C++11的emplace(front/back)不拷贝元素，而是在容器中直接构造元素
+
+```c++
+c.insert(p,t); // 在迭代器p指向的元素之前创建一个为t创建的元素
+c.emplace(p,t);
+
+c.insert(p,n,t); // 在迭代器p指向的元素之前创建n个值为t创建的元素
+
+c.insert(p,b,e); // 在迭代器p指向的元素之前插入迭代器b和e指定的范围的元素，b和e不能指向c中的元素，返回指向新添加的第一个元素的迭代器，若范围为空，则返回p，左闭右开
+
+c.insert(p,il); // il是花括号包围的初始化列表，在迭代器p指向的元素之前插入这些值，返回指向新添加的第一个元素的迭代器，若范围为空，则返回p
+
+c.erase(p); // 删除迭代器p所指元素，返回一个指向被删元素之后的元素的迭代器，若p指向尾元素，则返回尾后迭代器，若p是尾后迭代器，则该行为未定义
+c.erase(b,e); // 删除b和e所指范围的所有元素，左闭右开
+c.clear(); // 删除元素中所有元素
+```
+
+### 关联容器
+
+- key_type：容器类型的关键字类型
+- mapped_type：每个关键字关联的类型，只适用于map
+- value_type：对于set，与key_type相同；对于map，与`pair<const key_type, mapped_type>`相同
+- set的迭代器是const的，不能通过set迭代器修改值
+- 通常不对关联容器使用泛型算法，因为关键字是const的，不能重排元素，但可用于只读取的泛型算法，如find，不过关联容器自定义的find成员会比调用find泛型算法快得多
+- insert的返回值是个pair，pair.first是迭代器，指向具有给定关键字的元素，pair.second是bool值，表明插入成功还是元素已经存在于关联容器中
+- 在关键字类型没有明显序关系的情况下，使用无序容器更快，使用了哈希技术，性能取决于桶数量和大小
+- 默认情况下，无序容器使用==比较元素，同时也可以重载默认比较操作，还可以自己提供哈希函数替代哈希值计算函数
+
+```c++
+size_t hasher(const Sales_data &sd) { return hash<string>() (sd.isbn()); }
+bool eqOp(const Sales_data &lhs, const Sales_data &rhs) { return lhs.isbn() == rhs.isbn(); }
+using SD_multiset = unordered_multiset<Sales_data, decltype(hasher)*, decltype(eqOp)*>;
+// 参数是桶大小，哈希函数指针，相等性运算判断指针0
+SD_multiset bookstore(42, hasher, eqOp);
+```
+
 ### map的一些问题/map底层为什么要用红黑树实现
 
 [关于 std::set/std::map 的几个为什么-陈硕](https://blog.csdn.net/Solstice/article/details/8521946)
@@ -3354,13 +3655,27 @@ template<
     std::size_t N>
 struct array;
 //(C++11 起)
+
+array<int, 42>;
+array<string, 10>;
+array<int, 10>::size_type i;
+array<int>::size_type j; //错误，array<int>不是一个类型
+array<int, 10> ia1; // 10个默认初始化的int
+array<int, 10> ia3 = {42}; // ia[0]为42，其他为0
+
+int digs[2] = {0,1};
+int cpy[2] = digs; // 错误，内置数组不支持拷贝
+array<int, 2> digits = {0, 1};
+array<int, 2> copy = digits; // 正确，array支持赋值
 ```
 
 - std::array是封装**固定大小**数组的容器。
 - 此容器是一个聚合类型，其语义等同于保有一个C风格数组`T[N]`作为其唯一非静态数据成员的结构体。
+- 一个默认构造的array是非空的，包含了与其大小一样多的元素，这些元素都被默认初始化
+- 如果对array进行列表初始化，初始值的数目必须等于或小于array的大小
+- 内置数组类型不支持拷贝或对象赋值，但是array可以
 - 不同于C风格数组，**它不会自动退化成 `T*`**，在传入函数参数，C风格数组会退化为指针。
-- 作为聚合类型，它能聚合初始化，只
-要有至多 N 个能转换成 T 的初始化器： `std::array<int, 3> a = {1,2,3};`
+- 作为聚合类型，它能聚合初始化，只要有至多 N 个能转换成 T 的初始化器： `std::array<int, 3> a = {1,2,3};`
 - 该结构体结合了C风格数组的性能和可访问性和容器的优点，譬如知晓其大小、支持赋值、随机访问等。
 - 对于零长array，array.begin()==array.end()
 - 对于零长array，调用front()或back()的效应是未定义的。
@@ -3526,6 +3841,24 @@ std::cout<<sizeof(ebo)<<std::endl; // 输出4，没有额外空间
 而在STL的容器中，不管是deque、rb_tree、list等容器，都离不开内存管理，内存管理是由某个特定的allocator类实现的，而这些容器都是继承这些。
 
 所以STL的内存管理就是通过采用继承的方式，使用空基类优化，来达到尽量降低容器所占的大小。
+
+### 泛型算法
+
+- 算法永远不会执行容器的操作，它们只会运行在迭代器之上
+- 迭代器令算法不依赖于容器，但是算法依赖于元素类型的操作，如==操作符，
+- 谓词（predicate）是一个可调用的表达式，返回结果是能用做条件的值，标准库使用的谓词分为一元谓词和二元谓词，分别接受一个参数和两个参数
+
+```c++
+bool isShorter(const string &s1, const string &s2) {
+    return s1.size() < s2.size();
+}
+sort(words.begin(), words.end(), isShorter);
+```
+
+- 谓词必须严格接受一个或两个参数，有时候需要更多参数，这时lambda表达式就派上用场了，我们可以向一个算法传递任何类别的可调用对象（callable object），除了函数和函数指针，还有重载了调用运算符的类，以及lambda表达式
+- 有些算法提供_if版本，新增谓词参数
+- 有些算法提供_copy版本，这样就不会改变原容器的元素，而把结果拷贝到一个新的容器中
+- list和forward_list最好使用它们成员函数，而不是通用泛型算法，因为做了优化，比如改变元素间的链接而不是交换元素，注意链表特有的操作会改变容器
 
 ### std::sort
 
@@ -10656,16 +10989,17 @@ Kafka是LinkedIn开源的分布式发布-订阅消息系统，目前归属于Apa
 
 CAP理论：
 
-- 第一版定义：对于一个分布式计算系统，不可能同时满足一致性（Consistence）、可用性（Availability）、分区容错性（Partition Tolerance）三个设计约束。
-    - 一致性：在分布式环境下，数据在多个副本之间能否保持一致的特性
-    - 可用性：系统提供的服务必须一直处于可用的状态，有限时间内，返回结果
-    - 分区容错性：分布式系统在遇到任何网络分区故障的时候，仍然需要能够保证对外提供满足一致性和可用性的服务，除非是整个网络环境都发生了故障。
-- 第二版定义：在一个分布式系统（指互相连接并共享数据的节点的集合）中，当涉及读写操作时，只能保证一致性（Consistence）、可用性（Availability）、分区容错性（Partition Tolerance）三者中的两个，另外一个必须被牺牲。
-    - 一致性：对某个指定的客户端来说，读操作保证能够返回最新的写操作结果。
-    - 可用性：非故障的节点在合理的时间内返回合理的响应（不是错误和超时的响应）。
-    - 分区容错性：当出现网络分区后，系统能够继续“履行职责”。
+- 一致性（Consistency）：每次读取要么获得最近写入的数据，要么获得一个错误。
+
+- 可用性（Availability）：每次请求都能获得一个（非错误）响应，但不保证返回的是最新写入的数据。
+
+- 分区容忍（Partition tolerance）：尽管任意数量的消息被节点间的网络丢失（或延迟），系统仍继续运行。
+
 - CAP关注的是对数据的读写操作，而不是分布式系统的所有功能。例如，ZooKeeper的选举机制就不是CAP探讨的对象。
 - 虽然CAP理论定义是三个要素中只能取两个，但放到分布式环境下来思考，我们会发现必须选择P（分区容忍）要素，因为网络本身无法做到100%可靠，有可能出故障，所以分区是一个必然的现象。如果我们选择了CA而放弃了P，那么当发生分区现象时，为了保证C，系统需要禁止写入，当有写入请求时，系统返回error（例如，当前系统不允许写入），这又和A冲突了，因为A要求返回no error和no timeout。因此，分布式系统理论上不可能选择CA架构，只能选择CP或者AP架构。
+  - CA (consistency + availability)，这样的系统关注一致性和可用性，它需要非常严格的全体一致的协议，比如“两阶段提交”（2PC）。CA 系统不能容忍网络错误或节点错误，一旦出现这样的问题，整个系统就会拒绝写请求，因为它并不知道对面的那个结点是否挂掉了，还是只是网络问题。唯一安全的做法就是把自己变成只读的。
+  - CP (consistency + partition tolerance)，这样的系统关注一致性和分区容忍性。它关注的是系统里大多数人的一致性协议，比如：Paxos 算法 (Quorum 类的算法)。这样的系统只需要保证大多数结点数据一致，而少数的结点会在没有同步到最新版本的数据时变成不可用的状态。这样能够提供一部分的可用性。
+  - AP (availability + partition tolerance)，这样的系统关心可用性和分区容忍性。因此，这样的系统不能达成一致性，需要给出数据冲突，给出数据冲突就需要维护数据版本。Dynamo 就是这样的系统。
 - CAP关注的**粒度**是数据，而不是整个系统。
 - CAP忽略网络延迟
 - 正常运行情况下，不存在CP和AP的选择，可以同时满足CA。这就要求架构设计的时候既要考虑分区发生时选择CP还是AP，也要考虑分区没有发生时如何保证CA
