@@ -8,13 +8,9 @@
 >7. 泛型的高级应用——通配符(wildcard)
 >8. 泛型通配符的扩展阅读
 
+## 泛型（Generic）
 
-![Paste_Image.png](http://upload-images.jianshu.io/upload_images/2106579-c7e4e970956fab09.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
-
-##泛型（Generic）
-
-###1、JDK5之前集合对象使用问题
+### 1、JDK5之前集合对象使用问题
 
 1. 可以向集合添加任何类型对象 
 
@@ -22,7 +18,7 @@
 
 3. 程序存在安全隐患 
 
-###2、泛型的出现
+### 2、泛型的出现
 
 1. JDK5中的泛型允许程序员使用泛型技术限制集合的处理类型
 
@@ -36,13 +32,13 @@
     - ArrayList<Integer>中的Integer称为实际类型参数。
     - 整个ArrayList<Integer>称为参数化类型ParameterizedType
 
-###3、 泛型应用
+### 3、 泛型应用
 
 - 类型安全检查
 
 - 编写通用Java程序（Java框架）
 
-###4、泛型典型应用
+### 4、泛型典型应用
 
 1. 使用Type-Safe的集合对象
 
@@ -52,10 +48,9 @@
 
     - Map
 
-    ![](http://upload-images.jianshu.io/upload_images/2106579-5ed5d57350489a31.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-
 2. List示例：
 
+    ```java
         //使用类型安全List
         List<String> list = new LinkedList<String>();
         //因为使用泛型，只能添加String类型元素
@@ -83,9 +78,11 @@
         for (String s : list) {
             System.out.println(s);
         }
+    ```
 
 3. Set示例：
     
+    ```java
         //使用类型安全Set
         Set<String> set = new TreeSet<String>();
 
@@ -105,9 +102,11 @@
         for (String s : set) {
             System.out.println(s);
         }
+    ```
 
 4. Map示例：
 
+    ```java
         //使用类型安全的Map -- 因为Map是一个键值对结构，执行两个类型泛型
         Map<String, String> map = new HashMap<String, String>();
 
@@ -128,18 +127,22 @@
             //通过entry的getKey()和getValue()获得每一个键值对的键和值
             System.out.println(entry.getKey() + ":" + entry.getValue());
         }
+    ```
 
-###5、自定义泛型——泛型方法
+### 5、自定义泛型——泛型方法
 
 1. Java中的普通方法、构造方法和静态方法中都可以使用泛型。方法使用泛型前，必须对泛型进行声明，语法：<T>，T可以是任意字母，但通常必须要大写。<T>通常需放在方法的返回值声明之前。
 例如：
-        
+
+    ```java  
         public static <T> void doxx(T t）;
+    ```
 
 2. 假设有这样一个需求，要求实现指定位置上数组元素的交换，这个数组中的元素可能是int型，可能是String类型。
 
     - 未使用泛型代码如下：
 
+        ```java
             //String类型数组
             public void changePosition(String[] arr, int index1, int index2) {
                 String temp = arr[index1];
@@ -161,9 +164,11 @@
             String[] arr2 = new String[] { "aaa", "bbb", "ccc", "ddd" };
             changePosition(arr2, 0, 2);
             System.out.println(Arrays.toString(arr2));
-    
+        ```
+
     - 使用泛型代码如下：
         
+        ```java
             // 使用泛型 编写交换数组通用方法，类型可以String 可以 int --- 通过类型
             public <T> void changePosition(T[] arr, int index1, int index2) {
                 T temp = arr[index1];
@@ -178,18 +183,21 @@
             String[] arr2 = new String[] { "aaa", "bbb", "ccc", "ddd" };
             changePosition(arr2, 0, 2);
             System.out.println(Arrays.toString(arr2));
-    
+        ```
+
     - 两者输出相同，所以利用泛型可以编写通用的Java程序
 
-###6、自定义泛型——泛型类
+### 6、自定义泛型——泛型类
 
 1. 如果一个类多处都要用到同一个泛型，这时可以吧泛型定义在类上（即类级别的泛型），语法如下：
 
+    ```java
         public class GenericDao<T>{
             private T field1;
             public void save(T obj){}
             public T getId(int id){}
         }
+    ```
 
     >**注意：**静态方法不能使用类定义的泛型，应该单独定义泛型。
 
@@ -197,6 +205,7 @@
 
     如果在1.5节中还需要一个需求：倒序数组，那么可以自定义一个泛型类：
         
+    ```java
         public class ArraysUtils<A> { // 类的泛型
             // 将数组倒序
             public void reverse(A[] arr) {
@@ -218,14 +227,16 @@
                 arr[index2] = temp;
             }
         }
+    ```
 
 >对应泛型类型参数起名 T E K V ---- 泛型类型可以以任意大写字母命名，建议你使用有意义的字母
 如：T Template E Element  K key V value  
 
-###7、泛型的高级应用——通配符(wildcard)
+### 7、泛型的高级应用——通配符(wildcard)
 
 1. 假设有一个方法，接受一个集合，并打印出集合中的所有元素，如下所示：
 
+    ```java
         // ? 代表任意类型
         public void print(List<?> list) { // 泛型类型 可以是任何类型 --- 泛型通配符
             for (Object string : list) {
@@ -250,20 +261,28 @@
     
             print(list2);
         }
+    ```
 
 2. 只用通配符的情况下很少，通常还需要通过指定上下边界，限制通配符类型范围。
     用法：
     
     - 指定上边界：
-        
+
+        ```java    
             List<？ extends Number> list = new ArrayList<Integer>(); //继承自Number，即指定了泛型的上边界为Number，且包括Number
+        ```
 
     - 指定下边界：
     
+        ```java
             List<? super String> list = new ArrayList<Object>(); //是String的父类，即指定了泛型的下边界为String，且包括String
+        ```
         
     - 上下边界不能同时使用 ：
+
+        ```java
             List<? extends Object super Integer> list = new ArrayList<Object>(); //错误！没有这么写的
+        ```
 
 3. 上下边界的应用：
 
@@ -273,9 +292,11 @@
     
     即有如下代码，可以运行成功：
         
+        ```java
             Set<Number> set = new HashSet<Number>();
             List<Integer> list = new ArrayList<Integer>();
             set.addAll(list); // list 中 Integer 自动转换为 Number
+        ```
     
     - 范例二：
 
@@ -283,40 +304,47 @@
     
     即有如下代码，可以运行成功：
     
+        ```java
             Set<Apple> set = new TreeSet<Apple>(); // 默认需要苹果比较器排序 
             
             class FruitComparator implements Comparator<Fruit> {} //水果的比较器
             Set<Apple> set = new TreeSet<Apple>(new FruitComparator()); // 需要Apple比较器 ，传入 Fruit比较器    ，依据构造方法，可行    
+        ```
 
 4. 错误范例：
 
+    ```java
         public void add(List<? extends Number> list){
             list.add(100);  //会报错！使用通配符后，不要使用与类型相关的方法。
         }
+    ```
 
-###8、泛型通配符的扩展阅读
+### 8、泛型通配符的扩展阅读
 
 1. 关于泛型还可深入研究，在《Effective Java 2th Edition》有相关介绍，感兴趣的同学可以阅读一下。
 
 2. 最后还介绍一下关于泛型通配符的上下边界问题，什么时候用上边界，什么时候用下边界？
-PECS：producer extends consumer super
 
-    1. 频繁往外读取内容的，适合用上界Extends。
+PECS：producer extends consumer super，该准则是以容器为视角
+
+    1. producer：只读，适合用上界Extends。
     
-    2. 经常往里插入的，适合用下界Super。
+    2. consumer：只写，适合用下界Super。
 
-3. 例如：
+    3. 又读又写时，不用通配符
 
-        // compile error
-        //    List <? extends Fruit> appList2 = new ArrayList();
-        //    appList2.add(new Fruit());
-        //    appList2.add(new Apple());
-        //    appList2.add(new RedApple());
+Suppose you have a method that takes as its parameter a collection of things, but you want it to be more flexible than just accepting a Collection<Thing>.
 
-        // no error
-        List <? super Fruit> appList = new ArrayList();
-        appList.add(new Fruit());
-        appList.add(new Apple());
-        appList.add(new RedApple());
+Case 1: You want to go through the collection and do things with each item.
+Then the list is a producer, so you should use a Collection<? extends Thing>.
 
->http://stackoverflow.com/questions/2723397/what-is-pecs-producer-extends-consumer-super
+The reasoning is that a Collection<? extends Thing> could hold any subtype of Thing, and thus each element will behave as a Thing when you perform your operation. (You actually cannot add anything (except null) to a Collection<? extends Thing>, because you cannot know at runtime which specific subtype of Thing the collection holds.)
+
+Case 2: You want to add things to the collection.
+Then the list is a consumer, so you should use a Collection<? super Thing>.
+
+The reasoning here is that unlike Collection<? extends Thing>, Collection<? super Thing> can always hold a Thing no matter what the actual parameterized type is. Here you don't care what is already in the list as long as it will allow a Thing to be added; this is what ? super Thing guarantees.
+
+> 参考：http://stackoverflow.com/questions/2723397/what-is-pecs-producer-extends-consumer-super
+
+> 原文发表于：https://www.jianshu.com/p/dc70a0058a29, by 2016.10.03 17:49:50 有所修改
