@@ -129,7 +129,7 @@ public:
 };
 ```
 
-### 11.盛最多水的容器
+### 11.盛最多水的容器 @hot100
 
 给定 n 个非负整数 a1，a2，...，an，每个数代表坐标中的一个点 (i, ai) 。在坐标内画 n 条垂直线，垂直线 i 的两个端点分别为 (i, ai) 和 (i, 0)。找出其中的两条线，使得它们与 x 轴共同构成的容器可以容纳最多的水。
 
@@ -165,9 +165,16 @@ public:
 
 思路两线段之间形成的区域总是会受到其中较短那条长度的限制。此外，两线段距离越远，得到的面积就越大。
 
-我们在由线段长度构成的数组中使用两个指针，一个放在开始，一个置于末尾。 在每一步中，计算矩形，更新 maxA，并将**指向较短线段的指针向较长线段那端移动一步**，两个指针相互靠近时，矩形的底是变小的，所以只有高变大才有可能面积变大，所以，让短的那个边向中间靠近，这个思想挺巧妙的
+我们在由线段长度构成的数组中使用两个指针，一个放在开始，一个置于末尾。 在每一步中，计算矩形，更新 maxA，并将**指向较短线段的指针向较长线段那端移动一步**，两个指针相互靠近时，矩形的底是变小的，所以只有高变大才有可能面积变大，所以，让短的那个边向中间靠近，这个思想挺巧妙的，接下来证明，为什么这样移动不会错过更大的面积
 
-时间复杂度O(n)
+```shell
+1. 若暴力枚举，状态总共有C(n,2)个
+2. 假设在状态S(i,j)下h[i]<h[j]，则i向内移动，变成S(i+1,j)，此时状态集合U:{S(i,i+1), S(i,i+2), ... S(i,j-1), S(i,j)}没有被计算到
+3. 每个状态的高度<=h[i]，又因为h[i]<h[j]，所以每个状态的高度都＜h[j]，而又因为j-i是最宽的，所以这些状态既没有S(i,j)宽，也没有S(i,j)高，于是肯定不会是面积最大的
+4. 所以这样的移动，不会错过最大面积
+```
+
+时间复杂度O(n)、空间复杂度O(1)
 
 ```c++
 class Solution {
@@ -186,6 +193,32 @@ public:
             }
         }
         return maxA;
+    }
+};
+```
+
+刷hot100，想到了类似于暴力解法的动态规划，超出时间了，而且这种暴力还不如之前的优雅
+
+```c++
+class Solution {
+public:
+    int maxArea(vector<int>& height) {
+        if (height.empty()) return 0;
+        // 以当前元素为左端点所能容纳的雨水体积最大值
+        int len = height.size();
+        vector<int> volumns(len, 0);
+        for (int i = 1; i < len; ++i) {
+            for (int j = 0; j < i; ++j) {
+                // 以j为左端点，以i为右端点，所能容纳雨水体积
+                int area = min(height[i], height[j]) * (i - j);
+                volumns[j] = max(volumns[j], area);
+            }
+        }
+        int max_area = 0;
+        for (int volumn : volumns) {
+            max_area = max(max_area, volumn);
+        }
+        return max_area;
     }
 };
 ```
@@ -273,6 +306,49 @@ class Solution {
 链接：https://leetcode-cn.com/problems/3sum/solution/cpai-xu-hou-jia-ji-de-fang-shi-xiang-xi-zhu-shi-by/
 来源：力扣（LeetCode）
 著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+```
+
+刷hot100，上面的易读性不好，重写一下
+
+```c++
+class Solution {
+public:
+    vector<vector<int>> threeSum(vector<int>& nums) {
+        sort(nums.begin(), nums.end());
+        int len = nums.size();
+        vector<vector<int>> res;
+        int i = 0;
+        while (i < len) { // 改为while(i < len - 2)能更快点
+            if (nums[i] > 0) break; // 加这句能更快点
+            // satisfy i != lo != hi
+            int lo = i + 1;
+            int hi = len - 1;
+            while (lo < hi) {
+                int sum = nums[i] + nums[lo] + nums[hi];
+                if (sum == 0) {
+                    res.push_back({nums[i], nums[lo], nums[hi]});
+                    ++lo;
+                    while (lo < hi && nums[lo] == nums[lo - 1]) {
+                        // 固定了其中两个数，lo代表的数不能重复，否则三元组会重复
+                        ++lo;
+                    }
+                    --hi;
+                    while (lo < hi && nums[hi] == nums[hi+1]) {
+                        // 固定了其中两个数，hi代表的数不能重复，否则三元组会重复
+                        --hi;
+                    }
+                } else if (sum < 0) {
+                    ++lo;
+                } else {
+                    --hi;
+                }
+            }
+            ++i;
+            while (i < len && nums[i] == nums[i-1]) ++i;
+        }
+        return res;
+    }
+};
 ```
 
 ### 16.最接近的三数之和
@@ -466,6 +542,94 @@ public:
 282/282 cases passed (56 ms)
 Your runtime beats 52.37 % of cpp submissions
 Your memory usage beats 86.07 % of cpp submissions (9.1 MB)
+
+### 1010. 总持续时间可被 60 整除的歌曲（Medium）
+
+在歌曲列表中，第 i 首歌曲的持续时间为 time[i] 秒。
+
+返回其总持续时间（以秒为单位）可被 60 整除的歌曲对的数量。形式上，我们希望下标数字 i 和 j 满足  i < j 且有 (time[i] + time[j]) % 60 == 0。
+
+示例 1：
+
+输入：time = [30,20,150,100,40]
+输出：3
+解释：这三对的总持续时间可被 60 整除：
+(time[0] = 30, time[2] = 150): 总持续时间 180
+(time[1] = 20, time[3] = 100): 总持续时间 120
+(time[1] = 20, time[4] = 40): 总持续时间 60
+示例 2：
+
+输入：time = [60,60,60]
+输出：3
+解释：所有三对的总持续时间都是 120，可以被 60 整除。
+
+提示：
+
+1 <= time.length <= 6 * 104
+1 <= time[i] <= 500
+
+我写的，不够优雅，时空复杂度都偏高
+
+```c++
+class Solution {
+public:
+    int getPairNums(unordered_map<int, int> &hash, int duration) {
+        int min = 60;
+        int step = 1;
+        int ans = 0;
+        while (min * step < 1000) {
+            if (hash.count(min*step-duration)) {
+                ans += hash[min*step-duration];
+            }
+            ++step;
+        }
+        return ans;
+    }
+
+    int numPairsDivisibleBy60(vector<int>& time) {
+        unordered_map<int, int> hash; // 长度为key的歌曲共有value首
+        int ans = 0;
+        for (int i = 0; i < time.size(); ++i) {
+            ans += getPairNums(hash, time[i]);
+            hash[time[i]]++;
+        }
+        return ans;
+    }
+};
+```
+
+不难得出，符合条件的两个数是模60意义下互为加法逆元的两个数。因为是加法群，可知逆元的唯一性，所以每个数的贡献就是之前出现的逆元数量。直接哈希表或者数组计数即可。
+时间O(n)，空间O(U)，此处U=60。
+
+遍历 time：
+
+- 举例，如果 time[i]=1，那么需要知道左边有多少个模 60 余数是 59 的数。
+- 举例，如果 time[i]=62，那么需要知道左边有多少个模 60 余数是 58 的数。
+- 一般地，对于 time[i]，需要知道左边有多少个模 60 余数是 60−time[i] mod 60 的数。
+- 特别地，如果 time[i] 模 60 的余数是 0，那么需要知道左边有多少个模 60 余数也是 0 的数。
+- 这两种情况可以合并为：累加左边 (60−time[i] mod 60) mod 60 的出现次数。
+- 代码实现时，用一个长为 60 的数组 cnt 维护 time[i] mod 60 的出现次数。
+
+```c++
+class Solution {
+public:
+    int numPairsDivisibleBy60(vector<int> &time) {
+        int ans = 0, cnt[60]{};
+        for (int t : time) {
+            // 先查询 cnt，再更新 cnt，因为题目要求 i<j
+            // 如果先更新，再查询，就把 i=j 的情况也考虑进去了
+            ans += cnt[(60 - t % 60) % 60];
+            cnt[t % 60]++;
+        }
+        return ans;
+    }
+};
+
+作者：灵茶山艾府
+链接：https://leetcode.cn/problems/pairs-of-songs-with-total-durations-divisible-by-60/solutions/2259343/liang-shu-zhi-he-de-ben-zhi-shi-shi-yao-bd0r1/
+来源：力扣（LeetCode）
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+```
 
 ### 26.从排序数组中删除重复项 （数组）
 
@@ -664,7 +828,7 @@ public:
         for(int i = len - 1; i > 0 ; --i){
             if(nums[i] > nums[i - 1]){
                 for(int j = len - 1; j >= i; --j){
-                    if(nums[j] > nums[i - 1]){
+                    if(nums[j] > nums[i - 1]) {
                         swap(nums[j], nums[i - 1]);
                         for(int k = i; k < i + (len - i) / 2; ++k){
                             swap(nums[k], nums[len - 1 - (k - i)]);
@@ -723,9 +887,9 @@ public:
         for(int i = len - 1; i > 0 ; --i){
             if(nums[i] > nums[i - 1]){
                 for(int j = len - 1; j >= i; --j){
-                    if(nums[j] > nums[i - 1]){
-                        swap(nums[j], nums[i - 1]);
-                        reverse(nums.begin() + i, nums.end());
+                    if(nums[j] > nums[i - 1]) {
+                        swap(nums[j], nums[i - 1]); // 从右往左，第一个满足的就交换
+                        reverse(nums.begin() + i, nums.end()); // i..end是降序的，所以要逆序变成升序的
                         swapFlag = true;
                         break;
                     }
@@ -734,7 +898,7 @@ public:
             }
         }
         if(!swapFlag){
-            reverse(nums.begin(), nums.end());
+            reverse(nums.begin(), nums.end()); // 如果之前没有reverse过，说明整个序列是降序的（最大的排列），直接逆转成最小的排列
         }
     }
 };
@@ -868,7 +1032,56 @@ public:
 };
 ```
 
-### 42.接雨水(Hard)
+### 41. 缺失的第一个正数(Hard) @hot100
+
+给你一个未排序的整数数组 nums ，请你找出其中没有出现的最小的正整数。
+
+请你实现时间复杂度为 O(n) 并且只使用常数级别额外空间的解决方案。
+
+示例 1：
+
+输入：nums = [1,2,0]
+输出：3
+示例 2：
+
+输入：nums = [3,4,-1,1]
+输出：2
+示例 3：
+
+输入：nums = [7,8,9,11,12]
+输出：1
+
+提示：
+
+1 <= nums.length <= 5 * 105
+-231 <= nums[i] <= 231 - 1
+
+此题难点在于O(n)的时间复杂度，并且O(1)的额外空间，数组题目要求时间复杂度O(n)意味着只能遍历、双指针、快慢指针、滑动窗口等等，而O(1)的额外空间不能用数组、哈希表等等，但可以复用原数组，注意到数组下标的也是[0, 1, 2, ... N-1]，如果能把值为1~N的元素放到数组对应下标中，则问题迎刃而解，最后遍历一下看哪个位置不匹配即可
+
+```c++
+class Solution {
+public:
+    int firstMissingPositive(vector<int>& nums) {
+        int len = nums.size();
+        // 遍历一次数组把大于等于1的和小于数组大小的值放到原数组对应位置，然后再遍历一次数组查当前下标是否和值对应，如果不对应那这个下标就是答案，否则遍历完都没出现那么答案就是数组长度加1。
+        for (int i = 0; i < len; ++i) {
+            while (nums[i] >= 1 && nums[i] <= len && nums[i] != nums[nums[i] - 1]) {
+                // 交换
+                swap(nums[i], nums[nums[i] - 1]);
+            }
+        }
+        // 此时1~len的正数都应该在自己的位置上了，nums[i]=i
+        for (int i = 0; i < len; ++i) {
+            if (i + 1 != nums[i]) {
+                return i + 1;
+            }
+        }
+        return len + 1;
+    }
+};
+```
+
+### 42.接雨水(Hard) @hot100
 
 给定 n 个非负整数表示每个宽度为 1 的柱子的高度图，计算按此排列的柱子，下雨之后能接多少雨水。
 
@@ -942,6 +1155,8 @@ public:
 
 本题解的双指针先找到当前维护的左、右最大值中较小的那个，例 当前 i 处左边的最大值如果比右边的小，那么就可以不用考虑 i 处右边最大值的影响了，因为 i 处 右边真正的最大值绝对比左边的最大值要大，在不断遍历时，更新max_l和max_r以及返回值即可。例 [0,1,0,2,1,0,1,3,2,1,2,1]中i=2时，值为0，此时max_l一定为1，当前max_r如果为2，即便max_r不是真正的i右边的最大值，也可忽略右边最大值的影响，因为右边真正的最大值一定比左边真正的最大值大。
 
+**刷hot100时，感觉与11相似，双指针最重要的是求证仅移动一个指针时，丢掉的状态一定不比当前状态好，这样就可以放心的丢弃**
+
 ```c++
 class Solution {
 public:
@@ -966,24 +1181,20 @@ public:
 };
 ```
 
-单调递减栈
+单调递减栈，空间复杂度O(n)，时间复杂度O(n)
 
-理解题目，参考图解，注意题目的性质，当后面的柱子高度比前面的低时，是无法接雨水的。当找到一根比前面高的柱子，就可以计算接到的雨水。所以使用单调递减栈
+说到栈，我们肯定会想到括号匹配了。我们仔细观察蓝色的部分，可以和括号匹配类比下。每次匹配出一对括号（找到对应的一堵墙），就计算这两堵墙中的水。
 
-对更低的柱子入栈
+我们用栈保存每堵墙。
 
-更低的柱子以为这后面如果能找到高柱子，这里就能接到雨水，所以入栈把它保存起来。平地相当于高度 0 的柱子，没有什么特别影响。当出现高于栈顶的柱子时
+当遍历墙的高度的时候，如果当前高度小于栈顶的墙高度，说明这里会有积水，我们将墙的高度的下标入栈。
 
-1. 说明可以对前面的柱子结算了
-2. 计算已经到手的雨水，然后出栈前面更低的柱子
+如果当前高度大于栈顶的墙的高度，说明之前的积水到这里停下，我们可以计算下有多少积水了。计算完，就把当前的墙继续入栈，作为新的积水的墙。
 
-计算雨水的时候需要注意的是
+总体的原则就是，
 
-- 雨水区域的右边 r 指的自然是当前索引 i
-- 底部是栈顶 st.top() ，因为遇到了更高的右边，所以它即将出栈，使用 cur 来记录它，并让它出栈
-- 左边 l 就是新的栈顶 st.top()
-
-雨水的区域全部确定了，水坑的高度就是左右两边更低的一边减去底部，宽度是在左右中间，使用乘法即可计算面积
+1. 当前高度小于等于栈顶高度，入栈，指针后移。
+2. 当前高度大于栈顶高度，出栈，计算出当前墙和栈顶的墙之间水的多少，然后计算当前的高度和新栈的高度的关系，重复第 2 步。直到当前墙的高度不大于栈顶高度或者栈空，然后把当前墙入栈，指针后移。
 
 ```c++
 class Solution {
@@ -993,12 +1204,12 @@ public:
         stack<int> st;
         for (int i = 0; i < height.size(); i++) {
             while (!st.empty() && height[st.top()] < height[i]) {
-                int cur = st.top();
+                int cur = st.top(); // 计算cur位置能接多少雨水
                 st.pop();
                 if (st.empty()) break;
                 int l = st.top();
                 int r = i;
-                int h = min(height[r], height[l]) - height[cur]; // 当前储水高度
+                int h = min(height[r], height[l]) - height[cur]; // cur位置能储水高度
                 ans += (r - l - 1) * h; // 面积
             }
             st.push(i);
@@ -1008,7 +1219,7 @@ public:
 };
 ```
 
-### 48.旋转图像
+### 48.旋转图像 @hot100
 
 给定一个 *n* × *n* 的二维矩阵表示一个图像。
 
@@ -1057,6 +1268,28 @@ public:
 };
 ```
 
+刷hut100时，在上面的方法有点优化，四个元素的循环移位，只需要三次交换即可
+
+```c++
+class Solution {
+public:
+    void rotate(vector<vector<int>>& matrix) {
+        // matrix[i][j]旋转后到达matrix[j][n-i]
+        int n = matrix.size();
+        if (n == 0 || n == 1) return;
+        for (int layer = 0; layer < n / 2; ++layer) {
+            for (int k = layer; k < n - 1 - layer; ++k) {
+                 // n - layer个元素，及其对应的三个方向的元素，循环换位，[i][j]→[j][n-1-i]
+                 int i = layer, j = k;
+                 swap(matrix[i][j], matrix[j][n-1-i]); // shan
+                 swap(matrix[n-1-i][n-1-j], matrix[n-1-j][i]);
+                 swap(matrix[i][j], matrix[n-1-i][n-1-j]); // 对角换
+            }
+        }
+    }
+};
+```
+
  先转置再翻转每一行，也是4ms
 
 思路：往右旋转90°，相当于矩阵先转置，再翻转每一行，注意循环的终止条件，时间复杂度O(N^2)，空间复杂度为O(1)
@@ -1080,7 +1313,7 @@ public:
 };
 ```
 
-### 56. 合并区间
+### 56. 合并区间 @hot100
 
 给出一个区间的集合，请合并所有重叠的区间。
 
@@ -1128,10 +1361,13 @@ public:
         for (int i = 0; i < size; ++i) {
             int l = intervals[i][0];
             int r = intervals[i][1];
+            // 寻找当前结果区间的右端点
             while (i < size - 1 && r >= intervals[i+1][0]) {
+                // 当前右端点大于或等于下一个区间的左端点，说明连起来
                 r = max(r, intervals[i+1][1]);
                 ++i;
             }
+            // 遍历完所有区间，或者右端点不连续，输出当前区间
             ans.push_back({l, r});
         }
         return ans;
@@ -1175,7 +1411,122 @@ public:
 };
 ```
 
-### 75. 颜色分类
+### 73. 矩阵置零 @hot100
+
+给定一个 m x n 的矩阵，如果一个元素为 0 ，则将其所在行和列的所有元素都设为 0 。请使用 原地 算法。
+
+示例 1：
+
+输入：matrix = [[1,1,1],[1,0,1],[1,1,1]]
+输出：[[1,0,1],[0,0,0],[1,0,1]]
+示例 2：
+
+输入：matrix = [[0,1,2,0],[3,4,5,2],[1,3,1,5]]
+输出：[[0,0,0,0],[0,4,5,0],[0,3,1,0]]
+
+提示：
+
+m == matrix.length
+n == matrix[0].length
+1 <= m, n <= 200
+-231 <= matrix[i][j] <= 231 - 1
+
+进阶：
+
+一个直观的解决方案是使用  O(mn) 的额外空间，但这并不是一个好的解决方案。
+一个简单的改进方案是使用 O(m + n) 的额外空间，但这仍然不是最好的解决方案。
+你能想出一个仅使用常量空间的解决方案吗？
+
+自己想的，O(m+n)额外空间，直接AC了，用两个一位数组记录含零的行号和列号
+
+```c++
+class Solution {
+public:
+    void setZeroes(vector<vector<int>>& matrix) {
+        int m = matrix.size();
+        if (m == 0) return;
+        int n = matrix[0].size();
+        if (n == 0) return;
+        vector<int> row_zeros (m, 1);
+        vector<int> col_zeros (n, 1);
+        for (int i = 0; i < m; ++i) {
+            for (int j = 0; j < n; ++j) {
+                if (matrix[i][j] == 0) {
+                    row_zeros[i] = 0;
+                    col_zeros[j] = 0;
+                }
+            }
+        }
+        for (int i = 0; i < m; ++i) {
+            if (row_zeros[i] == 0) {
+                vector<int>(n, 0).swap(matrix[i]);
+            }
+        }
+        for (int j = 0; j < n; ++j) {
+            if (col_zeros[j] == 0) {
+                for (int i = 0; i < m; ++i) {
+                    matrix[i][j] = 0;
+                }
+            }
+        }
+    }
+};
+```
+
+题解的方法是用第一行第一列来标记该行是否被置零了，但原来第一行第一列的信息会被覆盖，所以用两个标记变量标记他们原来是否需要置零，注意到行or列置零，第一行or第一列的对应元素会填入0，这既代表置零（因为置零的规则就是上下左右所有元素都置零），也代表标记（该行会被置零），第一次完整遍历用来更新第一行第一列，第二次完整遍历用来将第一行第一列之外的元素置零
+
+```c++
+class Solution {
+public:
+    void setZeroes(vector<vector<int>>& matrix) {
+        int m = matrix.size();
+        if (m == 0) return;
+        int n = matrix[0].size();
+        if (n == 0) return;
+        bool row_flag = false;
+        bool col_flag = false;
+        for (int i = 0; i < m; ++i) {
+            if (matrix[i][0] == 0) {
+                col_flag = true;
+            }
+        }
+        for (int j = 0; j < n; ++j) {
+            if (matrix[0][j] == 0) {
+                row_flag = true;
+                break;
+            }
+        }
+        // 从第二行第二列开始遍历
+        for (int i = 1; i < m; ++i) {
+            for (int j = 1; j < n; ++j) {
+                if (matrix[i][j] == 0) {
+                    matrix[i][0] = 0; // 用首列来代表该行是否会被置零
+                    matrix[0][j] = 0; // 用首行来代表该列是否会被置零
+                }
+            }
+        }
+        // 除第一行第一列外，所有元素该置零的置零
+        for (int i = 1; i < m; ++i) {
+            for (int j = 1; j < n; ++j) {
+                if (matrix[i][0] == 0 || matrix[0][j] == 0) {
+                    matrix[i][j] = 0;
+                }
+            }
+        }
+        // 第一行第一列置零
+        if (row_flag) {
+            vector<int>(n, 0).swap(matrix[0]);
+        }
+        if (col_flag) {
+            for (int i = 0; i < m; ++i) {
+                matrix[i][0] = 0;
+            }
+        }
+    }
+};
+```
+
+### 75. 颜色分类(Medium) @hot100
 
 给定一个包含红色、白色和蓝色，一共 n 个元素的数组，原地对它们进行排序，使得相同颜色的元素相邻，并按照红色、白色、蓝色顺序排列。
 
@@ -1198,106 +1549,31 @@ public:
 
 我们用三个指针（p0, p2 和curr）来分别追踪0的最右边界，2的最左边界和当前考虑的元素。
 
-本解法的思路是沿着数组移动 curr 指针，若nums[curr] = 0，则将其与 nums[p0]互换；若 nums[curr] = 2 ，则与 nums[p2]互换。
+本解法的思路是沿着数组移动 curr 指针，
+
+- 若nums[curr] = 0，则将其与 nums[p0]互换；换完之后的cur位置的元素肯定在正确的位置上，所以++cur，处理下一个元素
+- 若 nums[curr] = 2 ，则与 nums[p2]互换。换完之后cur的位置有可能是0,1,2，所以不一定在正确的位置上，所以不能++cur，需要继续处理cur
 
 ```c++
 class Solution {
 public:
     void sortColors(vector<int>& nums) {
-        if (nums.empty() || nums.size() == 1) return;
-        int i = 0;
-        int j = nums.size() - 1;
-        while (i <= j && nums[i] == 0) ++i; // 跳过前导0，i指向第一个不为0的下标
-        int cur = i;
-        while (cur <= j) {
-            if (nums[cur] == 0) swap(nums[cur++], nums[i++]);
-            else if (nums[cur] == 2) swap(nums[cur], nums[j--]); // 因为右边交换过来的还未确定，所以不能++cur
-            else ++cur;
-        }
-        return;
-    }
-};
-```
-
-### 84. 柱状图中最大的矩形(Hard)
-
-给定 n 个非负整数，用来表示柱状图中各个柱子的高度。每个柱子彼此相邻，且宽度为 1 。
-
-求在该柱状图中，能够勾勒出来的矩形的最大面积。
-
-以上是柱状图的示例，其中每个柱子的宽度为 1，给定的高度为 [2,1,5,6,2,3]。
-
-图中阴影部分为所能勾勒出的最大矩形面积，其面积为 10 个单位。
-
-示例:
-
-输入: [2,1,5,6,2,3]
-输出: 10
-
-无论枚举柱子的高度还是宽度，暴力都会超时
-
-[单调栈解法](https://leetcode-cn.com/problems/largest-rectangle-in-histogram/solution/84-by-ikaruga/)
-
-单调栈分为单调递增栈和单调递减栈
-
-1. 单调递增栈即栈内元素保持单调递增的栈
-1. 同理单调递减栈即栈内元素保持单调递减的栈
-
-操作规则（下面都以单调递增栈为例）
-
-1. 如果新的元素比栈顶元素大，就入栈
-2. 如果新的元素较小，那就一直把栈内元素弹出来，直到栈顶比新元素小
-
-加入这样一个规则之后，会有什么效果
-
-1. 栈内的元素是递增的
-2. 当元素出栈时，说明这个新元素是出栈元素向后找第一个比其小的元素
-    > 举个例子，[2,1,5,6,2,3]，现在索引在 6 ，栈里是 1 5 6 。接下来新元素是 2 ，那么 6 需要出栈。当 6 出栈时，右边 2 代表是 6 右边第一个比 6 小的元素。
-3. 当元素出栈后，说明新栈顶元素是出栈元素向前找第一个比其小的元素。
-    > 当 6 出栈时，5 成为新的栈顶，那么 5 就是 6 左边第一个比 6 小的元素。
-
-单调递增栈的模板代码：
-
-```c++
-stack<int> st;
-for(int i = 0; i < nums.size(); i++)
-{
-    while (!st.empty() && st.top() > nums[i]) {
-        st.pop();
-    }
-    st.push(nums[i]);
-}
-```
-
-思路
-
-1. 对于一个高度，如果能得到向左和向右的边界
-2. 那么就能对每个高度求一次面积
-3. 遍历所有高度，即可得出最大面积
-4. 使用单调栈，在出栈操作时得到前后边界并计算面积
-
-为了简便，在前后都插入了0，因为函数入参是引用，为了不修改原数组，新建了vec
-
-```c++
-class Solution {
-public:
-    int largestRectangleArea(vector<int>& heights) {
-        stack<int> st;
-        vector<int> vec(heights.begin(), heights.end());
-        vec.insert(vec.begin(), 0);
-        vec.push_back(0);
-        int ans = 0;
-        for (int i = 0; i < vec.size(); ++i) {
-            while (!st.empty() && vec[st.top()] > vec[i]) {
-                int cur = st.top();
-                st.pop();
-                int left = st.top(); // 左端点，仍然比vec[i]更高
-                int right = i - 1; // 右端点
-                ans = max(ans, (right - left) * vec[cur]);
+        int n = nums.size();
+        int last_0 = -1; // 指示最后一个0的下标，初始指向-1，意思是没有0
+        int first_2 = n; // 指向第一个-2的下标的，初始指向n，意思是没有2
+        int cur = 0;
+        while (cur < first_2) {
+            if (nums[cur] == 0) {
+                swap(nums[last_0+1], nums[cur]);
+                ++last_0;
+                ++cur;
+            } else if (nums[cur] == 2) { // 从右边交换过来的元素还未确定（0,1,2都有可能，所以不能++cur）
+                swap(nums[first_2-1], nums[cur]);
+                --first_2;
+            } else {
+                ++cur;
             }
-            st.push(i);
         }
-        return ans;
     }
 };
 ```
@@ -1331,7 +1607,7 @@ public:
 
 思考：相当于贪心，每次能赚一笔是一笔，短线操作，反正没有手续费:P
 
-### 137.只出现一次的数字
+### 136.只出现一次的数字(Easy) @hot100
 
 给定一个**非空**整数数组，除了某个元素只出现一次以外，其余每个元素均出现两次。找出那个只出现了一次的元素。
 
@@ -1411,7 +1687,168 @@ public:
 };
 ```
 
-### 189. 旋转数组（数组）
+### 169. 多数元素(Easy) @hot100
+
+给定一个大小为 n 的数组 nums ，返回其中的多数元素。多数元素是指在数组中出现次数 大于 ⌊ n/2 ⌋ 的元素。
+
+你可以假设数组是非空的，并且给定的数组总是存在多数元素。
+
+示例 1：
+
+输入：nums = [3,2,3]
+输出：3
+示例 2：
+
+输入：nums = [2,2,1,1,1,2,2]
+输出：2
+
+提示：
+n == nums.length
+1 <= n <= 5 * 104
+-109 <= nums[i] <= 109
+
+进阶：尝试设计时间复杂度为 O(n)、空间复杂度为 O(1) 的算法解决此问题。
+
+#### 摩尔投票
+
+摩尔投票法，核心就是对拼消耗，多数元素肯定会留下来
+
+- 假设投票是这样的，[A, C, A, A, B]，ABC 是指三个候选人。
+- 第一张票与第二张票进行对坑，如果票不同则互相抵消掉；
+- 接着第三票与第四票进行对坑，如果票相同，则增加这个候选人的可抵消票数；
+- 这个候选人拿着可抵消票数与第五张票对坑，如果票不同，则互相抵消掉，即候选人的可抵消票数 -1。
+
+但这不意味着这个候选人的票数一定能超过一半，例如 [A, B, C] 的抵消阶段，最后得到的结果是 [C,1]，C 候选人的票数也未能超过一半的票数。
+
+如果最后得到的抵消票数不为 0 的话，那说明他可能希望的，这是我们需要一个阶段来验证这个候选人的票数是否超过一半——计数阶段。
+
+所以摩尔投票法分为两个阶段：抵消阶段和计数阶段。
+
+- 抵消阶段：两个不同投票进行对坑，并且同时抵消掉各一张票，如果两个投票相同，则累加可抵消的次数；
+- 计数阶段：在抵消阶段最后得到的抵消计数只要不为 0，那这个候选人是有可能超过一半的票数的，为了验证，则需要遍历一次，统计票数，才可确定。
+
+摩尔投票法还可以推广到更多情况
+
+- 如果至多选一个代表，那他的票数至少要超过一半（⌊ 1/2 ⌋）的票数；
+- 如果至多选两个代表，那他们的票数至少要超过 ⌊ 1/3 ⌋ 的票数；
+- 如果至多选m个代表，那他们的票数至少要超过 ⌊ 1/(m+1) ⌋ 的票数。
+
+#### 本题特殊情况
+
+因为这题说了明确有解，所以只需要摩尔投票的抵消阶段，而不需要计数阶段！因为抵消完了之后留下来的一定是最后的解
+
+候选人(cand_num)初始化为 nums[0]，票数 count 初始化为 1。 当遇到与 cand_num 相同的数，则票数 count = count + 1，否则票数 count = count - 1。 当票数 count 为 0 时，更换候选人，并将票数 count 重置为 1。 遍历完数组后，cand_num 即为最终答案。
+
+为何这行得通呢？ 投票法是遇到相同的则 票数 + 1，遇到不同的则 票数 - 1。 且“多数元素”的个数 > ⌊ n/2 ⌋，其余元素的个数总和 <= ⌊ n/2 ⌋。 因此“多数元素”的个数 - 其余元素的个数总和 的结果 肯定 >= 1。 这就相当于每个 “多数元素” 和其他元素 两两相互抵消，抵消到最后肯定还剩余 至少1个 “多数元素”。
+
+```c++
+class Solution {
+public:
+    int majorityElement(vector<int>& nums) {
+        int candidate = nums[0];
+        int count = 1;
+        for (int i = 1; i < nums.size(); ++i) {
+            if (nums[i] == candidate) {
+                ++count;
+            } else if(--count < 0){ // candidate已经被对拼完了，选取下一个candidate
+                candidate = nums[i];
+                count = 1;
+            }
+        }
+        return candidate;
+    }
+};
+```
+
+### 229. 多数元素 II(Medium)
+
+给定一个大小为 n 的整数数组，找出其中所有出现超过 ⌊ n/3 ⌋ 次的元素。
+
+示例 1：
+
+输入：nums = [3,2,3]
+输出：[3]
+示例 2：
+
+输入：nums = [1]
+输出：[1]
+示例 3：
+
+输入：nums = [1,2]
+输出：[1,2]
+
+提示：
+
+1 <= nums.length <= 5 * 104
+-109 <= nums[i] <= 109
+
+进阶：尝试设计时间复杂度为 O(n)、空间复杂度为 O(1)的算法解决此问题。
+
+摩尔投票法分为两个阶段：抵消阶段和计数阶段。
+
+抵消阶段：两个不同投票进行对坑，并且同时抵消掉各一张票，如果两个投票相同，则累加可抵消的次数；
+
+计数阶段：在抵消阶段最后得到的抵消计数只要不为 0，那这个候选人是有可能超过一半的票数的，为了验证，则需要遍历一次，统计票数，才可确定。
+
+解法：
+
+如果存在 2 个次数大于 ⌊n/3⌋的元素，我们假设这两个不同的元素分别为 x 和 y，则此时我们一定可以把数组分成三部分：第一部分相同的 m 个元素 x，第二部分相同的 k 个元素 y，第三部分为 (n−m−k)/3组三个互不同的元素，我们知道三个互不同的元素会被抵消，因此最终只会剩下两个元素为 x 和 y。
+
+- 我们每次检测当前元素是否为第一个选中的元素或者第二个选中的元素。
+- 每次我们发现当前元素与已经选中的两个元素都不相同，则进行抵消一次。
+- 如果存在最终选票大于 0 的元素，我们还需要再次统计已选中元素的次数,检查元素的次数是否大于 ⌊n/3⌋
+
+```c++
+class Solution {
+public:
+    vector<int> majorityElement(vector<int>& nums) {
+        vector<int> ans;
+        int element1 = 0;
+        int element2 = 0;
+        int vote1 = 0;
+        int vote2 = 0;
+
+        for (auto & num : nums) {
+            if (vote1 > 0 && num == element1) { //如果该元素为第一个元素，则计数加1
+                vote1++;
+            } else if (vote2 > 0 && num == element2) { //如果该元素为第二个元素，则计数加1
+                vote2++;
+            } else if (vote1 == 0) { // 选择第一个元素
+                element1 = num;
+                vote1++;
+            } else if (vote2 == 0) { // 选择第二个元素
+                element2 = num;
+                vote2++;
+            } else { //如果三个元素均不相同，则相互抵消1次
+                vote1--;
+                vote2--;
+            }
+        }
+
+        int cnt1 = 0;
+        int cnt2 = 0;
+        for (auto & num : nums) {
+            if (vote1 > 0 && num == element1) {
+                cnt1++;
+            }
+            if (vote2 > 0 && num == element2) {
+                cnt2++;
+            }
+        }
+        // 检测元素出现的次数是否满足要求
+        if (vote1 > 0 && cnt1 > nums.size() / 3) {
+            ans.push_back(element1);
+        }
+        if (vote2 > 0 && cnt2 > nums.size() / 3) {
+            ans.push_back(element2);
+        }
+
+        return ans;
+    }
+};
+```
+
+### 189. 旋转数组（数组） @hot100
 
 给定一个数组，将数组中的元素向右移动 *k* 个位置，其中 *k* 是非负数。
 
@@ -1483,107 +1920,50 @@ public:
 ```c++
 class Solution {
 public:
-    void reverseVec(vector<int>& nums, int k){
-        int n = nums.size();
-        for(int i = 0; i < (n-k) / 2; ++i){
-            swap(nums[i], nums[n-k-1-i]);
-        }
-        for(int i = 0; i < k/2; ++i){
-            swap(nums[i+n-k], nums[n-1-i]);
-        }
-        for(int i = 0; i < n/2; ++i){
-            swap(nums[i], nums[n-1-i]);
-        }
-    }
     void rotate(vector<int>& nums, int k) {
-        int offset = k % nums.size();
-        if(offset == 0) return;
-        reverseVec(nums, offset);
+        int len = nums.size();
+        k = k % len;
+        if (len == 0 || len == 1 || k == 0 || k == len) return;
+        for (int i = 0; i < (len - k)/2; ++i) {
+            swap(nums[i], nums[len-k-i-1]);
+        }
+        for (int i = 0; i < k / 2; ++i) {
+            swap(nums[len-k+i], nums[len-i-1]);
+        }
+        for (int i = 0; i < len / 2; ++i) {
+            swap(nums[i], nums[len-i-1]);
+        }
     }
 };
 ```
 
-### 215.数组中的第K个最大元素(Medium)
-
-在未排序的数组中找到第 k 个最大的元素。请注意，你需要找的是数组排序后的第 k 个最大的元素，而不是第 k 个不同的元素。
-
-示例 1:
-
-输入: [3,2,1,5,6,4] 和 k = 2
-输出: 5
-示例 2:
-
-输入: [3,2,3,1,2,4,5,5,6] 和 k = 4
-输出: 4
-说明:
-
-你可以假设 k 总是有效的，且 1 ≤ k ≤ 数组的长度。
-
-小根堆
+刷hot100时，没想到两步翻转，方法是递归进去设值，但是有可能会鬼打墙，有些值遍历不到
 
 ```c++
+// 错误代码
 class Solution {
 public:
-    int findKthLargest(vector<int>& nums, int k) {
-        priority_queue<int, vector<int>, greater<int>> pq; // 小根堆
-        for (int i = 0; i < nums.size(); ++i) {
-            pq.push(nums[i]);
-            if (pq.size() > k) {
-                pq.pop();
+    void rotate(vector<int>& nums, int k) {
+        int len = nums.size();
+        k = k % len;
+        if (len == 0 || len == 1 || k == 0 || k == len) return;
+        if (len % 2 == 0 && k == len / 2) {
+            for (int i = 0; i < len / 2; ++i) {
+                swap(nums[i], nums[i+len/2]);
             }
+            return;
         }
-        return pq.top();
-    }
-};
-```
-
-大根堆，得多遍历一下
-
-```c++
-class Solution {
-public:
-    int findKthLargest(vector<int>& nums, int k) {
-        priority_queue<int> pq;
-        for (int i = 0; i < nums.size(); ++i) {
-            pq.push(nums[i]);
+        int tmp = 0;
+        int dst_value = nums[len - k];
+        int dst = 0;
+        int count = len;
+        while (count-- > 0) {
+            tmp = nums[dst];
+            nums[dst] = dst_value;
+            dst_value = tmp;
+            // dst_value将放入新dst位置，计算新dst位置
+            dst = (dst + k) % len;
         }
-        for (int i = 0; i < k - 1; ++i) {
-            pq.pop();
-        }
-        return pq.top();
-    }
-};
-```
-
-快速选择，找到个很容易理解（背诵）的模板，它直接取最左端为pivot，在数组有序时效率很差，不过对于模板来说，这份代码很工整
-
-```c++
-class Solution {
-public:
-    int findKthLargest(vector<int>& nums, int k) {
-        if (nums.empty()) return 0;
-        int left = 0, right = nums.size() - 1;
-        while (true) {
-            int position = partition(nums, left, right);
-            if (position == k - 1) return nums[position]; //每一轮返回当前pivot的最终位置，它的位置就是第几大的，如果刚好是第K大的数
-            else if (position > k - 1) right = position - 1; //二分的思想
-            else left = position + 1;
-        }
-    }
-
-    int partition(vector<int>& nums, int left, int right) {
-        int pivot = left;
-        int l = left + 1; //记住这里l是left + 1
-        int r = right;
-        while (l <= r) {
-            while (l <= r && nums[l] >= nums[pivot]) l++; //从左边找到第一个小于nums[pivot]的数
-            while (l <= r && nums[r] <= nums[pivot]) r--; //从右边找到第一个大于nums[pivot]的数
-            if (l <= r && nums[l] < nums[pivot] && nums[r] > nums[pivot]) {
-                swap(nums[l++], nums[r--]);
-            }
-        }
-        swap(nums[pivot], nums[r]); //交换pivot到它所属的最终位置，也就是在r的位置，因为此时r的左边都比r大，右边都比r小
-        return r; //返回最终pivot的位置
     }
 };
 ```
@@ -1675,7 +2055,7 @@ public:
 };
 ```
 
-### 238. 除自身以外数组的乘积
+### 238. 除自身以外数组的乘积 @hot100
 
 同剑指66题
 
@@ -1717,7 +2097,7 @@ public:
 };
 ```
 
-复用ans数组，O(1)额外空间
+复用ans数组，O(1)额外空间，当前位置的结果就是它左部分的乘积再乘以它右部分的乘积。因此需要进行两次遍历，第一次遍历用于求左部分的乘积，第二次遍历在求右部分的乘积的同时，再将最后的计算结果一起求出来。
 
 ```c++
 class Solution {
@@ -1727,19 +2107,19 @@ public:
         vector<int> ans (n, 1); // L与R数组共用ans，额外空间为为O(1)
         if (nums.empty() || nums.size() == 1) return ans;
         for (int i = 1; i < n; ++i) { // 先把ans当L数组用
-            ans[i] = ans[i-1] * nums[i-1];
+            ans[i] = ans[i-1] * nums[i-1]; // 第i位的左边乘积=第i-1位的左边乘积*第i-1位
         }
-        int rightProduct = 1; // 第一次进入：ans[n-1]=L[n-1]*1
+        int rightProduct = 1; // 因为nums[n-1]已经存储了L[n-1]了，所以这里第一次进入：ans[n-1]=L[n-1]*1
         for (int i = n-1; i >= 0; --i) {
             ans[i] *= rightProduct;
-            rightProduct *= nums[i];
+            rightProduct *= nums[i]; // 不能写成right_product = res[j] * nums[j]，因为res还存储了遍历L的结果
         }
         return ans;
     }
 };
 ```
 
-### 240. 搜索二维矩阵 II
+### 240. 搜索二维矩阵 II @ho100
 
 同剑指第24题
 
@@ -1788,7 +2168,7 @@ public:
 };
 ```
 
-### 283.移动零
+### 283.移动零 @hot100
 
 给定一个数组 `nums`，编写一个函数将所有 `0` 移动到数组的末尾，同时保持非零元素的相对顺序。
 
@@ -1889,6 +2269,35 @@ public:
             }
             else if(nums[i] != 0 && i == index){
                 ++index;
+            }
+        }
+    }
+};
+```
+
+刷hot100，只想到了操作稍多一点的做法，先遍历一遍，计算得到零的数量，然后快慢指针，其实不用先遍历的，因为只要判断当前i不等于j，就知道当前格子要么被后面的非零值覆盖，要么是零值填充，所以最佳答案是上面那种
+
+```c++
+class Solution {
+public:
+    void moveZeroes(vector<int>& nums) {
+        int len = nums.size();
+        int zero_num = 0;
+        for (int num : nums) {
+            if (num == 0) {
+                zero_num++;
+            }
+        }
+        if (zero_num == 0) {
+            return;
+        }
+        for (int i = 0, j = 0; i < len; ++i) {
+            if (nums[i] != 0) {
+                nums[j] = nums[i];
+                j++;
+            }
+            if (i >= len - zero_num) {
+                nums[i] = 0;
             }
         }
     }
@@ -2177,36 +2586,6 @@ public:
 };
 ```
 
-### 739. 每日温度(Medium)
-
-请根据每日 气温 列表，重新生成一个列表。对应位置的输出为：要想观测到更高的气温，至少需要等待的天数。如果气温在这之后都不会升高，请在该位置用 0 来代替。
-
-例如，给定一个列表 temperatures = [73, 74, 75, 71, 69, 72, 76, 73]，你的输出应该是 [1, 1, 4, 2, 1, 1, 0, 0]。
-
-提示：气温 列表长度的范围是 [1, 30000]。每个气温的值的均为华氏度，都是在 [30, 100] 范围内的整数。
-
-复习单调栈的绝佳例题
-
-```c++
-class Solution {
-public:
-    vector<int> dailyTemperatures(vector<int>& T) {
-        if (T.empty()) return {};
-        vector<int> ans(T.size(), 0);
-        stack<int> st; // mono decreasing stack
-        for (int i = 0; i < T.size(); ++i) {
-            while (!st.empty() && T[st.top()] < T[i]) {
-                int cur = st.top();
-                st.pop();
-                ans[cur] = i - cur;
-            }
-            st.push(i);
-        }
-        return ans;
-    }
-};
-```
-
 ## 字符串
 
 ### 7.整数反转
@@ -2465,71 +2844,6 @@ public:
 };
 ```
 
-### 20. 有效的括号
-
-给定一个只包括 '('，')'，'{'，'}'，'['，']' 的字符串，判断字符串是否有效。
-
-有效字符串需满足：
-
-左括号必须用相同类型的右括号闭合。
-左括号必须以正确的顺序闭合。
-注意空字符串可被认为是有效字符串。
-
-示例 1:
-
-输入: "()"
-输出: true
-示例 2:
-
-输入: "()[]{}"
-输出: true
-示例 3:
-
-输入: "(]"
-输出: false
-示例 4:
-
-输入: "([)]"
-输出: false
-示例 5:
-
-输入: "{[]}"
-输出: true
-
-```c++
-class Solution {
-public:
-    bool isValid(string s) {
-        if (s.empty()) return true;
-        stack<char> st;
-        if (!isLeftQuote(s[0])) {
-            return false;
-        }
-        st.push(s[0]);
-        for (int i = 1; i < s.size(); ++i) {
-            if (isLeftQuote(s[i])) st.push(s[i]);
-            else if (!st.empty() && isMatch(st.top(), s[i])) st.pop();
-            else return false;
-        }
-        if (!st.empty()) return false;
-        return true;
-    }
-    bool isLeftQuote(char ch) {
-        if (ch == '(' || ch == '[' || ch == '{') {
-            return true;
-        } else {
-            return false;
-        }
-    }
-    bool isMatch(char ch1, char ch2) {
-        if (ch1 == '[' && ch2 == ']') return true;
-        if (ch1 == '{' && ch2 == '}') return true;
-        if (ch1 == '(' && ch2 == ')') return true;
-        return false;
-    }
-};
-```
-
 ### 28.实现 strStr ()
 
 实现 [strStr()](https://baike.baidu.com/item/strstr/811469) 函数。
@@ -2619,7 +2933,7 @@ TODO
 最坏情况：O(nm)
 平均情况：O(n)
 
-### 32.最长有效括号(Hard)
+### 32.最长有效括号(Hard) @hot100
 
 给定一个只包含 '(' 和 ')' 的字符串，找出最长的包含有效括号的子串的长度。
 
@@ -2634,35 +2948,64 @@ TODO
 输出: 4
 解释: 最长有效括号子串为 "()()"
 
-暴力法一次AC了，O(n^2)事件，O(n)空间
+暴力法一次AC了，O(n^2)事件，O(n)空间，枚举每个`(`，计算最大长度，right>left时不满足，直接break
 
 ```c++
 class Solution {
 public:
     int longestValidParentheses(string s) {
-        if (s.empty() || s.size() == 1) return 0;
         int n = s.size();
-        vector<int> vec(n, 0); // 0 means not matched
+        int ans = 0;
         for (int i = 0; i < n; ++i) {
             if (s[i] == ')') {
-                for (int j = i - 1; j >=0; --j) {
-                    if (s[j] == '(' && !vec[j]) {
-                        vec[j] = true;
-                        vec[i] = true;
-                        break;
-                    }
-                }
+                continue;
+            }
+            int left = 1;
+            int right = 0;
+            for (int j = i + 1; j < n; ++j) {
+                if (s[j] == '(') left++;
+                else right++;
+                if (right > left) break;
+                if (left == right) ans = max(ans, j - i + 1);
             }
         }
-        // 遍历取值为0或1的vec，取最长连续的1的长度
+        return ans;
+    }
+};
+```
+
+贪心法：仔细观察暴力法，当right>left时即可放弃之前的答案，重新寻找新的最长
+
+在此方法中，我们利用两个计数器 left 和 right 。首先，我们从左到右遍历字符串，对于遇到的每个 ‘(’，我们增加 left 计数器，对于遇到的每个 ‘)’ ，我们增加 right 计数器。每当 left 计数器与 right 计数器相等时，我们计算当前有效字符串的长度，并且记录目前为止找到的最长子字符串。当 right 计数器比 left 计数器大时，我们将 left 和 right 计数器同时变回 0。
+
+这样的做法贪心地考虑了以当前字符下标结尾的有效括号长度，每次当右括号数量多于左括号数量的时候之前的字符我们都扔掉不再考虑，重新从下一个字符开始计算，但这样会漏掉一种情况，就是遍历的时候左括号的数量始终大于右括号的数量，即 (() ，这种时候最长有效括号是求不出来的。
+
+解决的方法也很简单，我们只需要从右往左遍历用类似的方法计算即可，只是这个时候判断条件反了过来：
+
+当 left 计数器比 right 计数器大时，我们将 left 和 right 计数器同时变回 0
+当 left 计数器与 right 计数器相等时，我们计算当前有效字符串的长度，并且记录目前为止找到的最长子字符串
+这样我们就能涵盖所有情况从而求解出答案。
+
+```c++
+class Solution {
+public:
+    int longestValidParentheses(string s) {
+        int n = s.size();
         int ans = 0;
-        int len = 0;
+        int left = 0;
+        int right = 0;
         for (int i = 0; i < n; ++i) {
-            if (vec[i] == 0) len = 0;
-            else {
-                ++len;
-                ans = max(ans, len);
-            }
+            if (s[i] == '(') left++;
+            else right++;
+            if (right > left) left = 0, right = 0;
+            else if (left == right) ans = max(ans, 2 * right);
+        }
+        left = right = 0;
+        for (int i = n - 1; i >=0; --i) {
+            if (s[i] == ')') right++;
+            else left++;
+            if (right < left) left = 0, right = 0;
+            else if (left == right) ans = max(ans, 2 * right);
         }
         return ans;
     }
@@ -2680,7 +3023,7 @@ public:
 
 我们从前往后遍历字符串并更新答案即可。
 
-需要注意的是，如果一开始栈为空，第一个字符为左括号的时候我们会将其放入栈中，这样就不满足提及的「最后一个没有被匹配的右括号的下标」，为了保持统一，我们在一开始的时候往栈中放入一个值为 -1−1 的元素。
+需要注意的是，如果一开始栈为空，第一个字符为左括号的时候我们会将其放入栈中，这样就不满足提及的「最后一个没有被匹配的右括号的下标」，为了保持统一，我们在一开始的时候往栈中放入一个值为 -1 的元素。
 
 ```c++
 class Solution {
@@ -2704,6 +3047,44 @@ public:
         return ans;
     }
 };
+```
+
+动态规划
+
+```c++
+class Solution {
+public:
+    int longestValidParentheses(string s) {
+        int n = s.size();
+        vector<int> dp(n, 0);
+        // dp[i]表示是以i结尾的合法子串的长度，若s[i]='('，则dp[i]=0
+        // 当s[i] = ')'时:
+        // dp[i] = dp[i-2] + 2, if s[i-1] = '('
+        // dp[i] = dp[i-1] + dp[i-dp[i-1]-2] + 2  , if s[i-1] = ')' and s[i-dp[i-1]-1] = '('
+        int maxVal = 0;
+        for(int i = 1; i < n; i++) {
+            if (s[i] == '(') {
+                continue;
+            }
+            if (s[i - 1] == '(') {
+                dp[i] = 2;
+                if (i - 2 >= 0) {
+                    dp[i] = dp[i] + dp[i - 2];
+                }
+            } else if (dp[i - 1] > 0) { // s[i - 1] == ')'
+                if ((i - dp[i - 1] - 1) >= 0 && s[i - dp[i - 1] - 1] == '(') {
+                    dp[i] = dp[i - 1] + 2; // 前一个`)`形成的最长合法序列长度
+                    if ((i - dp[i - 1] - 2) >= 0) { // 可能与之前的合法子序列连起来！
+                        dp[i] = dp[i] + dp[i - dp[i - 1] - 2];
+                    }
+                }
+            }
+            maxVal = max(maxVal, dp[i]);
+        }
+        return maxVal;
+    }
+};
+
 ```
 
 ### 38.报数
@@ -4799,27 +5180,26 @@ public:
         int valid = 0; // 记录在滑动窗口内有多少个满足出现次数的字符
         char c, d;
         while (r < s.size()) {
-            c = s[r];
-            ++r;
-            if (need.count(c)) {
-                ++window[c];
-                if (need[c] == window[c]) {
+            // 将右端点加入
+            if (need.count(s[r])) {
+                ++window[s[r]];
+                if (need[s[r]] == window[s[r]]) {
                     ++valid;
                 }
             }
+            ++r;
             while (valid == need.size()) { // 窗口符合条件，可以收缩左侧边界了
                 if (r - l < len) {
                     start = l;
                     len = r -l;
                 }
-                d = s[l];
-                ++l;
-                if (need.count(d)) {
-                    if (need[d] == window[d]) {
+                if (need.count(s[l])) { // 如果收缩的左端点是需要的，则更新目前窗口与valid
+                    if (need[s[l]] == window[s[l]]) {
                         --valid;
                     }
-                    --window[d];
+                    --window[s[l]];
                 }
+                ++l;
             }
         }
         return len == INT_MAX ? "" : s.substr(start, len); // substr接收一个起始值和长度值作为参数
@@ -4827,7 +5207,10 @@ public:
 };
 ```
 
-### 239. 滑动窗口最大值(Hard)
+刷hot100 更容易理解
+
+
+### 239. 滑动窗口最大值(Hard) @hot100
 
 同力扣59-1
 
@@ -4881,14 +5264,54 @@ public:
         }
         res.push_back(nums[dq.front()]);
         for (int i = k; i < nums.size(); ++i) {
+            // 每滑动一次，就更新下当前队头的有效性
             if (!dq.empty() && i - dq.front() >= k) { // 左侧元素滑出
                 dq.pop_front();
             }
+            // 找到合适的位置插入新元素，因为新元素更新，所以可以直接排除掉那些又老又小的元素
             while (!dq.empty() && nums[i] > nums[dq.back()]) { // 右侧元素滑入
                 dq.pop_back();
             }
             dq.push_back(i);
             res.push_back(nums[dq.front()]);
+        }
+        return res;
+    }
+};
+```
+
+刷hot100时，想到了用最大堆来做，最坏情况时间复杂度O(nlogn)，最坏情况下数组单调递增，最终最大堆包含全部元素，因为每次放入最大度耗时O(logn)，所以整体O(nlogn)，空间复杂度O(n)，
+
+```c++
+class Solution {
+public:
+    struct stru{
+        int value;
+        int offset;
+        stru(int value, int offset) : value(value), offset(offset) {}
+    };
+    struct myCompare {
+        bool operator()(const stru &lhs, const stru &rhs) {
+            return lhs.value < rhs.value;
+        }
+    };
+    vector<int> maxSlidingWindow(vector<int>& nums, int k) {
+        auto myLambdaCompare = [](const stru &lhs, const stru &rhs){
+            return lhs.value < rhs.value;
+        };
+        priority_queue<stru, vector<stru>, myCompare> pq;
+        // priority_queue<stru, vector<stru>, decltype(myLambdaCompare)> pq(myLambdaCompare);
+        vector<int> res;
+        for (int i = 0; i < nums.size(); ++i) {
+            if (i < k - 1) {
+                pq.push(stru(nums[i], i));
+                continue;
+            }
+            pq.push(stru(nums[i], i));
+            while (!pq.empty() && i - pq.top().offset >= k) {
+                pq.pop();
+            }
+            res.push_back(pq.top().value);
         }
         return res;
     }
@@ -4983,7 +5406,7 @@ public:
 };
 ```
 
-### 438. 找到字符串中所有字母异位词(Medium,based on 567)
+### 438. 找到字符串中所有字母异位词(Medium,based on 567) @hot100
 
 给定一个字符串 s 和一个非空字符串 p，找到 s 中所有是 p 的字母异位词的子串，返回这些子串的起始索引。
 
@@ -5032,27 +5455,81 @@ public:
         int valid = 0;
         char ch;
         while (r < s.size()) {
+            // 无脑算入右端点
             ch = s[r];
-            r++;
             if (need.count(ch)) { // 进入窗口的数据更新
                 window[ch]++;
                 if (need[ch] == window[ch]) {
                     valid++;
                 }
             }
+            // 右端点扩张
+            r++;
             while (r - l >= p.size()) {
+                // 缩小窗口
+                // 先判断当前是否符合题解
                 if (valid == need.size()) { // 窗口符合条件
                     res.push_back(l);
                 }
                 ch = s[l];
-                l++;
                 if (need.count(ch)) { // 移出窗口的数据更新
                     if (window[ch] == need[ch]) {
                         valid--;
                     }
                     window[ch]--; // 得和进入窗口时反着来
                 }
+                l++;
             }
+        }
+        return res;
+    }
+};
+```
+
+hot100，用桶来算，比较直观，但while里的for循环可能有点超时，
+时间
+20 ms
+击败
+41.7%
+内存
+8.3 MB
+击败
+99.26%
+
+```c++
+class Solution {
+public:
+    vector<int> findAnagrams(string s, string p) {
+        if (p.size() > s.size()) return {};
+        int pos[128] = {0};
+        for (auto &ch : p) {
+            pos[ch]++;
+        }
+        int p_len = p.size();
+        int len = s.size();
+        int l = 0;
+        int r = 0;
+        while (r < p_len) {
+            --pos[s[r]];
+            ++r;
+        }
+        --r;
+        vector<int> res;
+        while (r < len) {
+            bool is_same = true;
+            for (int i = 0; i < 128; ++i) {
+                if (pos[i] != 0) {
+                    is_same = false;
+                    break;
+                }
+            }
+            if (is_same) {
+                res.push_back(l);
+            }
+            ++l;
+            ++r;
+            ++pos[s[l-1]];
+            --pos[s[r]];
         }
         return res;
     }
@@ -5517,7 +5994,7 @@ public:
 
 一定要画图！
 
-### 2.两数相加(Medium)
+### 2.两数相加(Medium) @hot100
 
 给出两个 非空 的链表用来表示两个非负的整数。其中，它们各自的位数是按照 逆序 的方式存储的，并且它们的每个节点只能存储 一位 数字。
 
@@ -5614,7 +6091,7 @@ public:
 };
 ```
 
-### 19.删除链表的倒数第N个节点(easy)
+### 19.删除链表的倒数第N个节点(easy) @hot100
 
 给定一个链表，删除链表的倒数第 *n* 个节点，并且返回链表的头结点。
 
@@ -5707,13 +6184,17 @@ public:
             fast = fast->next;
             slow = slow->next;
         }
+        ListNode *toBeDeleted = slow->next;
         slow->next = slow->next->next;
-        return dummy->next;
+        delete toBeDeleted;
+        ListNode *newHead = dummy->next;
+        delete dummy;
+        return newHead;
     }
 };
 ```
 
-### 21.合并两个有序链表
+### 21.合并两个有序链表 @hot100
 
 将两个有序链表合并为一个新的有序链表并返回。新链表是通过拼接给定的两个链表的所有节点组成的。
 
@@ -5760,7 +6241,9 @@ public:
             }
         }
         curr->next = (l1 != NULL) ? l1 : l2;
-        return dummy->next;
+        ListNode *res = dummy->next;
+        delete dummy; // 别忘了删除哑结点！！！
+        return res;
     }
 };
 ```
@@ -5808,7 +6291,7 @@ public:
 };
 ```
 
-### 23. 合并k个有序链表
+### 23. 合并k个有序链表 @hot100
 
 合并 k 个排序链表，返回合并后的排序链表。请分析和描述算法的复杂度。
 
@@ -5823,6 +6306,14 @@ public:
 输出: 1->1->2->3->4->4->5->6
 
 构建最小堆，每次pop出最小值需要O(logk)，最后的链表中总共有N个节点，故时间复杂度为O(Nlogk)
+时间
+16 ms
+击败
+95.28%
+内存
+13 MB
+击败
+55.65%
 
 ```c++
 class Solution {
@@ -5853,7 +6344,7 @@ public:
 };
 ```
 
-### 24. 两两交换链表中的节点(medium)
+### 24. 两两交换链表中的节点(medium) @hot100
 
 给定一个链表，两两交换其中相邻的节点，并返回交换后的链表。
 
@@ -5900,7 +6391,35 @@ public:
 };
 ```
 
-### 25. K 个一组翻转链表(Hard)
+刷hot100，这种比较好理解
+
+```c++
+class Solution {
+public:
+    ListNode* swapPairs(ListNode* head) {
+        if (!head || !head->next) return head;
+        ListNode *dummy = new ListNode();
+        dummy->next = head;
+        ListNode *pre = dummy;
+        ListNode *cur = dummy->next;
+        while (cur && cur->next) {
+            ListNode *cur_next = cur->next;
+            ListNode *cur_next_next = cur->next->next;
+            pre->next = cur_next;
+            cur_next->next = cur;
+            cur->next = cur_next_next; // 防止断链
+            // 前进两个节点
+            pre = pre->next->next; // cur已交换，用pre来前进不容易出错
+            cur = pre->next;
+        }
+        ListNode *new_head = dummy->next;
+        delete dummy;
+        return new_head;
+    }
+};
+```
+
+### 25. K 个一组翻转链表(Hard) @hot100
 
 给你一个链表，每 k 个节点一组进行翻转，请你返回翻转后的链表。
 
@@ -5969,6 +6488,69 @@ public:
             p = nex;
         }
         return {tail, head};
+    }
+};
+```
+
+刷hot100时，没有想到这么优雅的，每次遍历都反转，然后再去判断最后的是否需要恢复，但没有AC(48 / 62 个通过的测试用例)，败在了[1,2], 2的输入上
+
+```c++
+/**
+ * Definition for singly-linked list.
+ * struct ListNode {
+ *     int val;
+ *     ListNode *next;
+ *     ListNode() : val(0), next(nullptr) {}
+ *     ListNode(int x) : val(x), next(nullptr) {}
+ *     ListNode(int x, ListNode *next) : val(x), next(next) {}
+ * };
+ */
+class Solution {
+public:
+    ListNode *reverseKGroup(ListNode *head, int k) {
+    if (!head || !head->next || k == 1)
+        return head;
+    ListNode *dummy = new ListNode(-1);
+    dummy->next = head;
+    ListNode *last_tail = dummy;
+    ListNode *tmp_head = head;
+    ListNode *pre = tmp_head;
+    ListNode *cur = pre->next;
+    int cnt = k;
+    while (cur) {
+        --cnt;
+        if (cnt == 0) {
+        // 此时cur到达下一头结点，pre到达当前尾节点
+        last_tail->next = pre;
+        tmp_head->next = cur;
+        // 更新
+        last_tail = tmp_head;
+        tmp_head = cur;
+        pre = tmp_head;
+        cur = tmp_head->next;
+        cnt = k;
+        } else {
+        // 翻转并前进
+        ListNode *tmp = cur->next;
+        cur->next = pre;
+        pre = cur;
+        cur = tmp;
+        }
+    }
+    if (cnt != k) {
+        // 说明最后剩余节点被逆转了，反转回来
+        cur = pre->next;
+        pre->next = nullptr; // 尾节点后面置空
+        while (tmp_head != cur) {
+        ListNode *tmp = cur->next;
+        cur->next = pre;
+        pre = cur;
+        cur = tmp;
+        }
+    }
+    ListNode *new_head = dummy->next;
+    delete dummy;
+    return new_head;
     }
 };
 ```
@@ -6199,7 +6781,134 @@ public:
 };
 ```
 
-### 141.环形链表(easy)
+### 138. 复制带随机指针的链表(medium) @hot100
+
+给你一个长度为 n 的链表，每个节点包含一个额外增加的随机指针 random ，该指针可以指向链表中的任何节点或空节点。
+
+构造这个链表的 深拷贝。 深拷贝应该正好由 n 个 全新 节点组成，其中每个新节点的值都设为其对应的原节点的值。新节点的 next 指针和 random 指针也都应指向复制链表中的新节点，并使原链表和复制链表中的这些指针能够表示相同的链表状态。复制链表中的指针都不应指向原链表中的节点 。
+
+例如，如果原链表中有 X 和 Y 两个节点，其中 X.random --> Y 。那么在复制链表中对应的两个节点 x 和 y ，同样有 x.random --> y 。
+
+返回复制链表的头节点。
+
+用一个由 n 个节点组成的链表来表示输入/输出中的链表。每个节点用一个 [val, random_index] 表示：
+
+val：一个表示 Node.val 的整数。
+random_index：随机指针指向的节点索引（范围从 0 到 n-1）；如果不指向任何节点，则为  null 。
+你的代码 只 接受原链表的头节点 head 作为传入参数。
+
+自己想的思路：首先构造链表，然后想办法构造random指针，想到了哈希表，key是指针，value是当前节点的偏移量，两个链表指针无法比较，但是偏移量是一致的，额外空间复杂度O(n)，时间复杂度O(1)
+
+时间
+12 ms
+击败
+33.64%
+内存
+11.1 MB
+击败
+38.97%
+
+```c++
+class Solution {
+public:
+    Node* copyRandomList(Node* head) {
+        if (!head) return nullptr;
+        unordered_map<Node*, int> hash; // 老链表对应的offset
+        vector<Node*> vec; // 新链表数组存储
+        Node *cur = head;
+        Node *new_head = new Node(head->val);
+        Node *new_cur = new_head;
+        int offset = 0;
+        while (cur) {
+            hash[cur] = offset;
+            vec.push_back(new_cur);
+            ++offset;
+            cur = cur->next;
+            if (cur) {
+                new_cur->next = new Node(cur->val);
+                new_cur = new_cur->next;
+            }
+        }
+        unordered_map<int, vector<int>> map; // 第offset(int)个，被xxx(vector<int>)指向
+        offset  = 0;
+        cur = head;
+        while (cur) {
+            if (cur->random) {
+                int target_offset = hash[cur->random];
+                map[target_offset].push_back(offset);
+            }
+            ++offset;
+            cur = cur->next;
+        }
+        for (auto it = map.begin(); it != map.end(); ++it) {
+            for (int i = 0; i < it->second.size(); ++i) {
+                vec[it->second[i]]->random = vec[it->first];
+            }
+        }
+        return new_head;
+    }
+};
+```
+
+看了官方题解，有更优雅的做法，空间复杂度O(1)，时间复杂度O(n)，总共只需要三次遍历！
+
+我们首先将该链表中每一个节点拆分为两个相连的节点，例如对于链表 A→B→C，拆分成A->A'->B->B'->C->C'，其中X'即为待生成的深拷贝链表，这样，每个原节点X的随机指针所指向的节点Y，其后继节点Y'一定是X'的随机指针指向的，非常巧妙！最后分离两个链表即可，注意需要处理随机指针为空的情况
+时间
+4 ms
+击败
+97.87%
+内存
+11.1 MB
+击败
+35.74%
+
+```c++
+/*
+// Definition for a Node.
+class Node {
+public:
+    int val;
+    Node* next;
+    Node* random;
+    
+    Node(int _val) {
+        val = _val;
+        next = NULL;
+        random = NULL;
+    }
+};
+*/
+
+class Solution {
+public:
+    Node* copyRandomList(Node* head) {
+        if (!head) return nullptr;
+        for (Node *cur = head; cur != nullptr; cur = cur->next->next) {
+            Node *nodeNew = new Node(cur->val);
+            nodeNew->next = cur->next;
+            cur->next = nodeNew;
+        }
+        for (Node *cur = head; cur != nullptr; cur = cur->next->next) {
+            if (cur->random) {
+                cur->next->random = cur->random->next;
+            }
+        }
+        Node *new_head = head->next;
+        for (Node *cur = head; cur != nullptr; cur = cur->next) { // 注意这里缩短了步进
+            Node *copied_cur = cur->next;
+            Node *next_cur = cur->next->next;
+            cur->next = next_cur;
+            if (!next_cur) {
+                break;
+            }
+            copied_cur->next = next_cur->next;
+        }
+        return new_head;
+    }
+};
+```
+
+### 141.环形链表(easy) @hot100
 
 给定一个链表，判断链表中是否有环。
 
@@ -6278,7 +6987,7 @@ public:
 
 二刷，还没上个简洁，记住，while循环里面不用判断slow是否为空，如果链表没环，肯定是fast先到尾
 
-### 142. 环形链表 II(mdium)
+### 142. 环形链表 II(mdium) @hot100
 
 给定一个链表，返回链表开始入环的第一个节点。 如果链表无环，则返回 null。
 
@@ -6360,6 +7069,36 @@ public:
 };
 ```
 
+刷hot100，更加优雅了，用纸币画一下很快就能找到规律
+
+```c++
+class Solution {
+public:
+    ListNode *detectCycle(ListNode *head) {
+        if (!head) return head;
+        ListNode *slow = head;
+        ListNode *fast = head;
+        while (fast && fast->next) {
+            slow = slow->next;
+            fast = fast->next->next;
+            if (slow == fast) {
+                break;
+            }
+        }
+        if (!fast || !fast->next) {
+            return nullptr;
+        }
+        // 有环，此时slow==fast
+        slow = head;
+        while (slow != fast)  {
+            slow = slow->next;
+            fast = fast->next; // fast降低步长，与slow的新交点即为环的入口
+        }
+        return slow;
+    }
+};
+```
+
 ### 143. 重排链表(Medium)
 
 给定一个单链表 L：L0→L1→…→Ln-1→Ln ，
@@ -6418,7 +7157,7 @@ public:
 };
 ```
 
-### 148. 排序链表(medium)
+### 148. 排序链表(medium) @hot100
 
 在 O(n log n) 时间复杂度和常数级空间复杂度下，对链表进行排序。
 
@@ -6493,11 +7232,45 @@ public:
 };
 ```
 
-归并排序的时间复杂度也只需要O(nlogn)，用迭代方式可以实现额外空间复杂度为O(1)
+刷hot100时，也想到了快排，不过快排需要递归，仍然需要O(logn)的栈空间，并且在一个大输入面前超时了，不过感觉我这种写法比y总的更容易记
+
+```c++
+class Solution {
+public:
+    ListNode* sortList(ListNode* head) {
+        return innerSortList(head, nullptr);
+    }
+
+    // 对[head, tail)区间里的链表节点进行排序，返回头节点，并且确保这个子链表最后指向tail节点
+    ListNode* innerSortList(ListNode *head, ListNode *tail) {
+        if (!head || !head->next || head == tail) return head;
+        ListNode *pivot = head;
+        ListNode *new_head = head;
+        ListNode *pre = head;
+        ListNode *cur = head->next;
+        while (cur && cur != tail) {
+            if (cur->val < pivot->val) {
+                pre->next = cur->next;
+                cur->next = new_head;
+                new_head = cur;
+                cur = pre->next;
+            } else {
+                pre = cur;
+                cur = cur->next;
+            }
+        }
+        new_head = innerSortList(new_head, pivot);
+        pivot->next = innerSortList(pivot->next, tail);
+        return new_head;
+    }
+};
+```
+
+归并排序的时间复杂度也只需要O(nlogn)，用迭代方式可以实现额外空间复杂度为O(1)，此时是（从底至顶直接合并）
 
 TODO
 
-### 160. 相交链表(easy)
+### 160. 相交链表(easy) @hot100
 
 编写一个程序，找到两个单链表相交的起始节点。
 
@@ -6564,6 +7337,8 @@ public:
             if (q) q = q->next;
             else q = headA;
         }
+        // 跳出循环有两种情况，找到交点了，或者没有交点，到达末尾的nullptr，两者会同时到达nullptr的，所以仍然可以用p != q判断
+        // 为nullptr，则说明不相交，输出nullptr，否则输出相交节点
         return p;
     }
 };
@@ -6571,7 +7346,7 @@ public:
 
 二刷，想到了双指针，但是实现代码时还是多此一举地把长度计算出来，y总
 
-### 206.反转链表(easy)
+### 206.反转链表(easy) @hot100
 
 反转一个单链表。
 
@@ -6696,7 +7471,7 @@ public:
         // cout << "p->val: " << p->val << endl;
         head->next->next = head;
         head->next = NULL;  // ensure original head->next is NULL
-        return p;
+        return p; // 不会断链，因为返回的是p，p还是原来指向的顺序
     }
 };
 ```
@@ -6736,7 +7511,7 @@ public:
 };
 ```
 
-### 234.回文链表(easy)
+### 234.回文链表(easy) @hot100
 
 请判断一个链表是否为回文链表。
 
@@ -6832,6 +7607,57 @@ public:
             p2 = p2->next;
         }
         return true;
+    }
+};
+```
+
+刷hot100时想到了类似快慢指针的比较，不过多了一次遍历取size的操作，上面方法巧在使用快慢指针一次遍历即可定位中点
+
+```c++
+class Solution {
+public:
+    bool isPalindrome(ListNode* head) {
+        if (!head) return false;
+        if (!head->next) return true;
+        ListNode *cur = head;
+        int len = 0;
+        while (cur) {
+            cur = cur->next;
+            ++len;
+        }
+        int step = len / 2;
+        cur = head;
+        while (step-- > 1) {
+            cur = cur->next;
+        }
+        ListNode *right_head = cur->next;
+        if (len % 2 == 1) {
+            right_head = right_head->next;
+        }
+        cur->next = nullptr;
+        ListNode *left_head = reverse(head);
+        while (left_head && right_head) {
+            if (left_head->val != right_head->val) {
+                return false;
+            }
+            left_head = left_head->next;
+            right_head = right_head->next;
+        }
+        return true;
+    }
+    
+    //  return new head
+    ListNode* reverse(ListNode* head) {
+        if (!head || !head->next) return head;
+        ListNode *pre = nullptr;
+        ListNode *cur = head;
+        while (cur) {
+            ListNode *next = cur->next;
+            cur->next = pre;
+            pre = cur;
+            cur = next;
+        }
+        return pre;
     }
 };
 ```
@@ -6975,7 +7801,7 @@ public:
 };
 ```
 
-### 94. 二叉树的中序遍历(medium)
+### 94. 二叉树的中序遍历(medium) @hot100
 
 给定一个二叉树，返回它的中序 遍历。
 
@@ -7018,11 +7844,11 @@ public:
         TreeNode* cur = root;
         while(cur || !s.empty()){
             while(cur){ // 1)
-                s.push(cur);
+                s.push(cur); // 只会在这里压栈
                 cur = cur->left;
             }
             cur = s.top(); // 2)
-            s.pop();
+            s.pop(); // 当前节点及左子树处理完毕，出栈
             res.push_back(cur->val);
             cur = cur->right;
         }
@@ -7031,7 +7857,113 @@ public:
 };
 ```
 
-### 98.验证二叉搜索树(medium)
+刷hot100，直接递归，一把AC
+
+```c++
+class Solution {
+public:
+    vector<int> inorderTraversal(TreeNode* root) {
+        if (!root) return {};
+        vector<int> left;
+        vector<int> right;
+        if (root->left) left = inorderTraversal(root->left);
+        if (root->right) right = inorderTraversal(root->right);
+        vector<int> res = left;
+        res.push_back(root->val);
+        res.insert(res.end(), right.begin(), right.end());
+        return res;
+    }
+};
+```
+
+用迭代的方式，发现会陷入死循环，问题出在cur->left又压入栈了
+
+```c++
+vector<int> inorderTraversal(TreeNode *root) {
+  if (!root)
+    return {};
+  if (!root->left && !root->right)
+    return {root->val};
+  vector<int> res;
+  stack<TreeNode *> st;
+  st.push(root);
+  while (!st.empty()) {
+    TreeNode *cur = st.top();
+    if (!cur) { // 可能会把nullptr压入栈
+      st.pop();
+    } else if (cur->left) {
+      st.push(cur->left);
+    } else {
+      res.push_back(cur->val);
+      st.pop();
+      if (cur->right) {
+        st.push(cur->right);
+      }
+    }
+  }
+  return res;
+}
+```
+
+官方题解介绍了莫里斯遍历，是不需要借助栈的迭代解法，额外空间复杂度O(1)，但是会修改原结构
+
+Morris 遍历算法整体步骤如下（假设当前遍历到的节点为 x）：
+
+1. 如果 x 无左孩子，先将 x 的值加入答案数组，再访问 x 的右孩子，即 x=x.right
+2. 如果 x 有左孩子，则找到 x 左子树上最右的节点（即左子树中序遍历的最后一个节点，x 在中序遍历中的前驱节点），我们记为 predecessor。根据 predecessor 的右孩子是否为空，进行如下操作。
+    1. 如果 predecessor 的右孩子为空，则将其右孩子指向 x，然后访问 x 的左孩子，即 x=x.left
+    2. 如果 predecessor 的右孩子不为空，则此时其右孩子指向 x，说明我们已经遍历完 x 的左子树，我们将 predecessor 的右孩子置空，将 x 的值加入答案数组，然后访问 x 的右孩子，即 x=x.right
+3. 重复上述操作，直至访问完整棵树。
+
+实现的一个难点在于，在后续的遍历时，cur=cur->right后，cur的predecessor->right可能会指向cur自身，所以会引起死循环，故cur找predecessor时需要排除这一情况，而这一情况也是左子树遍历完成的标志，
+
+```c++
+/**
+ * Definition for a binary tree node.
+ * struct TreeNode {
+ *     int val;
+ *     TreeNode *left;
+ *     TreeNode *right;
+ *     TreeNode() : val(0), left(nullptr), right(nullptr) {}
+ *     TreeNode(int x) : val(x), left(nullptr), right(nullptr) {}
+ *     TreeNode(int x, TreeNode *left, TreeNode *right) : val(x), left(left), right(right) {}
+ * };
+ */
+class Solution {
+public:
+    vector<int> inorderTraversal(TreeNode* root) {
+        // Moris Traversal
+        if (!root) return {};
+        vector<int> res;
+        TreeNode *cur = root;
+        while (cur) {
+            if (!cur->left) {
+                res.push_back(cur->val);
+                cur = cur->right;
+            } else {
+                // 找到中序遍历中cur的前驱，应该位于左子树的最右边
+                TreeNode *predecessor = cur->left;
+                while (predecessor->right && predecessor->right != cur) { // 第二个条件不能少，否则会越过cur
+                    predecessor = predecessor->right;
+                }
+                if (!predecessor->right) {
+                    // 找到了，指向cur
+                    predecessor->right = cur;
+                    cur = cur->left;
+                } else {
+                    // 说明左子树已经遍历完了，断链，防止下次找predecessor时出现死循环
+                    res.push_back(cur->val);
+                    predecessor->right = nullptr;
+                    cur = cur->right; // 这一步，即可能访问真正的右子树，也可能回到某个父辈
+                }
+            }
+        }
+        return res;
+    }
+};
+```
+
+### 98.验证二叉搜索树(medium) @hot100
 
 给定一个二叉树，判断其是否是一个有效的二叉搜索树。
 
@@ -7193,6 +8125,33 @@ public:
         if (root->val <= pre_val) return false;
         else pre_val = root->val;
         if (!inorder(root->right, pre_val)) return false;
+        return true;
+    }
+};
+```
+
+刷hot100，用到了vector存储中序遍历的结果，但只需要比较前一个元素与当前元素即可
+
+```c++
+class Solution {
+public:
+    bool isValidBST(TreeNode* root) {
+        vector<int> vec;
+        stack<TreeNode*> st;
+        TreeNode *cur = root;
+        while (cur || !st.empty()) {
+            while (cur) {
+                st.push(cur);
+                cur = cur->left;
+            }
+            cur = st.top();
+            st.pop();
+            vec.push_back(cur->val);
+            cur = cur->right;
+        }
+        for (int i = 1; i < vec.size(); ++i) {
+            if (vec[i] <= vec[i-1]) return false;
+        }
         return true;
     }
 };
@@ -7443,7 +8402,7 @@ public:
 };
 ```
 
-### 101.对称二叉树(medium,based on 98)
+### 101.对称二叉树(medium,based on 98) @hot100
 
 给定一个二叉树，检查它是否是镜像对称的。
 
@@ -7484,7 +8443,7 @@ public:
 class Solution {
 public:
     bool isSymmetric(TreeNode* root) {
-        return isSym(root, root);
+        return isSym(root->left, root->right);
     }
     bool isSym(TreeNode *p, TreeNode *q){
         if(p == nullptr && q == nullptr) return true;
@@ -7556,7 +8515,23 @@ public:
 };
 ```
 
-### 102.二叉树的层次遍历(medium)
+刷hot100时，没想到要双管齐下，这样无法保证高层的是否相等
+
+```c++
+    bool isSymmetric(TreeNode* root) {
+        if (!root || (!root->left && !root->right)) return true;
+        if (root->left && root->right) {
+            if (root->left->val != root->right->val) {
+                return false;
+            }
+        } else {
+            return false;
+        }
+        return isSymmetric(root->left) && isSymmetric(root->right);
+    }
+```
+
+### 102.二叉树的层次遍历(medium) @hot100
 
 给定一个二叉树，返回其按层次遍历的节点值。 （即逐层地，从左到右访问所有节点）。
 
@@ -7663,6 +8638,36 @@ public:
 };
 ```
 
+跟y总有点像的，自己的解法，感觉容易写出来
+
+```c++
+class Solution {
+public:
+    vector<vector<int>> levelOrder(TreeNode* root) {
+        vector<vector<int>> res;
+        if (!root) return res;
+        vector<int> layer;
+        queue<TreeNode*> q;
+        q.push(root);
+        int sz = 1;
+        while (!q.empty()) {
+            TreeNode *cur = q.front();
+            q.pop();
+            if (cur->left) q.push(cur->left);
+            if (cur->right) q.push(cur->right);
+            layer.push_back(cur->val);
+            if (--sz == 0) {
+                res.push_back(layer);
+                vector<int>().swap(layer);
+                sz = q.size();
+                layer.reserve(sz);
+            }
+        }
+        return res;
+    }
+};
+```
+
 ### 103.二叉树的锯齿形排列
 
 同牛客32-3
@@ -7710,7 +8715,7 @@ public:
 };
 ```
 
-### 104.二叉树的最大深度
+### 104.二叉树的最大深度 @hot100
 
 给定一个二叉树，找出其最大深度。
 
@@ -7737,7 +8742,6 @@ public:
 
 ```c
 void pre_order(TreeNode * Node)
-{
     if(Node != NULL)
     {
         printf("%d ", Node->data);
@@ -7792,7 +8796,98 @@ public:
 
  这题还可以用非递归的DFS解决，但需要栈这种数据结构，也可以使用广度优先搜索（BFS），但需要队列这种数据结构
 
-### 105. 从前序与中序遍历序列构造二叉树(medium)
+非递归的DFS，中序遍历，参考94.的代码
+
+```c++
+/**
+ * Definition for a binary tree node.
+ * struct TreeNode {
+ *     int val;
+ *     TreeNode *left;
+ *     TreeNode *right;
+ *     TreeNode() : val(0), left(nullptr), right(nullptr) {}
+ *     TreeNode(int x) : val(x), left(nullptr), right(nullptr) {}
+ *     TreeNode(int x, TreeNode *left, TreeNode *right) : val(x), left(left), right(right) {}
+ * };
+ */
+class Solution {
+public:
+    int maxDepth(TreeNode* root) {
+        if (!root) return 0;
+        stack<pair<TreeNode*, int>> st;
+        int res = 1;
+        int cur_depth = 1;
+        TreeNode *cur = root;
+        while (cur || !st.empty()) {
+            while (cur) {
+                st.push(pair<TreeNode*, int>(cur, cur_depth));
+                cur = cur->left;
+                ++cur_depth;
+            }
+            cur = st.top().first;
+            cur_depth = st.top().second;
+            res = max(res, cur_depth);
+            st.pop();
+            cur = cur->right;
+            ++cur_depth;
+        }
+        return res;
+    }
+};
+```
+
+非递归的BFS，用queue，每一层缓存一下q.size()，即可决定啥时候到下一层
+
+```c++
+class Solution {
+public:
+    int maxDepth(TreeNode* root) {
+        if (!root) return 0;
+        queue<TreeNode*> q;
+        int res = 0;
+        q.push(root);
+        int sz = 1;
+        while (!q.empty()) {
+            TreeNode *cur = q.front();
+            if (cur->left) q.push(cur->left);
+            if (cur->right) q.push(cur->right);
+            q.pop();
+            if (--sz == 0) {
+                sz = q.size();
+                ++res;
+            }
+        }
+        return res;
+    }
+};
+```
+
+官方题解用了嵌套的while循环，执行流是一样的，都好理解
+
+```c++
+class Solution {
+public:
+    int maxDepth(TreeNode* root) {
+        if (root == nullptr) return 0;
+        queue<TreeNode*> Q;
+        Q.push(root);
+        int ans = 0;
+        while (!Q.empty()) {
+            int sz = Q.size();
+            while (sz > 0) {
+                TreeNode* node = Q.front();Q.pop();
+                if (node->left) Q.push(node->left);
+                if (node->right) Q.push(node->right);
+                sz -= 1;
+            }
+            ans += 1;
+        } 
+        return ans;
+    }
+};
+```
+
+### 105. 从前序与中序遍历序列构造二叉树(medium) @hot100
 
 根据一棵树的前序遍历与中序遍历构造二叉树。
 
@@ -7891,6 +8986,40 @@ public:
         int left_subtree_size = it - (inorder.begin() + in_l);
         root->left = helper(preorder, inorder, pre_l+1, pre_l+left_subtree_size, in_l, in_l+left_subtree_size-1);
         root->right = helper(preorder, inorder, pre_l+left_subtree_size+1, pre_r, in_l+left_subtree_size+1, in_r);
+        return root;
+    }
+};
+```
+
+刷hot100，差不多，一些边界点的处理要小心
+
+```c++
+class Solution {
+public:
+    TreeNode* buildTree(vector<int>& preorder, vector<int>& inorder) {
+        if (preorder.empty() || inorder.empty()) return nullptr;
+        int pre_index = 0;
+        return helper(preorder, &pre_index, inorder, 0, inorder.size());
+    }
+
+    // 先序遍历的节点，在中序遍历的中间，可以划分为左子树与右子树
+    // 左闭右开区间，[in_begin, in_end)
+    TreeNode *helper(vector<int> &preorder, int *pre_index, vector<int> &inorder, int in_begin, int in_end) {
+        if (in_begin == in_end) {
+            return new TreeNode(inorder[in_begin]);
+        }
+        auto it = find(inorder.begin() + in_begin, inorder.begin() + in_end, preorder[*pre_index]);
+        if (it == inorder.end()) return nullptr;
+        int root_index = it - inorder.begin();
+        TreeNode *root = new TreeNode(inorder[root_index]);
+        if (root_index > in_begin) { // 有左子树
+            (*pre_index)++;
+            root->left = helper(preorder, pre_index, inorder, in_begin, root_index);
+        }
+        if (root_index < in_end - 1) { // 有右子树
+            (*pre_index)++;
+            root->right = helper(preorder, pre_index, inorder, root_index + 1, in_end);
+        }
         return root;
     }
 };
@@ -8007,7 +9136,7 @@ public:
 };
 ```
 
-### 108.将有序数组转换为二叉搜索树(Easy)
+### 108.将有序数组转换为二叉搜索树(Easy) @hot100
 
 将一个按照升序排列的有序数组，转换为一棵高度平衡二叉搜索树。
 
@@ -8079,6 +9208,33 @@ public:
 2020.7.16二刷，一次性AC，15min？有进步
 
 三刷，速度提上来了
+
+刷hot100，主函数可以省略构造步骤，第一次进入也可以交给辅助函数去做
+
+```c++
+class Solution {
+public:
+    TreeNode* sortedArrayToBST(vector<int>& nums) {
+        if (nums.empty()) return nullptr;
+        // 根节点的左子树是左边区间的中点，根节点右子树是右边区间的中点
+        int len = nums.size();
+        int mid = len / 2;
+        TreeNode *root = new TreeNode(nums[mid]);
+        root->left = buildBST(nums, 0, mid - 1);
+        root->right = buildBST(nums, mid + 1, len - 1);
+        return root;
+    }
+
+    TreeNode* buildBST(vector<int> &nums, int begin, int end) {
+        if (begin > end) return nullptr;
+        int mid = begin + (end - begin) / 2;
+        TreeNode *root = new TreeNode(nums[mid]);
+        root->left = buildBST(nums, begin, mid - 1);
+        root->right = buildBST(nums, mid + 1, end);
+        return root;
+    }
+};
+```
 
 ### 109. 有序链表转换二叉搜索树(Medium,based on 108)
 
@@ -8309,7 +9465,7 @@ public:
 };
 ```
 
-### 114. 二叉树展开为链表(Medium)
+### 114. 二叉树展开为链表(Medium) @hot100
 
 给定一个二叉树，原地将它展开为一个单链表。
 
@@ -8515,106 +9671,7 @@ public:
 };
 ```
 
-### 118. 杨辉三角(Easy)
-
-给定一个非负整数 numRows，生成杨辉三角的前 numRows 行。
-
-在杨辉三角中，每个数是它左上方和右上方的数的和。
-
-直接一把梭
-
-```c++
-class Solution {
-public:
-    vector<vector<int>> generate(int numRows) {
-        if (numRows == 0) return {};
-        if (numRows == 1) return {{1}};
-        vector<vector<int>> ans;
-        ans.push_back({1});
-        ans.push_back({1, 1});
-        for (int i = 2; i < numRows; ++i) { // 从第三行开始
-            ans.push_back(vector<int>(i+1, 1));
-            for (int j = 1; j <= i - 1; ++j) { // 填充level的中间数字
-                ans[i][j] = ans[i-1][j-1] + ans[i-1][j];
-            }
-        }
-        return ans;
-    }
-};
-```
-
-### 119. 杨辉三角 II(Easy)
-
-给定一个非负索引 k，其中 k ≤ 33，返回杨辉三角的第 k 行。
-
-在杨辉三角中，每个数是它左上方和右上方的数的和。
-
-示例:
-
-输入: 3
-输出: [1,3,3,1]
-进阶：
-
-你可以优化你的算法到 O(k) 空间复杂度吗？
-
-暴力构造
-
-```c++
-class Solution {
-public:
-    vector<int> getRow(int rowIndex) {
-        if (rowIndex == 0) return {1};
-        if (rowIndex == 1) return {1, 1};
-        vector<vector<int>> ans;
-        ans.push_back({1});
-        ans.push_back({1, 1});
-        for (int i = 2; i < rowIndex+1; ++i) { // 从第三行开始
-            ans.push_back(vector<int>(i+1, 1));
-            for (int j = 1; j <= i - 1; ++j) { // 填充level的中间数字
-                ans[i][j] = ans[i-1][j-1] + ans[i-1][j];
-            }
-        }
-        return ans[rowIndex];
-    }
-};
-```
-
-二维压缩成一维
-
-```c++
-class Solution {
-public:
-    vector<int> getRow(int rowIndex) {
-        vector<int> kRows(rowIndex+1);
-        for(int i = 0; i <= rowIndex; i++) { //利用前一行求后一行，第K行要循环K遍{
-            kRows[i] = 1; //行末尾为1
-            for(int j = i; j > 1; j--) { //每一行的更新过程
-                    kRows[j-1] = kRows[j-2] + kRows[j-1];
-            }
-        }
-        return kRows;
-    }
-};
-```
-
-然而，符合时间复杂度为O(k)的，只有二项式定理
-
-[纯C 0ms 二项式解题 简单易懂](https://leetcode-cn.com/problems/pascals-triangle-ii/solution/chun-c-0ms-er-xiang-shi-jie-ti-jian-dan-yi-dong-by/)
-
-```c++
-class Solution {
-public:
-    vector<int> getRow(int rowIndex) {
-        vector<int> res(rowIndex+1, 1);
-        for(int i = 1; i <= rowIndex; ++i) {
-            res[i] = (long long)res[i - 1] * (rowIndex - i + 1) / i;
-        }
-        return res;
-    }
-};
-```
-
-### 124. 二叉树中的最大路径和(hard, based on 543)
+### 124. 二叉树中的最大路径和(hard, based on 543) @hot100
 
 给定一个非空二叉树，返回其最大路径和。
 
@@ -8680,6 +9737,48 @@ public:
 };
 ```
 
+刷hot100，略微繁琐点，思路是一样的，优雅解法的“左右子树可以贡献0”很巧妙，省去了很多ifelse
+
+时间
+16 ms
+击败
+96.9%
+内存
+27.1 MB
+击败
+23.38%
+
+```c++
+class Solution {
+public:
+    int maxPathSum(TreeNode* root) {
+        int max_sum = INT_MIN;
+        helper(root, &max_sum);
+        return max_sum;
+    }
+
+    // return：经过当前节点的、向下路径的最大值（可能只包含当前节点本身
+    int helper(TreeNode *root, int *max_sum) {
+        if (!root) return 0;
+        *max_sum = max(*max_sum, root->val);
+        int left_max_sum = helper(root->left, max_sum);
+        int right_max_sum = helper(root->right, max_sum);
+        if (left_max_sum <= 0 && right_max_sum <= 0) {
+            return root->val;
+        }
+        int child_max_sum = max(left_max_sum, right_max_sum);
+        if (left_max_sum >= 0 && right_max_sum >= 0) {
+            *max_sum = max(*max_sum, root->val + left_max_sum + right_max_sum);
+        } else if (left_max_sum >= 0) {
+            *max_sum = max(*max_sum, root->val + left_max_sum);
+        } else if (right_max_sum >= 0) {
+            *max_sum = max(*max_sum, root->val + right_max_sum);
+        }
+        return root->val + child_max_sum;
+    }
+};
+```
+
 ### 144. 二叉树的前序遍历(Medium)
 
 递归
@@ -8724,7 +9823,7 @@ public:
 };
 ```
 
-### 145. 二叉树的后序遍历(Hard)
+### 145. 二叉树的后序遍历(Hard) @hot100
 
 迭代比较难写，
 
@@ -8785,7 +9884,7 @@ public:
             if ((!cur->left && !cur->right) ||
                 (pre && (pre == cur->left || pre == cur->right))) {
                 ans.push_back(cur->val);
-                pre = cur;
+                pre = cur; // 记录上次处理的节点
                 s.pop();
             } else {
                 if (cur->right) s.push(cur->right);
@@ -8912,7 +10011,7 @@ public:
 };
 ```
 
-### 199. 二叉树的右视图(Medium)
+### 199. 二叉树的右视图(Medium) @hot100
 
 给定一棵二叉树，想象自己站在它的右侧，按照从顶部到底部的顺序，返回从右侧所能看到的节点值。
 
@@ -8970,7 +10069,85 @@ public:
 };
 ```
 
-### 230. 二叉搜索树中第K小的元素(Medium)
+刷hot100，不需要记录层数，层序遍历的应用，巧用queue.size()换层
+
+```c++
+class Solution {
+public:
+    vector<int> rightSideView(TreeNode* root) {
+        if (!root) return {};
+        // 层序遍历的应用
+        vector<int> res;
+        queue<TreeNode*> q;
+        q.push(root);
+        int sz = 1;
+        TreeNode *cur = root;
+        while (!q.empty()) {
+            cur = q.front();
+            q.pop();
+            if (cur->left) q.push(cur->left);
+            if (cur->right) q.push(cur->right); // 注意顺序，右视图，right后入队列
+            if (--sz == 0) {
+                // 到达该层末尾，当前节点即为该层最右节点
+                res.push_back(cur->val);
+                sz = q.size();
+            }
+        }
+        return res;
+    }
+};
+```
+
+### 226. 翻转二叉树 @hot100
+
+给你一棵二叉树的根节点 root ，翻转这棵二叉树，并返回其根节点。
+
+```c++
+class Solution {
+public:
+    TreeNode* invertTree(TreeNode* root) {
+        if (!root) return nullptr;
+        TreeNode *left = root->left;
+        root->left = root->right;
+        root->right = left;
+        invertTree(root->left);
+        invertTree(root->right);
+        return root;
+    }
+};
+```
+
+迭代写法，参考145的后序遍历
+
+```c++
+class Solution {
+public:
+    TreeNode* invertTree(TreeNode* root) {
+        if (!root) return root;
+        stack<TreeNode*> st;
+        st.push(root);
+        TreeNode *cur = nullptr;
+        TreeNode *pre = nullptr;
+        while (!st.empty()) {
+            cur = st.top();
+            if ((!cur->left && !cur->right) ||
+                (pre && (pre == cur->left || pre == cur->right))) {
+                TreeNode *left = cur->left;
+                cur->left = cur->right;
+                cur->right = left;
+                pre = cur; // 记录上次处理的节点
+                st.pop();
+            } else {
+                if (cur->right) st.push(cur->right);
+                if (cur->left) st.push(cur->left);
+            }
+        }
+        return root;
+    }
+};
+```
+
+### 230. 二叉搜索树中第K小的元素(Medium) @hot100
 
 给定一个二叉搜索树，编写一个函数 kthSmallest 来查找其中第 k 个最小的元素。
 
@@ -9064,7 +10241,7 @@ public:
 };
 ```
 
-在题解区看到进阶的讨论，感觉有点复杂，就先不看了
+(/在题解区看到进阶的讨论，感觉有点复杂，就先不看了)❎
 
 二刷
 
@@ -9088,6 +10265,41 @@ public:
     }
 };
 ```
+
+刷hot100，递归写法
+
+```c++
+class Solution {
+public:
+    bool find = false;
+    int kthSmallest(TreeNode* root, int k) {
+        // 中序遍历，第k个即为第k小元素
+        if (!root) return 0;
+        int cnt = k;
+        bool find;
+        return helper(root, &cnt);
+
+    }
+    int helper(TreeNode* root, int *k) {
+        if (!root) return 0;
+        int res = helper(root->left, k);
+        if (find) return res;
+        // 当前节点
+        --(*k);
+        if (*k == 0) {
+            find = true;
+            return root->val;
+        }
+        res = helper(root->right, k);
+        if (find) {
+            return res;
+        }
+        return 0;
+    }
+};
+```
+
+如果经常插入和删除，频繁查找第k小会比较麻烦，可以考虑在遍历时维护该节点的左子树的节点个数，右子树的节点个数，当要找第k小时，先判断左子树节点个数，若小于k，则k肯定在右子树里面，这样就可以剪枝了
 
 ### 235. 二叉搜索树的最近公共祖先(Medium)
 
@@ -9169,7 +10381,7 @@ public:
 };
 ```
 
-### 236. 二叉树的最近公共祖先(medium)
+### 236. 二叉树的最近公共祖先(medium) @hot100
 
 给定一个二叉树, 找到该树中两个指定节点的最近公共祖先。
 
@@ -9197,6 +10409,10 @@ p、q 为不同节点且均存在于给定的二叉树中。
 
 考虑在左子树和右子树中查找这两个节点，如果两个节点分别位于左子树和右子树，则最低公共祖先为自己(root)，若左子树中两个节点都找不到，说明最低公共祖先一定在右子树中，反之亦然。考虑到二叉树的递归特性，因此可以通过递归来求得。
 
+考虑到祖先可以为自身，那么递归退出条件可以直接是判断当前节点与p、q，而不用理会当前节点的子节点中是否包含pq，因为递归函数的返回值即表示找到的p或q，又表示已找到的公共祖先，非常巧妙
+
+为什么这样能求得最小的公共祖先？因为当子节点计算出来公共祖先后，父节点只需要返回内层递归的函数返回值即可，所以不会修改已计算得到的公共祖先，所以最后得到的一定是最小的
+
 时间复杂度分析：需要遍历树，复杂度为 O(n)
 
 ```c++
@@ -9209,6 +10425,21 @@ public:
         if(!left) return right;
         if(!right) return left;
         return root; // p和q在两侧
+    }
+};
+```
+
+```c++
+class Solution {
+public:
+    TreeNode* lowestCommonAncestor(TreeNode* root, TreeNode* p, TreeNode* q) {
+        if(root == nullptr || root == p || root == q) return root;
+        TreeNode *left = lowestCommonAncestor(root->left, p, q);
+        TreeNode *right = lowestCommonAncestor(root->right, p, q);
+        if (left && right) return root;
+        if (left) return left; // 与上面的答案是一致的
+        if (right) return right;
+        return nullptr;
     }
 };
 ```
@@ -9243,6 +10474,54 @@ public:
         p_bool = p_bool || p_bool_l || p_bool_r;
         q_bool = q_bool || q_bool_l || q_bool_r;
         return {root, {p_bool, q_bool}};
+    }
+};
+```
+
+刷hot100，还是没有之前的最佳答案简洁
+
+时间
+16 ms
+击败
+68.54%
+内存
+13.9 MB
+击败
+47.61%
+
+```c++
+class Solution {
+public:
+    TreeNode *ans = nullptr;
+    TreeNode* lowestCommonAncestor(TreeNode* root, TreeNode* p, TreeNode* q) {
+        if (!root) return nullptr;
+        if (p == q) return p;
+        helper(root, p, q);
+        return ans;
+    }
+    TreeNode* helper(TreeNode* root, TreeNode* p, TreeNode* q) {
+        if (!root || ans) return nullptr;
+        TreeNode* left_find = helper(root->left, p, q);
+        TreeNode* right_find = helper(root->right, p, q);
+        if (left_find && right_find) {
+            ans = root;
+            return nullptr;
+        } else if (!left_find && !right_find) {
+            // 左右子树都找不到
+            if (root == p || root == q) {
+                return root == p ? p : q;
+            }
+            return nullptr;
+        } else {
+            // 左右子树找到一个
+            if (root == p || root == q) {
+                ans = root;
+                return nullptr;
+            } else {
+                return left_find != nullptr ? left_find : right_find;
+            }
+        }
+        return nullptr;
     }
 };
 ```
@@ -9342,7 +10621,7 @@ public:
 // codec.deserialize(codec.serialize(root));
 ```
 
-### 437. 路径总和 III
+### 437. 路径总和 III @hot100
 
 给定一个二叉树，它的每个结点都存放着一个整数值。
 
@@ -9358,11 +10637,20 @@ dfs
 
 以每个节点作为起始节点DFS寻找满足条件的路径
 
+时间
+16 ms
+击败
+78.93%
+内存
+15.5 MB
+击败
+76.81%
+
 ```c++
 class Solution {
 public:
     int ans = 0;
-    void dfs(TreeNode* root, int sum){
+    void dfs(TreeNode* root, long long sum){
         if(!root) return;
         sum -= root->val;
         if(sum == 0) ans++;
@@ -9374,6 +10662,47 @@ public:
         dfs(root, sum);
         pathSum(root->left, sum); // 将每个节点作为根节点执行dfs
         pathSum(root->right, sum); // 将每个节点作为根节点执行dfs
+        return ans;
+    }
+};
+```
+
+上述做法会多次访问子节点，刷hot100时想到了前缀和的思想，用一个数组存储之前的前缀和，因为路径向下，数组size就是当前层数，力扣有大整数的输入，所以用long long64位存储
+
+(理论上来说比上述快，但是力扣跑出来比上述做法还慢。。)
+
+时间
+24 ms
+击败
+50.37%
+内存
+15.8 MB
+击败
+52.53%
+
+```c++
+class Solution {
+public:
+    int pathSum(TreeNode* root, int targetSum) {
+        if (!root) return 0;
+        vector<long long> sums = {root->val};
+        long long layer = 0;
+        return helper(root, sums, layer + 1, targetSum);
+    }
+
+    int helper(TreeNode* root, vector<long long> &sums, int layer, int targetSum) {
+        if (!root) return 0;
+        // 计算：以当前节点为路径的终点，路径之和==target的路径数目
+        if (sums.size() < layer + 1) sums.resize(layer + 1);
+        sums[layer] = sums[layer - 1] + root->val;
+        int ans = 0;
+        for (int i = 0; i < layer; ++i) {
+            if (sums[layer] - sums[i] == targetSum) {
+                ans++;
+            }
+        }
+        ans += helper(root->left, sums, layer + 1, targetSum);
+        ans += helper(root->right, sums, layer + 1, targetSum);
         return ans;
     }
 };
@@ -9504,7 +10833,7 @@ public:
 };
 ```
 
-### 543. 二叉树的直径(medium)
+### 543. 二叉树的直径(medium) @hot100
 
 给定一棵二叉树，你需要计算它的直径长度。一棵二叉树的直径长度是任意两个结点路径长度中的最大值。这条路径可能穿过也可能不穿过根结点。
 
@@ -9543,6 +10872,29 @@ public:
         int ans = 0;
         dfs(root, ans);
         return ans;  
+    }
+};
+```
+
+刷hot100，思路和之前的递归差不多
+
+```c++
+class Solution {
+public:
+    int diameterOfBinaryTree(TreeNode* root) {
+        int diameter = 0;
+        depthOfCurrentNode(root, &diameter);
+        return diameter;
+    }
+
+    int depthOfCurrentNode(TreeNode *root, int *diameter) {
+        if (!root) return 0;
+        int left_depth = depthOfCurrentNode(root->left, diameter);
+        int right_depth = depthOfCurrentNode(root->right, diameter);
+        int cur_depth = max(left_depth, right_depth) + 1;
+        int cur_diameter = left_depth + right_depth;
+        *diameter = max(*diameter, cur_diameter);
+        return cur_depth;
     }
 };
 ```
@@ -9642,7 +10994,26 @@ public:
 
 ## 动态规划
 
-### 3. 无重复字符的最长子串(Medium)
+### 思路
+
+李煜东著《算法竞赛进阶指南》，摘录如下：：
+
+为了保证计算子问题能够按照顺序、不重复地进行，动态规划要求已经求解的子问题不受后续阶段的影响。这个条件也被叫做「无后效性」。换言之，动态规划对状态空间的遍历构成一张有向无环图，遍历就是该有向无环图的一个拓扑序。有向无环图中的节点对应问题中的「状态」，图中的边则对应状态之间的「转移」，转移的选取就是动态规划中的「决策」。
+
+我的解释：
+
+「有向无环图」「拓扑序」表示了每一个子问题只求解一次，以后求解问题的过程不会修改以前求解的子问题的结果；
+
+作者：liweiwei1419
+链接：https://leetcode.cn/problems/maximum-subarray/solutions/9058/dong-tai-gui-hua-fen-zhi-fa-python-dai-ma-java-dai/
+来源：力扣（LeetCode）
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+
+### 背包
+
+https://leetcode.cn/problems/partition-equal-subset-sum/solutions/13059/0-1-bei-bao-wen-ti-xiang-jie-zhen-dui-ben-ti-de-yo/
+
+### 3. 无重复字符的最长子串(Medium) @hot100
 
 同剑指第48题，
 
@@ -9687,6 +11058,7 @@ public:
         vector<int> vec(size, 1);
         for (int i = 1; i < size; ++i) {
             if (table.find(s[i]) == table.end() || i - table[s[i]] > vec[i-1]) {
+                // 第i位元素结尾的最长子串可以接在后面，所以长度+1
                 vec[i] = vec[i-1] + 1;
             } else {
                 vec[i] = i - table[s[i]];
@@ -9727,27 +11099,68 @@ public:
 };
 ```
 
-这题也可以用滑动窗口做
+刷hot100时，错误地把dp[i]当做目前为止最长的子串长度，导致一直AC不了，一直以为是边界出错，最后发现原来是状态表示出错了
 
 ```c++
 class Solution {
 public:
     int lengthOfLongestSubstring(string s) {
-        int res = 0;
-        unordered_map<char, int> window;
-        int l = 0, r = 0;
-        char ch, d;
-        while (r < s.size()) {
-            ch = s[r];
-            ++r;
-            ++window[ch];
-            // 判断左侧窗口是否要收缩
-            while (window[ch] > 1) { // 此时window内有重复字符，收缩左侧窗口
-                d = s[l];
-                ++l;
-                --window[d];
+        if (s.empty()) return 0;
+        int len = s.size();
+        unordered_map<char, int> hash; // 记录字符最后出现的坐标
+        hash[s[0]] = 0;
+        int cur_max_len = 1; // 遍历到第i位时，目前已知的最长子串长度，第1位作为初始值
+        for (int i = 1; i < len; ++i) {
+            auto iter = hash.find(s[i]);
+            hash[s[i]] = i;
+            if (iter == hash.end() || i - iter->second > cur_max_len) {
+                ++cur_max_len;
             }
-            res = max(res, r-l);
+            if (iter != hash.end() && i - iter->second < cur_max_len){
+                // 当前字符与上次出现的位置之差，比目前的最长子串长度还小，所以需要跳跃
+                int skip = cur_max_len - (i - iter->second);
+                while (skip-- > 0) {
+                    ++i;
+                    hash[s[i]] = i;
+                }
+            // } else {
+            //     hash[s[i]] = i;
+            }
+        }
+        return cur_max_len;
+    }
+};
+```
+
+这题也可以用滑动窗口做
+
+1. 我们使用两个指针表示字符串中的某个子串（或窗口）的左右边界，其中左指针代表着上文中「枚举子串的起始位置」，
+2. 在每一步的操作中，我们会将左指针向右移动一格，表示 我们开始枚举下一个字符作为起始位置，然后我们可以不断地向右移动右指针，但需要保证这两个指针对应的子串中没有重复的字符。在移动结束后，这个子串就对应着 以左指针开始的，不包含重复字符的最长子串。我们记录下这个子串的长度
+3. 在枚举结束后，我们找到的最长的子串的长度即为答案
+
+因为字符是优先的，哈希表可以优化成桶， int pos[128]={0};
+
+```c++
+class Solution {
+public:
+    int lengthOfLongestSubstring(string s) {
+        if (s.empty()) return 0;
+        int len = s.size();
+        unordered_map<char, int> hash; // 记录当前窗口中字符出现的次数
+        int l = 0; // l是窗口左端点
+        int r = 1; // r是窗口右端点
+        ++hash[s[0]]; // 窗口初始化[0,1]
+        int res = 1;
+        while (r < len) {
+            // 此时r加入，判断r是否有重复，收缩左端点
+            ++hash[s[r]];
+            while (hash[s[r]] > 1) {
+                --hash[s[l]];
+                ++l;
+            }
+            // 此时是个不重复子串，记录下来
+            res = max(res, r - l + 1);
+            ++r;
         }
         return res;
     }
@@ -9891,6 +11304,46 @@ public:
 Your runtime beats 86.17 % of cpp submissions
 Your memory usage beats 98.16 % of cpp submissions (8.6 MB)
 
+刷hot100时，直接构造2*n-1的遍历点，i为偶数，就是以字符为中心向两边扩散，i为奇数，就是以两个相邻字符为中心向两边扩散
+
+```c++
+class Solution {
+public:
+    string longestPalindrome(string s) {
+        int n = s.size();
+        int ans = 0;
+        int begin = 0;
+        int end = 0;
+        // 总共有2n-1个位置，其中n个位置是以当前字符为中心的，n-1是相邻字符中间的位置
+        for (int i = 0; i < 2 * n - 1; ++i) {
+            if (i % 2 == 0) {
+                int mid_index = i / 2; 
+                int tmp = 0;
+                while (mid_index - tmp >= 0 && mid_index + tmp < n && s[mid_index - tmp] == s[mid_index + tmp]) {
+                    if (2 * tmp + 1 > end - begin) {
+                        end = mid_index + tmp;
+                        begin = mid_index - tmp;
+                    }
+                    ++tmp;
+                }
+            } else {
+                int left_index = i / 2;
+                int right_index = (i + 1) / 2;
+                int tmp = 0;
+                while (left_index - tmp >= 0 && right_index + tmp < n && s[left_index - tmp] == s[right_index + tmp]) {
+                    if (2 * tmp + 2 > end - begin) {
+                        end = right_index + tmp;
+                        begin = left_index - tmp;
+                    }
+                    ++tmp;
+                }
+            }
+        }
+        return s.substr(begin, end - begin + 1);
+    }
+};
+```
+
  最长回文子串的动态规划
 
 思路：定义p[i][j] = true if s[i,j]是回文串, = false if s[i,j]不是回文串，于是有递推公式，p[i][j]=p[i+1][j-1]&&s[i]==s[j]
@@ -9929,29 +11382,87 @@ Your memory usage beats 98.16 % of cpp submissions (8.6 MB)
 
     dp[l, r] = (s[l] == s[r] and (r - l <= 2 or dp[l + 1, r - 1]))
 
+根据状态转移方程：p[i][j]=p[i+1][j-1]&&s[i]==s[j]，如果从二维矩阵的视角，当前值取决于i+1与j-1，所以遍历时要先计算下一行(i+1)的前一个元素(j-1)
+
+- 比如：dp[0][3]取决于dp[1][2]，如果是两层for循环先行后列，都是从小到大遍历，则此时dp[1][2]还没计算，是初始化的false，所以dp[0][3]肯定也是false
+- 解决方法是反向遍历行，正向遍历列；或者先遍历列，再遍历行
+
+先遍历列，再遍历行
+
 ```c++
-class Solution
-{
+// // 二维矩阵的遍历顺序，按照数字从小到大
+// 1 5 9  13
+// 2 6 10 14
+// 3 7 11 15
+// 4 8 12 16
+
+// // 又因为 i <= j ，所以实际只会遍历右上角
+
+// 1 2 4 7
+// x 3 5 8
+// x x 6 9
+// x x x 10
+
+class Solution {
 public:
-    string longestPalindrome(string s)
-    {
-        if (s.size() == 1)
-            return s;
-        int len = s.size();
-        int begin = 0, maxLen = 1;
-        vector<vector<bool>> dp(len, vector<bool>(len, false));
-        for(int r = 1; r < len; ++r){
-            for(int l = 0; l < r; ++l){
-                dp[l][r] = (s[l] == s[r] && (r - l <= 2 || dp[l + 1][r - 1]));
-                if (dp[l][r] && r + 1 - l > maxLen)
-                {
+    string longestPalindrome(string s) {
+        // dp[i][j] 表示从i到j是否是回文子串，假设i <= j，且当i==j时，dp[i][j]=true
+        // dp[i][j] = dp[i+1][j-1] && s[i] == s[j]
+        int n = s.size();
+        vector<vector<bool>> dp(n, vector<bool>(n, false));
+        int begin = 0;
+        int maxLen = 1;
+        for (int r = 1; r < n; ++r) { // 先遍历列，再遍历行，保证先计算子问题
+            for (int l = 0; l < r; ++l) {
+                if (s[r] != s[l]) {
+                    continue;
+                }
+                dp[l][r] = r - l <= 2 || dp[l+1][r-1];
+                if (dp[l][r] && r + 1 - l > maxLen) {
                     begin = l;
                     maxLen = r + 1 - l;
                 }
             }
         }
-        return s.substr(begin, maxLen);
-    }  
+        return s.substr(begin,  maxLen);
+    }
+};
+```
+
+或者反向遍历行，正向遍历列
+
+```c++
+// 二维矩阵的遍历顺序，按照数字从小到大
+// i <= j ，所以实际只会遍历右上角
+
+// 7 8 9 10
+// x 4 5 6
+// x x 2 3
+// x x x 1
+
+class Solution {
+public:
+    string longestPalindrome(string s) {
+        // dp[i][j] 表示从i到j是否是回文子串，假设i <= j，且当i==j时，dp[i][j]=true
+        // dp[i][j] = dp[i+1][j-1] && s[i] == s[j]
+        int n = s.size();
+        vector<vector<bool>> dp(n, vector<bool>(n, false));
+        int begin = 0;
+        int maxLen = 1;
+        for (int l = n - 2; l >= 0; --l) { // 先反向遍历行，再遍历列，保证先计算子问题
+            for (int r = l + 1; r < n; ++r) {
+                if (s[r] != s[l]) {
+                    continue;
+                }
+                dp[l][r] = r - l <= 2 || dp[l+1][r-1];
+                if (dp[l][r] && r + 1 - l > maxLen) {
+                    begin = l;
+                    maxLen = r + 1 - l;
+                }
+            }
+        }
+        return s.substr(begin,  maxLen);
+    }
 };
 ```
 
@@ -9963,7 +11474,7 @@ Your memory usage beats 39.16 % of cpp submissions (18.8 MB)
 
 [Manacher's Algorithm 马拉车算法](https://www.cnblogs.com/grandyang/p/4475985.html)
 
-### 53.最大子数组/最大连续子序列/最大子段和
+### 53.最大子数组/最大连续子序列/最大子段和 @hot100
 
 给定一个整数数组 nums ，找到一个具有最大和的连续子数组（子数组最少包含一个元素），返回其最大和。
 
@@ -10036,6 +11547,28 @@ public:
 };
 ```
 
+hot100，想到了前缀和，其实感觉最后做出来和dp有点像
+
+```c++
+class Solution {
+public:
+    int maxSubArray(vector<int>& nums) {
+        if (nums.size() == 1) return nums[0];
+        int len = nums.size();
+        int sum = 0; // 前缀和
+        int prev_min = 0; // 之前的前缀和最小值，还未遍历时，前缀和为0
+        int max_sub_sum = INT_MIN;
+        for (int i = 0; i < len; ++i) {
+            sum += nums[i];
+            // 最大和的连续子数组，可能是是前一状态，也可能是单独当前元素组成子数组，
+            max_sub_sum = max(nums[i], max(max_sub_sum, sum - prev_min));
+            prev_min = min(prev_min, sum);
+        }
+        return max_sub_sum;
+    }
+};
+```
+
 202/202 cases passed (12 ms)
 Your runtime beats 46.05 % of cpp submissions
 Your memory usage beats 81.66 % of cpp submissions (9.2 MB)
@@ -10046,14 +11579,19 @@ Your memory usage beats 81.66 % of cpp submissions (9.2 MB)
 class Solution {
 public:
     int maxSubArray(vector<int>& nums) {
+        // dp[i]是以第i为结尾的连续子数组的最大和
+        // dp[i]=max(dp[i-1]+nums[i], nums[i])
+        // dp[i]只与dp[i-1]有关，所以用滚动变量
+        int len = nums.size();
         int sum = nums[0];
-        int max_ = nums[0];
-        for (int i = 1; i < nums.size(); ++i) {
-            if (sum <= 0) sum = nums[i];
-            else sum += nums[i];
-            max_ = max(max_, sum);
+        int max_sum = nums[0]; // 初始化第一个，因为子数组肯定要元素，然后从第二个开始遍历
+        for (int i = 1; i < len; ++i) {
+            // 仔细看状态转移方程，只需要判别dp[i-1]
+            if (sum > 0) sum += nums[i];
+            else sum = max(sum, nums[i]);
+            max_sum = max(max_sum, sum);
         }
-        return max_;
+        return max_sum;
     }
 };
 ```
@@ -10110,7 +11648,7 @@ public:
 };
 ```
 
-### 152. 乘积最大子数组/最大子数组积/最大子段积
+### 152. 乘积最大子数组/最大子数组积/最大子段积(Medium) @hot100
 
 给你一个整数数组 nums ，请你找出数组中乘积最大的连续子数组（该子数组中至少包含一个数字）。
 
@@ -10142,6 +11680,11 @@ public:
 class Solution {
 public:
     int maxProduct(vector<int>& nums) {
+        // 因为负负得正，所以还要维护最小值，最小值若为负数，可能在后面会变成正数
+        // dp[i]表示以i结尾的最大乘积
+        // max_dp[i] = MAX(max_dp[i-1]*nums[i], min_dp[i-1]*nums[i], nums[i])
+        // min_dp[i] = MIN(max_dp[i-1]*nums[i], min_dp[i-1]*nums[i], nums[i])
+        // dp只与前一状态有关，所以只需要维护两个变量即可
         if(nums.empty()) return 0;
         int n = nums.size();
         int maxP = nums[0];
@@ -10152,14 +11695,14 @@ public:
             temp = maxP; // 暂存，防止修改，给minP的计算用
             maxP = max(max(maxP*nums[i], minP*nums[i]), nums[i]);
             minP = min(min(temp*nums[i], minP*nums[i]), nums[i]);
-            ans = max(ans, maxP);
+            ans = max(ans,  );
         }
         return ans;
     }
 };
 ```
 
-### 62. 不同路径
+### 62. 不同路径(Medium) @hot100
 
 一个机器人位于一个 m x n 网格的左上角 （起始点在下图中标记为“Start” ）。
 
@@ -10167,17 +11710,40 @@ public:
 
 问总共有多少条不同的路径？
 
+dp
+
 ```c++
 class Solution {
 public:
     int uniquePaths(int m, int n) {
-        vector<int> dp(m, 1);
-        for (int i = 1; i < n; ++i) {
-            for (int j = 1; j < m; ++j) {
-                dp[j] = dp[j-1] + dp[j];
+        // dp[i][j] 到达i，j的不同路径
+        // dp[i][j] = dp[i-1][j] + dp[i][j-1]
+        vector<vector<int>> dp(m, vector<int>(n, 1));
+        for (int i = 1; i < m; ++i) {
+            for (int j = 1; j < n; ++j) {
+                dp[i][j] = dp[i-1][j] + dp[i][j-1];
             }
         }
-        return dp[m-1];
+        return dp[m-1][n-1];
+    }
+};
+```
+
+二维数组可以压缩成一维滚动数组，因为当前dp[i]只与dp[i-1]有关，从左至右遍历
+
+```c++
+class Solution {
+public:
+    int uniquePaths(int m, int n) {
+        // dp[i][j] 表示到达i，j的不同路径
+        // dp[i][j] = dp[i-1][j] + dp[i][j-1]
+        vector<int> dp(n, 1);
+        for (int i = 1; i < m; ++i) {
+            for (int j = 1; j < n; ++j) {
+                dp[j] = dp[j] + dp[j-1];
+            }
+        }
+        return dp[n-1];
     }
 };
 ```
@@ -10261,7 +11827,7 @@ public:
 };
 ```
 
-### 64. 最小路径和
+### 64. 最小路径和(Medium) @hot100
 
 给定一个包含非负整数的 m x n 网格，请找出一条从左上角到右下角的路径，使得路径上的数字总和为最小。
 
@@ -10303,7 +11869,7 @@ public:
 };
 ```
 
-### 70.爬楼梯
+### 70.爬楼梯(Easy) @hot100
 
 假设你正在爬楼梯。需要 n 阶你才能到达楼顶。
 
@@ -10373,25 +11939,23 @@ public:
 
 ```
 
-稍微优化一下，改成线性的尾递归，可以通过
+稍微优化一下，改成线性的尾递归，可以通过，这是从左往右的递归，是线性的
 
 ```c++
 class Solution {
 public:
     int climbStairs(int n) {
-        if (n <= 0)
-            return 0;
-        return recur(n);
+        if (n == 1 || n == 2) return n;
+        // dp[i] = dp[i-1] + dp[i-2]
+        return helper(n, 1, 2, 3);
+    }
+    int helper(int n, int a, int b, int cur) {
+        if (n == cur) {
+            return a + b;
+        }
+        return helper(n, b, a+b, ++cur);
     }
 
-    int recur(int n, int temp1 = 1, int temp2 = 2, int curr = 3){
-        if(n == 1 || n == 2)
-            return n;
-        if (n == curr)
-            return temp1 + temp2;
-        else
-            return recur(n, temp2, temp1 + temp2, ++curr);
-    }
 };
 ```
 
@@ -10452,6 +12016,105 @@ public:
 };
 ```
 
+### 118. 杨辉三角(Easy) @hot100
+
+给定一个非负整数 numRows，生成杨辉三角的前 numRows 行。
+
+在杨辉三角中，每个数是它左上方和右上方的数的和。
+
+直接一把梭
+
+```c++
+class Solution {
+public:
+    vector<vector<int>> generate(int numRows) {
+        if (numRows == 0) return {};
+        if (numRows == 1) return {{1}};
+        vector<vector<int>> ans;
+        ans.push_back({1});
+        ans.push_back({1, 1});
+        for (int i = 2; i < numRows; ++i) { // 从第三行开始
+            ans.push_back(vector<int>(i+1, 1));
+            for (int j = 1; j <= i - 1; ++j) { // 填充level的中间数字
+                ans[i][j] = ans[i-1][j-1] + ans[i-1][j];
+            }
+        }
+        return ans;
+    }
+};
+```
+
+### 119. 杨辉三角 II(Easy)
+
+给定一个非负索引 k，其中 k ≤ 33，返回杨辉三角的第 k 行。
+
+在杨辉三角中，每个数是它左上方和右上方的数的和。
+
+示例:
+
+输入: 3
+输出: [1,3,3,1]
+进阶：
+
+你可以优化你的算法到 O(k) 空间复杂度吗？
+
+暴力构造
+
+```c++
+class Solution {
+public:
+    vector<int> getRow(int rowIndex) {
+        if (rowIndex == 0) return {1};
+        if (rowIndex == 1) return {1, 1};
+        vector<vector<int>> ans;
+        ans.push_back({1});
+        ans.push_back({1, 1});
+        for (int i = 2; i < rowIndex+1; ++i) { // 从第三行开始
+            ans.push_back(vector<int>(i+1, 1));
+            for (int j = 1; j <= i - 1; ++j) { // 填充level的中间数字
+                ans[i][j] = ans[i-1][j-1] + ans[i-1][j];
+            }
+        }
+        return ans[rowIndex];
+    }
+};
+```
+
+二维压缩成一维，画个图就好理解，特别是对应位置相加
+
+```c++
+class Solution {
+public:
+    vector<int> getRow(int rowIndex) {
+        vector<int> kRows(rowIndex+1);
+        for(int i = 0; i <= rowIndex; i++) { //利用前一行求后一行，第K行要循环K遍{
+            kRows[i] = 1; //行末尾为1，第一次进入时行尾也是行首，后面不会更新行首了，行首永为1
+            for(int j = i; j > 1; j--) { //每一行的更新过程
+                    kRows[j-1] = kRows[j-2] + kRows[j-1];
+            }
+        }
+        return kRows;
+    }
+};
+```
+
+然而，符合时间复杂度为O(k)的，只有二项式定理，因为c++下标从0开始，所以第k项其实是第k-1个下标，可以知道Cn k+1 = (n-k)/(k-1) * Cn k
+
+[纯C 0ms 二项式解题 简单易懂](https://leetcode-cn.com/problems/pascals-triangle-ii/solution/chun-c-0ms-er-xiang-shi-jie-ti-jian-dan-yi-dong-by/)
+
+```c++
+class Solution {
+public:
+    vector<int> getRow(int rowIndex) {
+        vector<int> res(rowIndex+1, 1);
+        for(int i = 1; i <= rowIndex; ++i) {
+            res[i] = (long long)res[i - 1] * (rowIndex - i + 1) / i;
+        }
+        return res;
+    }
+};
+```
+
 ### 120. 三角形最小路径和
 
 给定一个三角形，找出自顶向下的最小路径和。每一步只能移动到下一行中相邻的结点上。
@@ -10486,7 +12149,7 @@ public:
 
 观察自顶向下的代码会发现，对第i行的最小路径和的推导，只需要第i-1行的dp[i - 1][j]和dp[i - 1][j - 1]元素即可。可以使用两个变量暂存。一维的dp数组只存储第i行的最小路径和。
 
-为了最后得到结果方便，从下往上计算，最后得到dp[0]即为最小结果
+为了最后得到结果方便，从下往上计算，最后得到dp[0]即为最小结果（如果是从上往下，最后一层还得再遍历一次）
 
 ```c++
 class Solution {
@@ -10535,7 +12198,7 @@ int main(){
 }
 ```
 
-### 121.买卖股票的最佳时机(Easy)
+### 121.买卖股票的最佳时机(Easy) @hot100
 
 给定一个数组，它的第 i 个元素是一支给定股票第 i 天的价格。
 
@@ -10765,7 +12428,7 @@ Your memory usage beats 92.05 % of cpp submissions (8.4 MB)
 1. 包含当前根节点
 2. 不包含当前根节点
 
-情况1：由于包含了根节点，所以不能选择左右儿子节点，这种情况的最大值为：当前节点 + 左儿子情况2 + 右二子情况2
+情况1：由于包含了根节点，所以不能选择左右儿子节点，这种情况的最大值为：当前节点 + 左儿子情况2 + 右情况2
 
 情况2：不包含根节点
 
@@ -10809,7 +12472,7 @@ public:
 };
 ```
 
-### 322. 零钱兑换
+### 322. 零钱兑换(Medium) @hot100 @背包
 
 给定不同面额的硬币 coins 和一个总金额 amount。编写一个函数来计算可以凑成总金额所需的最少的硬币个数。如果没有任何一种硬币组合能组成总金额，返回 -1。
 
@@ -10867,7 +12530,7 @@ F(11)=3 //F(11)=min(F(11-1),F(11-2),F(11-5))+1=3F(11)=min(F(11−1),F(11−2),F(
 class Solution {
 public:
     int coinChange(vector<int>& coins, int amount) {
-        vector<int> dp(amount+1, amount+1);
+        vector<int> dp(amount+1, amount+1); // 初始化成amount+1，是为了代替INT_MAX可能越界的问题，组成amount价值，肯定不会超过amount的硬币的，等价于INT_MAX
         dp[0] = 0;
         for (int i = 1; i <= amount; ++i) {
             for (int j = 0; j < coins.size(); ++j) {
@@ -10877,6 +12540,190 @@ public:
             }
         }
         return dp[amount] > amount ? -1 : dp[amount];
+    }
+};
+```
+
+### 279. 完全平方数 @背包
+
+给你一个整数 n ，返回 和为 n 的完全平方数的最少数量 。
+
+完全平方数 是一个整数，其值等于另一个整数的平方；换句话说，其值等于一个整数自乘的积。例如，1、4、9 和 16 都是完全平方数，而 3 和 11 不是。
+
+示例 1：
+
+输入：n = 12
+输出：3
+解释：12 = 4 + 4 + 4
+示例 2：
+
+输入：n = 13
+输出：2
+解释：13 = 4 + 9
+
+提示：
+
+1 <= n <= 104
+
+其实这题与零钱兑换很像，完全平方数就是硬币面额，这题要求最少的完全平方数数量，其实就跟最少得硬币数量是一样的
+
+定义：dp[i]等于和为i的最少数量完全平方数的和，dp[1] = 1, dp[2] = 2(1+1), dp[3] = 3(1+1+1+1), dp[4] = 1(2^2), dp[5] = 2(2^2+1)
+
+状态转移方程：这些数必然落在区间 [1,n]，我们可以枚举这些数，假设当前枚举到 j，那么我们还需要取若干数的平方，构成 i−j^2。此时我们发现该子问题和原问题类似，只是规模变小了。这符合了动态规划的要求，于是我们可以写出状态转移方程。
+
+dp[i]=min(dp[i−k1],dp[i−k2],....dp[i−ki]) + 1
+
+初始化：定义dp[0] = 0，虽然没有意义，但是在后面遇到k^2 = i的时候使用dp[i - k^2] = 0便于操作，然后从1开始往后递推即可
+
+时间复杂度O(n根号n)，空间复杂度O(n)
+
+```c++
+class Solution {
+public:
+    int numSquares(int n) {
+        vector<int> f(n + 1);
+        for (int i = 1; i <= n; i++) {
+            int minn = INT_MAX;
+            for (int j = 1; j * j <= i; j++) {
+                minn = min(minn, f[i - j * j]); // 枚举每个可能的dp[i-k1]
+            }
+            f[i] = minn + 1; // i = i - j^2 + j^2，所以dp[i] = dp[i-k] + 1
+        }
+        return f[n];
+    }
+};
+```
+
+### 139. 单词拆分(Medium) @hot100 @背包
+
+给你一个字符串 s 和一个字符串列表 wordDict 作为字典。请你判断是否可以利用字典中出现的单词拼接出 s 。
+
+注意：不要求字典中出现的单词全部都使用，并且字典中的单词可以重复使用。
+
+示例 1：
+
+输入: s = "leetcode", wordDict = ["leet", "code"]
+输出: true
+解释: 返回 true 因为 "leetcode" 可以由 "leet" 和 "code" 拼接成。
+示例 2：
+
+输入: s = "applepenapple", wordDict = ["apple", "pen"]
+输出: true
+解释: 返回 true 因为 "applepenapple" 可以由 "apple" "pen" "apple" 拼接成。
+     注意，你可以重复使用字典中的单词。
+示例 3：
+
+输入: s = "catsandog", wordDict = ["cats", "dog", "sand", "and", "cat"]
+输出: false
+ 
+提示：
+
+1 <= s.length <= 300
+1 <= wordDict.length <= 1000
+1 <= wordDict[i].length <= 20
+s 和 wordDict[i] 仅有小写英文字母组成
+wordDict 中的所有字符串 互不相同
+
+刷hot100时，第一次尝试用回溯，从左到右依次尝试所有word，但是力扣给了个大输入，超时了，看讨论区，需要记忆化回溯，原始代码重复求解了很多状态，造成超时
+
+```c++
+class Solution {
+public:
+    int shortest = INT_MAX;
+    set<string> hash;
+    bool wordBreak(string s, vector<string>& wordDict) {
+        for (string &word : wordDict) {
+            shortest = min(shortest, (int)word.size());
+            hash.insert(word);
+        }
+        int n = s.size();
+        return backtrace(s, wordDict, 0, n);
+    }
+
+    bool backtrace(string &s, vector<string>& wordDict, int k, int n) {
+        if (n == k) return true; // 拼到尾部了，拼接成功
+        if (n - k  < shortest) return false; // 剩余长度小于wordDict最短字符串，肯定无法拼接出来，直接返回false
+        for (string &word : wordDict) {
+            if (word.size() > n - k) continue;
+            if (word == s.substr(k, word.size())) {
+                if (backtrace(s, wordDict, k + word.size(), n)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+};
+```
+
+记忆化回溯，AC
+
+```c++
+class Solution {
+public:
+    int shortest = INT_MAX;
+    set<string> hash;
+    vector<bool> visited;
+    bool wordBreak(string s, vector<string>& wordDict) {
+        for (string &word : wordDict) {
+            shortest = min(shortest, (int)word.size());
+            hash.insert(word);
+        }
+        int n = s.size();
+        visited.resize(n + 1, false);
+        return backtrace(s, wordDict, 0, n);
+    }
+
+    bool backtrace(string &s, vector<string>& wordDict, int k, int n) {
+        if (n == k) return true; // 拼到尾部了，拼接成功
+        if (n - k  < shortest) return false; // 剩余长度小于wordDict最短字符串，肯定无法拼接出来，直接返回false
+        for (string &word : wordDict) {
+            if (word.size() > n - k) continue;
+            if (visited[k + word.size()]) continue; // 记忆化回溯，减少重复计算，访问过的肯定是不成功的
+            if (word == s.substr(k, word.size())) {
+                if (backtrace(s, wordDict, k + word.size(), n)) {
+                    return true;
+                }
+                visited[k + word.size()] = true; // 记忆结果，因为为true直接返回了
+            }
+        }
+        return false;
+    }
+};
+```
+
+dp，时间复杂度O(n^2)，空间复杂度O(n)
+
+```c++
+class Solution {
+public:
+    bool wordBreak(string s, vector<string>& wordDict) {
+        // dp[i] = dp[i-k1] || dp[i-k2] || dp[i-k3] .... 
+        // 字符串s从0到第i位，是否能够拼接出来，取决于它之前若干个状态是否能够拼接出来，用逻辑或计算
+        // dp[i-k1]表示的是s[k1, i] ∈ wordDict
+        if (wordDict.size() == 0) return false;
+        int shortest = INT_MAX;
+        int n = s.size();
+        vector<bool> dp(n, false);
+        for (string &word : wordDict) {
+            int word_len = word.size();
+            shortest = min(shortest, word_len);
+            if (word == s.substr(0, word_len)) {
+                dp[word_len-1] = true; // 初始化dp，从0下标开始，等于word的子串的末尾，记为可到达
+            }
+        }
+        for (int i = shortest; i < n; ++i) {
+            for (string &word : wordDict) {
+                int word_len = word.size();
+                if (i >= word_len && dp[i - word_len] == true) {
+                    if (word == s.substr(i - word_len + 1, word_len)) {
+                        dp[i] = true;
+                        continue;
+                    }
+                }
+            }
+        }
+        return dp[n-1];
     }
 };
 ```
@@ -10898,7 +12745,7 @@ public:
 
 TODO
 
-### 416. 分割等和子集
+### 416. 分割等和子集(Medium) @hot100 @背包
 
 给定一个只包含正整数的非空数组。是否可以将这个数组分割成两个子集，使得两个子集的元素和相等。
 
@@ -10926,28 +12773,84 @@ TODO
 
 直观的想法是直接遍历一遍数组，这样我们可以得到数组中所有元素的和，这个和必须是偶数，不然没法分，其实很自然地就可以想到，我们要从数组中挑出一些元素，使这些元素的和等于原数组中元素总和的一半，“**从数组中找出一些元素让它们的和等于一个固定的值**”，这么一个信息能否让你想到背包类动态规划呢？
 
-如果你能想到这个地方，再配上我们之前讲的 01 背包问题 的解法，那么这道题目就可以直接套解法了，这里我就不具体分析了。
+如果你能想到这个地方，再配上我们之前讲的 01 背包问题 的解法，那么这道题目就可以直接套解法了
 
-参考代码
+状态定义：dp[i][j]表示从数组的 [0, i] 这个子区间内挑选一些正整数，每个数只能用一次，使得这些数的和恰好等于 j。
+
+状态转移方程：很多时候，状态转移方程思考的角度是「分类讨论」，对于「0-1 背包问题」而言就是「当前考虑到的数字选与不选」。
+
+- 不选择 nums[i]，如果在 [0, i - 1] 这个子区间内已经有一部分元素，使得它们的和为 j ，那么 dp[i][j] = true；
+- 选择 nums[i]，如果在 [0, i - 1] 这个子区间内就得找到一部分元素，使得它们的和为 j - nums[i]。
+
+状态转移方程：
+
+```shell
+dp[i][j] = dp[i - 1][j] or dp[i - 1][j - nums[i]]
+```
 
 ```c++
 class Solution {
 public:
     bool canPartition(vector<int>& nums) {
-        int sum = 0;
-        int n = nums.size();
-        for(int i = 0; i < n; ++i){
-            sum += nums[i];
-        }
-        if(sum % 2 != 0){
-            return false;
-        }
+        int sum = accumulate(nums.begin(), nums.end(), 0);
+        if (sum % 2 == 1) return false;
+        // 01背包问题，从一些数字中选择，使得和为target
+        // dp[i][j]表示0..i能否组成和为j
+        // dp[i][j] = dp[i-1][j] || dp[i-1][j-nums[i]] 分别对应不选当前nums[i]、和选当前nums[i]
+
         int target = sum / 2;
-        vector<bool> dp (target+1, false);
+        int n = nums.size();
+        vector<vector<bool>> dp(n, vector<bool>(target + 1, false));
+        
+        // 初始化第0行，只有这两个是true，代表在第0行，要么选第0个，要么不选第0个，所构成的背包价值：nums[0] or 0
+        dp[0][0] = true;
+        if (nums[0] <= target) {
+            dp[0][nums[0]] = true;
+        }
+
+        for (int i = 1; i < n; ++i) {
+            for (int j = 0; j <= target; ++j) {
+                dp[i][j] = dp[i-1][j]; // 不选第i个
+                if (j >= nums[i]) {
+                    dp[i][j] = dp[i][j] | dp[i-1][j-nums[i]]; // 选第i个
+                }
+            }
+        }
+        return dp[n-1][target];
+    }
+};
+```
+
+二维数组压缩：
+
+可以看到，上面的dp[i]只与dp[i-1]有关，所以可以将二维dp数组压缩成一维，滚动数组的概念，dp[j] = dp[j] | dp[j - nums[i]] 实际上是用的 i - 1 层 dp[j] 和 dp[j - nums[i]] 得出的。 因此，如果顺序遍历的话， dp[j - num[i]] 会首先被更新成新的值， 然后再算 dp[j] = dp[j] | dp[j - nums[i]] 就不对了， 所以要逆序遍历。
+
+```c++
+class Solution {
+public:
+    bool canPartition(vector<int>& nums) {
+        int sum = accumulate(nums.begin(), nums.end(), 0);
+        if (sum % 2 == 1) return false;
+        // 01背包问题，从一些数字中选择，使得和为target
+        // dp[i][j]表示0..i能否组成和为j
+        // dp[i][j] = dp[i-1][j] || dp[i-1][j-nums[i]] 分别对应不选当前nums[i]、和选当前nums[i]
+
+        int target = sum / 2;
+        int n = nums.size();
+        vector<bool> dp(target + 1, false);
+        
+        // 初始化第0行，只有这两个是true，代表在第0行，要么选第0个，要么不选第0个，所构成的背包价值：nums[0] or 0
         dp[0] = true;
-        for(int i = 0; i < n; ++i){
-            for(int j = target; j >= nums[i]; --j){
-                dp[j] = dp[j] | dp[j-nums[i]];
+        if (nums[0] <= target) {
+            dp[nums[0]] = true;
+        }
+
+        for (int i = 1; i < n; ++i) {
+            for (int j = target; j >= nums[i]; --j) { // 压缩成一维滚动数组后，原来二维做法中的if判断：j>=nums[i]变成了循环终止条件，相当于剪枝了
+                // dp[i][j] = dp[i-1][j]; // 不选第i个，一位数组，就等于自身，不需要写代码了
+                // if (j >= nums[i]) {
+                    dp[j] = dp[j] | dp[j-nums[i]]; // 选第i个
+                // }
             }
         }
         return dp[target];
@@ -11126,7 +13029,7 @@ int main()
 }
 ```
 
-### 300. 最长上升子序列(Medium)
+### 300. 最长上升子序列(Medium) @hot100
 
 给定一个无序的整数数组，找到其中最长上升子序列的长度。
 
@@ -11196,6 +13099,10 @@ O(nlogn)时间的动态规划
   - 如果nums[i] > d[len]，则更新len=len+1，并插入到d后面
   - 否则，在d[1...len]中找满足d[i-1] < nums[j] < d[i]的下标i，并更新d[i] = nums[j]，这可以用lower_bound来做
 
+> 为什么要更新长度更少的子序列的最小值？**贪心**
+> 这一步的意义，在于记录最小序列，代表了一种“最可能性”
+例如[0,4,12,2,3,5]中，当判断到 nums[i] = 2时，d={0,4,12}，此时根据这个原则，会将4替换为2，即d更新为d={0,2,12}，虽然此时不会影响最长升序子序列的长度，但是这一步保存了之后有数字可以和{0,2}组成更长的升序子序列的可能性。例如，该数组的最长升序子序列为 {0,2,3,5}，刚好0,2}是这个子序列的前缀，也正是因为我们将 4 替换为了2，所以才保留了这种可能性，否则，遇到3时，将忽略这个数，从而计算错误。
+
 ```c++
 class Solution {
 public:
@@ -11216,7 +13123,7 @@ public:
 
 二刷时，第二个思路还是做不出，第一个O(n^2)的解法倒是搞出来了，就记第一个吧
 
-### 1143. 最长公共子序列
+### 1143. 最长公共子序列(Medium) @hot100
 
 给定两个字符串 text1 和 text2，返回这两个字符串的最长公共子序列。
 
@@ -11242,10 +13149,14 @@ public:
 输出：0
 解释：两个字符串没有公共子序列，返回 0。
 
+定义：
+
+dp[i][j]表示text1[0:i]和text2[0:j]的最长公共子序列的长度。
+
 状态转移方程：
 
 dp[i][j]=dp[i-1][j-1]+1; //text1[i-1]==text2[j-1]
-dp[i][j]=max(dp[i][j],dp[i][j-1]); //text1[i-1]!=text2[j-1]
+dp[i][j]=max(dp[i-1][j],dp[i][j-1]); //text1[i-1]!=text2[j-1]
 
 在利用二维dp数组存储结果时，需要用到dp[i-1][j-1] (左上方),dp[i-1][j] (上边),dp[i][j-1] (左边)。
 
@@ -11393,8 +13304,8 @@ public:
                 dp[i][j] = min(dp[i][j-1], dp[i-1][j]) + 1; //插入和删除时
                 dp[i][j] = min(dp[i][j], dp[i-1][j-1] + (word1[i-1]==word2[j-1] ? 0:1)); //替换时
                 // 也可以用下面这两行
-                // if(word1[i-1] == word2[j-1]) dp[i][j] = dp[i-1][j-1];
-                // else dp[i][j] = min(min(dp[i-1][j]+1, dp[i][j-1]+1), dp[i-1][j-1]+1);
+                if(word1[i-1] == word2[j-1]) dp[i][j] = dp[i-1][j-1];
+                else dp[i][j] = min(min(dp[i-1][j]+1, dp[i][j-1]+1), dp[i-1][j-1]+1);
             }
         }
         return dp[n][m];
@@ -11404,7 +13315,7 @@ public:
 
 ## 设计
 
-### 146. LRU缓存设计(Medium)
+### 146. LRU缓存设计(Medium) @hot100
 
 运用你所掌握的数据结构，设计和实现一个  LRU (最近最少使用) 缓存机制。它应该支持以下操作： 获取数据 get 和 写入数据 put 。
 
@@ -11478,56 +13389,47 @@ public:
 };
 ```
 
-### 155. 最小栈
-
-设计一个支持 push ，pop ，top 操作，并能在常数时间内检索到最小元素的栈。
-
-push(x) —— 将元素 x 推入栈中。
-pop() —— 删除栈顶的元素。
-top() —— 获取栈顶元素。
-getMin() —— 检索栈中的最小元素。
-
-两个栈模拟，其中一个正常push和pop，另外一个每次压入元素前先比较一下与栈顶元素的大小，若小于才压入，若不小于则压入与栈顶一样的元素，保证两个栈同等高度
+刷hot100时，根据之前的笔记，用了更优雅的方法，在get方法中调用put方法
 
 ```c++
-class MinStack {
+class LRUCache {
 public:
-    /** initialize your data structure here. */
-    stack<int> s1, s2;
-    MinStack() {}
-
-    void push(int x) {
-        if (s1.empty() && s2.empty()) {
-            s1.push(x);
-            s2.push(x);
-        } else {
-            s1.push(x);
-            if (s2.top() > x) {
-                s2.push(x);
-            } else {
-                s2.push(s2.top());
-            }
+    LRUCache(int capacity) {
+        capacity_ = capacity;
+    }
+    
+    int get(int key) {
+        if (hash.count(key)) {
+            int val = hash[key]->second;
+            put(key, val);
+            return val;
         }
+        return -1;
     }
-    void pop() {
-        s1.pop();
-        s2.pop();
+    
+    void put(int key, int value) {
+        if (hash.count(key)) { // 存在，先删除
+            hot_list.erase(hash[key]);
+        }
+        if (hot_list.size() >= capacity_) { // 逐出最后元素
+            hash.erase(hot_list.back().first);
+            hot_list.pop_back();
+        }
+        // 更新最热kv
+        hot_list.push_front(pair<int, int>(key, value));
+        hash[key] = hot_list.begin();
     }
-    int top() {
-        return s1.top();
-    }
-    int getMin() {
-        return s2.top();
-    }
+private:
+    int capacity_;
+    list<pair<int, int>> hot_list;
+    unordered_map<int, list<pair<int, int>>::iterator> hash; // key -> host_list node
 };
 
 /**
- * Your MinStack object will be instantiated and called as such:
- * MinStack* obj = new MinStack();
- * obj->push(x);
- * obj->pop();
- * int param_3 = obj->top();
- * int param_4 = obj->getMin();
+ * Your LRUCache object will be instantiated and called as such:
+ * LRUCache* obj = new LRUCache(capacity);
+ * int param_1 = obj->get(key);
+ * obj->put(key,value);
  */
 ```
 
@@ -11812,7 +13714,542 @@ public:
 };
 ```
 
+## 图论
+
+### 207. 课程表(Medium) @hot100
+
+你这个学期必须选修 numCourses 门课程，记为 0 到 numCourses - 1 。
+
+在选修某些课程之前需要一些先修课程。 先修课程按数组 prerequisites 给出，其中 prerequisites[i] = [ai, bi] ，表示如果要学习课程 ai 则 必须 先学习课程  bi 。
+
+例如，先修课程对 [0, 1] 表示：想要学习课程 0 ，你需要先完成课程 1 。
+请你判断是否可能完成所有课程的学习？如果可以，返回 true ；否则，返回 false 。
+
+示例 1：
+
+输入：numCourses = 2, prerequisites = [[1,0]]
+输出：true
+解释：总共有 2 门课程。学习课程 1 之前，你需要完成课程 0 。这是可能的。
+示例 2：
+
+输入：numCourses = 2, prerequisites = [[1,0],[0,1]]
+输出：false
+解释：总共有 2 门课程。学习课程 1 之前，你需要先完成​课程 0 ；并且学习课程 0 之前，你还应先完成课程 1 。这是不可能的。
+
+提示：
+
+1 <= numCourses <= 105
+0 <= prerequisites.length <= 5000
+prerequisites[i].length == 2
+0 <= ai, bi < numCourses
+prerequisites[i] 中的所有课程对 互不相同
+
+**方法一：拓扑排序——广度优先搜索（从入度思考(从前往后排序)**
+
+每门课程相当于是节点，依赖关系是边，二者构成了一个有向图。
+
+入度：每个课程节点的入度数量等于其先修课程的数量；
+出度：每个课程节点的出度数量等于其指向的后续课程数量；
+
+> 要想学习一门课程，必须先学习完其所有的先修课程，所以只有当一个课程节点的入度为零时，其才是一个可以学习的自由课程。因此要想学完所有的课程，就看能否找到一个满足依赖关系的学习顺序。
+
+拓扑排序即是将一个无环有向图转换为线性排序的过程。
+
+拓扑序列算法思想:
+
+- 从有向图中选取一个没有前驱(即入度为0)的顶点，并输出之;
+- 从有向图中删去此顶点以及所有以它为尾的弧;
+- 重复上述两步，直至图空，或者图不空但找不到无前驱的顶点为止。
+
+广度优先遍历有向图需要的准备：
+
+- 入度数组：课号 0 到 numCourses 作为索引，通过遍历先决条件表求出对应的初始入度
+- 邻接表：二维数组adjacency，记录每门课程的后续课程有哪些。
+- 辅助队列：存放入度为零的课程节点（可自由学习的课程）
+- 入队：当某个课程的入度为零，则可被自由学习；
+- 出队：已经学习了的课程数加一，其所有后续课程的入度减一；
+
+结果判定：因为队列是先入先出，所以出队的顺序即是学习课程的拓扑排序。如果出队的次数count等于课程总数，则证明可以完成所有课程的学习。
+
+时间复杂度: O(n+m)，其中 n 为课程数，m 为先修课程的要求数。这其实就是对图进行广度优先搜索的时间复杂度。
+
+空间复杂度: O(n+m)。题目中是以列表形式给出的先修课程关系，为了对图进行广度优先搜索，我们需要存储成邻接表的形式，空间复杂度为 O(n+m)。在广度优先搜索的过程中，我们需要最多 O(n) 的队列空间（迭代）进行广度优先搜索。因此总空间复杂度为 O(n+m)。
+
+```c++
+class Solution {
+public:
+    bool canFinish(int numCourses, vector<vector<int>>& prerequisites) {
+        int n = prerequisites.size();
+        if (n == 0) return true; // 没有依赖关系，必然能完成所有课程的学习
+        vector<int> indegree(numCourses);           // 每个节点的入度
+        vector<vector<int> > adjacency(numCourses); // 邻接矩阵：先修课程-->(后续课程集合)
+        queue<int> q;                            // 辅助队列，存放入度为0的节点
+        // 统计所有节点的入度，构建邻接矩阵
+        for (int i = 0; i < n; i++) {
+            indegree[prerequisites[i][0]]++;
+            adjacency[prerequisites[i][1]].push_back(prerequisites[i][0]);
+        }
+        // 将所有入度为0的节点加入队列，入度为0的节点意味着没有先修课程的自由课程
+        for (int i = 0; i < numCourses; i++) {
+            if (indegree[i] == 0) q.push(i);
+        }
+        int count = 0;                              // 已学的课程数
+        while (!q.empty()) {
+            int visited = q.front();             // 当前学习的课程
+            count++;
+            q.pop();                             // 学完，出队
+            // 将刚学完的课程的所有后续课程的入度减一
+            for (int i = 0; i < adjacency[visited].size(); i++) {
+                indegree[adjacency[visited][i]]--;
+                // 如果有后续课程的入度减为零了，则其变为了自由课程，加入队列
+                if (indegree[adjacency[visited][i]] == 0)
+                    q.push(adjacency[visited][i]);
+            }
+        }
+        // 如果学完的课程数=课程总数则返回true，否则返回false
+        return count == numCourses;
+    }
+};
+```
+
+**方法二：拓扑排序-深度优先搜索（ 从出度思考(从后往前排序)， 出度为0的节点在拓扑排序中一定排在后面, 然后删除和该节点对应的边, 迭代寻找出度为0的节点。**
+
+思路：我们可以将深度优先搜索的流程与拓扑排序的求解联系起来，用一个栈来存储所有已经搜索完成的节点。
+
+对于一个节点 u，如果它的所有相邻节点都已经搜索完成，那么在搜索回溯到 u 的时候，u 本身也会变成一个已经搜索完成的节点。这里的「相邻节点」指的是从 u 出发通过一条有向边可以到达的所有节点。
+
+假设我们当前搜索到了节点 u，如果它的所有相邻节点都已经搜索完成，那么这些节点都已经在栈中了，此时我们就可以把 u 入栈。可以发现，如果我们从栈顶往栈底的顺序看，由于 u 处于栈顶的位置，那么 u 出现在所有 u 的相邻节点的前面。因此对于 u 这个节点而言，它是满足拓扑排序的要求的。
+
+这样以来，我们对图进行一遍深度优先搜索。当每个节点进行回溯的时候，我们把该节点放入栈中。最终从栈顶到栈底的序列就是一种拓扑排序。
+
+算法
+
+对于图中的任意一个节点，它在搜索的过程中有三种状态，即：
+
+- 「未搜索」：我们还没有搜索到这个节点；
+- 「搜索中」：我们搜索过这个节点，但还没有回溯到该节点，即该节点还没有入栈，还有相邻的节点没有搜索完成）；
+- 「已完成」：我们搜索过并且回溯过这个节点，即该节点已经入栈，并且所有该节点的相邻节点都出现在栈的更底部的位置，满足拓扑排序的要求。
+
+通过上述的三种状态，我们就可以给出使用深度优先搜索得到拓扑排序的算法流程，在每一轮的搜索搜索开始时，我们任取一个「未搜索」的节点开始进行深度优先搜索。
+
+我们将当前搜索的节点 u 标记为「搜索中」，遍历该节点的每一个相邻节点 v：
+
+- 如果 v 为「未搜索」，那么我们开始搜索 v，待搜索完成回溯到 u；
+- 如果 v 为「搜索中」，那么我们就找到了图中的一个环，因此是不存在拓扑排序的；
+- 如果 v 为「已完成」，那么说明 v 已经在栈中了，而 u 还不在栈中，因此 u 无论何时入栈都不会影响到 (u,v) 之前的拓扑关系，以及不用进行任何操作。
+
+当 u 的所有相邻节点都为「已完成」时，我们将 u 放入栈中，并将其标记为「已完成」。
+
+在整个深度优先搜索的过程结束后，如果我们没有找到图中的环，那么栈中存储这所有的 n 个节点，**从栈顶到栈底的顺序即为一种拓扑排序**。
+
+```c++
+class Solution {
+private:
+    vector<vector<int>> edges; // edges[i]表示第i个课程的后序课程数组
+    vector<int> visited;
+    bool valid = true;
+
+public:
+    void dfs(int u) {
+        visited[u] = 1; // 1表示搜索中
+        for (int v: edges[u]) { // 搜索u的后续课程，u->v
+            if (visited[v] == 0) {
+                dfs(v);
+                if (!valid) {
+                    return;
+                }
+            } else if (visited[v] == 1) { // 不满足拓扑排序，有环！
+                valid = false;
+                return;
+            }
+        }
+        visited[u] = 2; // 2表示搜索完成
+    }
+
+    bool canFinish(int numCourses, vector<vector<int>>& prerequisites) {
+        edges.resize(numCourses);
+        visited.resize(numCourses); // 初始化成0，表示未搜索
+        for (const auto& pre: prerequisites) {
+            edges[pre[1]].push_back(pre[0]); 
+        }
+        for (int i = 0; i < numCourses && valid; ++i) { // valid提前结束
+            if (!visited[i]) {
+                dfs(i);
+            }
+        }
+        return valid;
+    }
+};
+```
+
+刷hot100时刷到，想着用简单的dfs做，但是没法判断成环，下面是错误代码
+
+```c++
+class Solution {
+public:
+    struct Node {
+        int val;
+        vector<Node*> pres; // 代表当前课程的先修课程
+        Node(int v) : val(v), pres(vector<Node*>()) {}
+    };
+    bool canFinish(int numCourses, vector<vector<int>>& prerequisites) {
+        if (prerequisites.empty()) return true;
+        map<int, Node*> nodes;
+        for (int i = 0; i < numCourses; ++i) {
+            Node* node = new Node(i);
+            nodes[i] = node;
+        }
+        for (const auto &pre : prerequisites) {
+            nodes[pre[0]]->pres.push_back(nodes[pre[1]]);
+        }
+        for (auto it = nodes.begin(); it != nodes.end(); ++it) {
+            if (!it->second->pres.empty()) { // 该课程有先修课程，dfs判断是否会回到自身
+                bool hasCycle = curNodeHasCycle(numCourses, it->second, nodes);
+                if (hasCycle) return false;
+            }
+        }
+        return true;
+    }
+
+    bool curNodeHasCycle(int numCourses, Node* root, const map<int, Node*> &nodes) {
+        set<Node*> visited;
+        stack<Node*> st;
+        st.push(root);
+        while (!st.empty()) {
+            Node* cur = st.top();
+            st.pop();
+            if (visited.count(cur)) { // 以为这样判断就可以不成环了，但是没注意有很多种路径从A到B，所以确实可能会多次访问
+                return true;
+            }
+            visited.insert(cur);
+            if (!cur->pres.empty()) {
+                int n = cur->pres.size();
+                for (int i = 0; i < n; ++i) {
+                    st.push(cur->pres[i]);
+                }
+            }
+        }
+        return false;
+    }
+};
+```
+
+### 208. 实现 Trie (前缀树)(Medium) @hot100
+
+Trie（发音类似 "try"）或者说 前缀树 是一种树形数据结构，用于高效地存储和检索字符串数据集中的键。这一数据结构有相当多的应用情景，例如自动补完和拼写检查。
+
+请你实现 Trie 类：
+
+Trie() 初始化前缀树对象。
+void insert(String word) 向前缀树中插入字符串 word 。
+boolean search(String word) 如果字符串 word 在前缀树中，返回 true（即，在检索之前已经插入）；否则，返回 false 。
+boolean startsWith(String prefix) 如果之前已经插入的字符串 word 的前缀之一为 prefix ，返回 true ；否则，返回 false 。
+
+示例：
+
+输入
+["Trie", "insert", "search", "search", "startsWith", "insert", "search"]
+[[], ["apple"], ["apple"], ["app"], ["app"], ["app"], ["app"]]
+输出
+[null, null, true, false, true, null, true]
+
+解释
+Trie trie = new Trie();
+trie.insert("apple");
+trie.search("apple");   // 返回 True
+trie.search("app");     // 返回 False
+trie.startsWith("app"); // 返回 True
+trie.insert("app");
+trie.search("app");     // 返回 True
+
+提示：
+
+1 <= word.length, prefix.length <= 2000
+word 和 prefix 仅由小写英文字母组成
+insert、search 和 startsWith 调用次数 总计 不超过 3 * 104 次
+
+刷hot100时，AC了，自己构建树，这里只有26个小写英文字母，ends与vals貌似可以省略，vals用nexts来代替即可
+
+时间
+48 ms
+击败
+87.8%
+内存
+44.1 MB
+击败
+57.58%
+
+```c++
+class Trie {
+public:
+    struct Alphabet {
+        bool ends[26]; // 记录当前小写英文字母是否是插入字符串的最后一个字符
+        bool vals[26]; // 记录当前字符是否存在于插入字符串
+        Alphabet *nexts[26];
+        Alphabet() {
+            for (int t = 0; t < 26; ++t) {
+                ends[t] = false;
+                vals[t] = false;
+                nexts[t] = nullptr;
+            }
+        }
+    };
+    Trie() {
+        alphabet = new Alphabet;
+        for (int i = 0; i < 26; ++i) {
+            alphabet->ends[i] = false;
+            alphabet->vals[i] = false;
+            alphabet->nexts[i] = nullptr;
+        }
+    }
+    
+    void insert(string word) {
+        Alphabet *cur = alphabet;
+        int n = word.size();
+        for (int i = 0; i < n; ++i) {
+            int alpha_index = word[i] - 'a';
+            cur->vals[alpha_index] = true;
+            if (i == n - 1) {
+                cur->ends[alpha_index] = true; // 结尾字符
+            } else if (cur->nexts[alpha_index] == nullptr) { // 初始化下一层
+                cur->nexts[alpha_index] = new Alphabet;
+            }
+            cur = cur->nexts[alpha_index];
+        }
+    }
+    
+    bool search(string word) {
+        Alphabet *cur = alphabet;
+        int n = word.size();
+        for (int i = 0; i < n; ++i) {
+            int alpha_index = word[i] - 'a';
+            if (cur->vals[alpha_index] == false) return false;
+            if (i == n - 1){
+                if (cur->ends[alpha_index] == false) {
+                    return false;
+                }
+            } else if (cur->nexts[alpha_index] == nullptr){
+                return false;
+            }
+            cur = cur->nexts[alpha_index];
+        }
+        return true;
+    }
+    
+    bool startsWith(string prefix) {
+        Alphabet *cur = alphabet;
+        int n = prefix.size();
+        for (int i = 0; i < n; ++i) {
+            int alpha_index = prefix[i] - 'a';
+            if (cur->vals[alpha_index] == false) return false;
+            if (i != n - 1 && cur->nexts[alpha_index] == nullptr) return false;
+            cur = cur->nexts[alpha_index];
+        }
+        return true;
+    }
+private:
+    Alphabet *alphabet;
+};
+
+/**
+ * Your Trie object will be instantiated and called as such:
+ * Trie* obj = new Trie();
+ * obj->insert(word);
+ * bool param_2 = obj->search(word);
+ * bool param_3 = obj->startsWith(prefix);
+ */
+```
+
+官方题解有更优雅的解法，Trie本身就是一个节点
+
+```c++
+class Trie {
+private:
+    vector<Trie*> children;
+    bool isEnd;
+
+    Trie* searchPrefix(string prefix) {
+        Trie* node = this;
+        for (char ch : prefix) {
+            ch -= 'a';
+            if (node->children[ch] == nullptr) {
+                return nullptr;
+            }
+            node = node->children[ch];
+        }
+        return node;
+    }
+
+public:
+    Trie() : children(26), isEnd(false) {}
+
+    void insert(string word) {
+        Trie* node = this;
+        for (char ch : word) {
+            ch -= 'a';
+            if (node->children[ch] == nullptr) {
+                node->children[ch] = new Trie();
+            }
+            node = node->children[ch];
+        }
+        node->isEnd = true;
+    }
+
+    bool search(string word) {
+        Trie* node = this->searchPrefix(word);
+        return node != nullptr && node->isEnd;
+    }
+
+    bool startsWith(string prefix) {
+        return this->searchPrefix(prefix) != nullptr;
+    }
+};
+
+作者：力扣官方题解
+链接：https://leetcode.cn/problems/implement-trie-prefix-tree/solutions/717239/shi-xian-trie-qian-zhui-shu-by-leetcode-ti500/
+来源：力扣（LeetCode）
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+```
+
+### 1263. 推箱子（Hard
+
+「推箱子」是一款风靡全球的益智小游戏，玩家需要将箱子推到仓库中的目标位置。
+
+游戏地图用大小为 m x n 的网格 grid 表示，其中每个元素可以是墙、地板或者是箱子。
+
+现在你将作为玩家参与游戏，按规则将箱子 'B' 移动到目标位置 'T' ：
+
+玩家用字符 'S' 表示，只要他在地板上，就可以在网格中向上、下、左、右四个方向移动。
+地板用字符 '.' 表示，意味着可以自由行走。
+墙用字符 '#' 表示，意味着障碍物，不能通行。 
+箱子仅有一个，用字符 'B' 表示。相应地，网格上有一个目标位置 'T'。
+玩家需要站在箱子旁边，然后沿着箱子的方向进行移动，此时箱子会被移动到相邻的地板单元格。记作一次「推动」。
+玩家无法越过箱子。
+返回将箱子推到目标位置的最小 推动 次数，如果无法做到，请返回 -1。
+
+输入：grid = [["#","#","#","#","#","#"],
+             ["#","T","#","#","#","#"],
+             ["#",".",".","B",".","#"],
+             ["#",".","#","#",".","#"],
+             ["#",".",".",".","S","#"],
+             ["#","#","#","#","#","#"]]
+输出：3
+解释：我们只需要返回推箱子的次数。
+示例 2：
+
+输入：grid = [["#","#","#","#","#","#"],
+             ["#","T","#","#","#","#"],
+             ["#",".",".","B",".","#"],
+             ["#","#","#","#",".","#"],
+             ["#",".",".",".","S","#"],
+             ["#","#","#","#","#","#"]]
+输出：-1
+示例 3：
+
+输入：grid = [["#","#","#","#","#","#"],
+             ["#","T",".",".","#","#"],
+             ["#",".","#","B",".","#"],
+             ["#",".",".",".",".","#"],
+             ["#",".",".",".","S","#"],
+             ["#","#","#","#","#","#"]]
+输出：5
+解释：向下、向左、向左、向上再向上。
+
+提示：
+
+m == grid.length
+n == grid[i].length
+1 <= m, n <= 20
+grid 仅包含字符 '.', '#',  'S' , 'T', 以及 'B'。
+grid 中 'S', 'B' 和 'T' 各只能出现一个。
+
+直接看题解吧
+
+由题意可知，目标位置固定时，将箱子推到目标位置的最小推动次数与箱子位置和玩家位置相关。我们把箱子位置和玩家位置当成一个状态，那么状态的转移主要由玩家向上、下、左、右四个方向移动触发（如果玩家移动后的位置与箱子位置重叠，那么箱子也相应的作出同样的移动，即一次“推动”）。我们把状态看成有向图的节点，状态的转移看成有向图的边，对应的边长与是否推动箱子有关（推动箱子时，边长为 1，否则为 0）。将箱子推到目标位置对应多个状态，这些状态中箱子位置等于目标位置。因此问题可以转化为：给定一个有向图，边长为 0 或 1，求某一节点到符合条件的任一节点的最短路径。边权非负时，可以使用textDijkstra 算法求解，但是本题的边权限定在 0 与 1 之间，可以应用时间复杂度更优的 01-广度优先搜索算法
+
+- 他是用人的视角去bfs的，如果人能站在箱子处，那就移动箱子到对应方向的下一格，除非越界或者撞墙
+- q和q1其实是两种状态，分别代表着，箱子推之前，箱子推之后，把q遍历完之后，再去下一层，也就是q1的状态去搜索
+
+```c++
+class Solution {
+public:
+    int minPushBox(vector<vector<char>>& grid) {
+        int m = grid.size(), n = grid[0].size();
+        int sx, sy, bx, by; // 玩家、箱子的初始位置
+        for (int x = 0; x < m; x++) {
+            for (int y = 0; y < n; y++) {
+                if (grid[x][y] == 'S') {
+                    sx = x;
+                    sy = y;
+                } else if (grid[x][y] == 'B') {
+                    bx = x;
+                    by = y;
+                }
+            }
+        }
+
+        auto ok = [&](int x, int y) -> bool { // 不越界且不在墙上
+            return x >= 0 && x < m && y >= 0 && y < n && grid[x][y] != '#';
+        };
+        vector<int> d = {0, -1, 0, 1, 0};
+
+        vector<vector<int>> dp(m * n, vector<int>(m * n, INT_MAX));
+        queue<pair<int, int>> q;
+        dp[sx * n + sy][bx * n + by] = 0; // 初始状态的推动次数为 0
+        q.push({sx * n + sy, bx * n + by});
+        while (!q.empty()) {
+            queue<pair<int, int>> q1;
+            while (!q.empty()) {
+                auto [s1, b1] = q.front();
+                q.pop();
+                int sx1 = s1 / n, sy1 = s1 % n, bx1 = b1 / n, by1 = b1 % n;
+                if (grid[bx1][by1] == 'T') { // 箱子已被推到目标处
+                    return dp[s1][b1];
+                }
+                for (int i = 0; i < 4; i++) { // 玩家向四个方向移动到另一个状态
+                    int sx2 = sx1 + d[i], sy2 = sy1 + d[i + 1], s2 = sx2*n+sy2;
+                    if (!ok(sx2, sy2)) { // 玩家位置不合法
+                        continue;
+                    }
+                    if (bx1 == sx2 && by1 == sy2) { // 推动箱子
+                        int bx2 = bx1 + d[i], by2 = by1 + d[i + 1], b2 = bx2*n+by2;
+                        if (!ok(bx2, by2) || dp[s2][b2] <= dp[s1][b1] + 1) { // 箱子位置不合法 或 状态已访问
+                            continue;
+                        }
+                        dp[s2][b2] = dp[s1][b1] + 1;
+                        q1.push({s2, b2});
+                    } else {
+                        if (dp[s2][b1] <= dp[s1][b1]) { // 状态已访问
+                            continue;
+                        }
+                        dp[s2][b1] = dp[s1][b1];
+                        q.push({s2, b1});
+                    }
+                }
+            }
+            q.swap(q1);
+        }
+        return -1;
+    }
+};
+
+作者：力扣官方题解
+链接：https://leetcode.cn/problems/minimum-moves-to-move-a-box-to-their-target-location/solutions/2260041/tui-xiang-zi-by-leetcode-solution-spzi/
+来源：力扣（LeetCode）
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+```
+
 ## DFS&回溯with闫学灿
+
+回溯法 采用试错的思想，它尝试分步的去解决一个问题。在分步解决问题的过程中，当它通过尝试发现现有的分步答案不能得到有效的正确的解答的时候，它将取消上一步甚至是上几步的计算，再通过其它的可能的分步解答再次尝试寻找问题的答案。回溯法通常用最简单的递归方法来实现，在反复重复上述的步骤后可能出现两种情况：
+
+找到一个可能存在的正确的答案；
+在尝试了所有可能的分步方法后宣告该问题没有答案。
+
+作者：liweiwei1419
+链接：https://leetcode.cn/problems/permutations/solutions/9914/hui-su-suan-fa-python-dai-ma-java-dai-ma-by-liweiw/
+来源：力扣（LeetCode）
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
 
 ### 784. 字母大小写全排列
 
@@ -11950,7 +14387,7 @@ public:
 };
 ```
 
-### 17. 电话号码的字母组合
+### 17. 电话号码的字母组合(Medium) @hot100
 
 给定一个仅包含数字 2-9 的字符串，返回所有它能表示的字母组合。
 
@@ -11996,7 +14433,55 @@ public:
 };
 ```
 
-### 22. 括号生成(Medium)
+刷hot100，思路差不多，把k给省略了，电话表盘用的是固定数组来存储而不是map
+
+时间
+4 ms
+击败
+34.1%
+内存
+6.6 MB
+击败
+7.99%
+
+```c++
+class Solution {
+public:
+    char tel[8][4] = {
+        {'a', 'b', 'c'},
+        {'d', 'e', 'f'},
+        {'g', 'h', 'i'},
+        {'j', 'k', 'l'},
+        {'m', 'n', 'o'},
+        {'p', 'q', 'r', 's'},
+        {'t', 'u', 'v'},
+        {'w', 'x', 'y', 'z'}
+    };
+    vector<string> res;
+    vector<string> letterCombinations(string digits) {
+        if (digits.empty()) return {};
+        string cur;
+        dfs(digits, cur);
+        return res;
+    }
+    
+    void dfs(string digits, string cur) {
+        if (cur.size() == digits.size()) {
+            res.push_back(cur);
+            return;
+        }
+        int index = digits[cur.size()] - '2';
+        for (int i = 0; i < 4; ++i) {
+            if (tel[index][i] == 0) break; // 有些数字只对应了三个字母，第四个位置初始化为0
+            cur.push_back(tel[index][i]);
+            dfs(digits, cur);
+            cur.pop_back();
+        }
+    }
+};
+```
+
+### 22. 括号生成(Medium) @hot100
 
 数字 n 代表生成括号的对数，请你设计一个函数，用于能够生成所有可能的并且 有效的 括号组合。
 
@@ -12042,7 +14527,94 @@ public:
 };
 ```
 
-### 39. 组合总和(Medium)
+刷hot100，用到了栈，但是仔细一想，不是一定需要栈的，用上述方法更优雅，思路是完全一样的，甚至两个if都是一样的
+
+时间
+4 ms
+击败
+67.58%
+内存
+11.2 MB
+击败
+64.10%
+
+```c++
+class Solution {
+public:
+    vector<string> res;
+    vector<string> generateParenthesis(int n) {
+        if (n == 1) return {"()"};
+        stack<char> st; // st仅保存左括号，右括号用来"抵消"左括号，出栈
+        string cur;
+        dfs(st, cur, n);
+        return res;
+    }
+    void dfs(stack<char> &st, string &cur, int n) {
+        if (st.empty() && n == 0) {
+            res.push_back(cur);
+            return;
+        }
+        if (n != 0) {
+            st.push('(');
+            cur.push_back('(');
+            dfs(st, cur, n-1);
+            st.pop();
+            cur.pop_back();
+        }
+        if (!st.empty()){
+            st.pop();
+            cur.push_back(')');
+            dfs(st, cur, n);
+            st.push('(');
+            cur.pop_back();
+        }
+    }
+};
+```
+
+看讨论区，有人用动态规划，解题思路：任何一个有n对有效的括号一定可以写成(a)b这种形式，其中a，b加起来具有n - 1个括号对，a, b为有效的括号序列，且a b可以为空，然后分别枚举a b即可
+
+递推公式： dp[i] = "(" + dp[k] + ")" + dp[i - 1 - k]
+
+作者：ChickenCC
+链接：https://leetcode.cn/problems/generate-parentheses/solutions/2215237/di-tui-dong-tai-gui-hua-by-sunqao-zk68/
+来源：力扣（LeetCode）
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+
+时间
+4 ms
+击败
+67.58%
+内存
+7.3 MB
+击败
+90.88%
+
+```c++
+class Solution {
+public:
+    vector<string> generateParenthesis(int n) {
+        //这里dp[i]表示的是i对括号形成的一堆合法的括号序列
+        vector<vector<string>> dp(n + 1);
+        dp[1].push_back("()");
+        dp[0].push_back("");
+        for(int i = 2; i <= n; i ++) { // 从dp[2]开始计算
+            for(int j = 0; j < i; j ++) {// j从0开始枚举
+                for(auto &s1: dp[j]){
+                    string s4 = "(" + s1;
+                    for(auto &s2 : dp[i - 1 - j]){
+                        string s3 = s4 + ")" + s2;
+                        dp[i].push_back(s3);
+                    }
+                }
+            }
+        }
+        return dp[n];
+    }
+};
+```
+
+### 39. 组合总和(Medium) @hot100
 
 给定一个无重复元素的数组 candidates 和一个目标数 target ，找出 candidates 中所有可以使数字和为 target 的组合。
 
@@ -12093,10 +14665,10 @@ public:
     vector<vector<int>> combinationSum(vector<int>& candidates, int target) {
         vector<int> path;
         int pre = 0; // 为了不重复
-        dfs(candidates, path, pre, 0, target);
+        dfs(candidates, path, 0, target);
         return ans;
     }
-    void dfs(vector<int>& candidates, vector<int>& path, int pre, int sum, int target) {
+    void dfs(vector<int>& candidates, vector<int>& path, int sum, int target) {
         if (sum == target) {
             ans.push_back(path);
             return;
@@ -12121,6 +14693,15 @@ public:
 - 排序是为了提高搜索速度，非必要；
 - 搜索问题一般复杂度较高，能剪枝就尽量需要剪枝。把候选数组排个序，遇到一个较大的数，如果以这个数为起点都搜索不到结果，后面的数就更搜索不到结果了。
 
+时间
+4 ms
+击败
+88.53%
+内存
+10.7 MB
+击败
+46.96%
+
 ```c++
 class Solution {
 public:
@@ -12136,8 +14717,8 @@ public:
             ans.push_back(path);
             return;
         }
-        if (sum > target) return;
-        for (int i = start; i < candidates.size(); ++i) {
+        if (sum > target) return; // 剪枝
+        for (int i = start; i < candidates.size(); ++i) { // i可从start开始，可以重复选择当前元素；i不从0开始，代表[0, start-1]已全排列完，所以不会有重复解
             path.push_back(candidates[i]);
             dfs(candidates, path, i, sum+candidates[i], target);
             path.pop_back();
@@ -12146,7 +14727,52 @@ public:
 };
 ```
 
-### 46. 全排列(Medium)
+刷hot100，用了比较慢的回溯法，为了避免重复输出相同的解，用set来存储，并且在准备输出可行解时，将其排序，判断是否已存在
+
+时间
+152 ms
+击败
+5.16%
+内存
+18.5 MB
+击败
+10.15%
+
+```c++
+class Solution {
+public:
+    vector<vector<int>> res;
+    set<vector<int>> hashmap;
+    vector<vector<int>> combinationSum(vector<int>& candidates, int target) {
+        vector<int> cur;
+        dfs(candidates, target, 0, cur);
+        return res;
+    }
+
+    void dfs(vector<int> &candidates, int target, int sum, vector<int> &cur) {
+        if (sum > target) return; // 因为candidates>=2，所以不能无穷递归下去
+        if (sum == target) {
+            vector<int> sorted = cur;
+            sort(sorted.begin(), sorted.end());
+            if (hashmap.count(sorted)) { // 已经计算，直接返回
+                return;
+            }
+            res.push_back(sorted);
+            hashmap.insert(sorted);
+            return;
+        }
+        for (int i = 0; i < candidates.size(); ++i) { // 
+            cur.push_back(candidates[i]);
+            sum += candidates[i];
+            dfs(candidates, target, sum, cur);
+            cur.pop_back();
+            sum -= candidates[i];
+        }
+    }
+};
+```
+
+### 46. 全排列(Medium) @hot100
 
 给定一个 没有重复 数字的序列，返回其所有可能的全排列。
 
@@ -12163,7 +14789,16 @@ public:
   [3,2,1]
 ]
 
-没啥好说的，dfs模板一把梭
+没啥好说的，dfs模板一把梭，这里修改了nums数组，并且swap与撤销操作很巧妙
+
+时间
+0 ms
+击败
+100%
+内存
+7.6 MB
+击败
+71.33%
 
 ```c++
 class Solution {
@@ -12178,11 +14813,131 @@ public:
             ans.push_back(nums);
             return;
         }
+        // [0, k-1]的元素已完成排列，剩下[k, len-1]的元素需要进行全排列
         for (int i = k; i < nums.size(); ++i) {
-            swap(nums[k], nums[i]);
+            swap(nums[k], nums[i]); // 第k个元素可能是剩下[k, len-1]的元素，交换元素来完成不同可能
             dfs(nums, k+1);
-            swap(nums[k], nums[i]);
+            swap(nums[k], nums[i]); // 撤销操作，保证不乱
         }
+    }
+};
+```
+
+刷hot100，dfs
+
+时间
+12 ms
+击败
+3.61%
+内存
+8 MB
+击败
+16.94%
+
+```c++
+class Solution {
+public:
+    vector<vector<int>> res;
+    vector<vector<int>> permute(vector<int>& nums) {
+        if (nums.empty()) return {{}};
+        vector<int> cur;
+        set<int> visited;
+        for (int i = 0; i < nums.size(); ++i) {
+            dfs(cur, nums[i], visited, nums);
+        }
+        return res;
+    }
+
+    void dfs(vector<int> &cur, int val, set<int> &visited, vector<int> &nums) {
+        if(visited.count(val)) return;
+        cur.push_back(val);
+        if (cur.size() == nums.size()) {
+            res.push_back(cur);
+            cur.pop_back();
+            return;
+        }
+        visited.insert(val);
+        for (int i = 0; i < nums.size(); ++i) {
+            dfs(cur, nums[i], visited, nums);
+        }
+        visited.erase(val);
+        cur.pop_back();
+    }
+};
+```
+
+### 51. N皇后(Hard) @hot100
+
+按照国际象棋的规则，皇后可以攻击与之处在同一行或同一列或同一斜线上的棋子。
+
+n 皇后问题 研究的是如何将 n 个皇后放置在 n×n 的棋盘上，并且使皇后彼此之间不能相互攻击。
+
+给你一个整数 n ，返回所有不同的 n 皇后问题 的解决方案。
+
+每一种解法包含一个不同的 n 皇后问题 的棋子放置方案，该方案中 'Q' 和 '.' 分别代表了皇后和空位。
+
+示例 1：
+
+输入：n = 4
+输出：[[".Q..","...Q","Q...","..Q."],["..Q.","Q...","...Q",".Q.."]]
+解释：如上图所示，4 皇后问题存在两个不同的解法。
+示例 2：
+
+输入：n = 1
+输出：[["Q"]]
+
+提示：
+
+1 <= n <= 9
+
+刷hot100时的答案，
+
+时间
+0 ms
+击败
+100%
+内存
+7.4 MB
+击败
+32.24%
+
+```c++
+class Solution {
+public:
+    vector<vector<string>> res;
+    vector<vector<string>> solveNQueens(int n) {
+        if (n == 0) return res;
+        if (n == 1) return {{"Q"}};
+        vector<string> cur;
+        vector<pair<int, int>> queen_pos;
+        dfs(cur, queen_pos, 0, n);
+        return res;
+    }
+    void dfs(vector<string> &cur, vector<pair<int, int>> &queen_pos, int k, int n) {
+        if (k == n) {
+            res.push_back(cur);
+        }
+        for (int i = 0; i < n; ++i) { // n皇后的行肯定不同
+            if (underAttack(cur, queen_pos, k, i)) continue;
+            string row (n, '.');
+            row[i] = 'Q';
+            queen_pos.push_back({k, i});
+            cur.push_back(row);
+            dfs(cur, queen_pos, k+1, n);
+            queen_pos.pop_back();
+            cur.pop_back();
+        }
+    }
+    bool underAttack(vector<string> &cur, vector<pair<int, int>> &queen_pos, int row, int col) {
+        for (const auto &p : queen_pos) {
+            if (abs(row - p.first) == abs(col - p.second)) { // 斜线攻击
+                return true;
+            }
+            if (col == p.second) { // 竖线攻击
+                return true;
+            }
+        }
+        return false;
     }
 };
 ```
@@ -12231,7 +14986,7 @@ public:
 };
 ```
 
-### 78. 子集(Medium)
+### 78. 子集(Medium) @hot100
 
 给定一组不含重复元素的整数数组 nums，返回该数组所有可能的子集（幂集）。
 
@@ -12251,6 +15006,19 @@ public:
   [1,2],
   []
 ]
+
+回溯法，当前节点可选可不选，时间复杂度O(n x 2^n)：一共是2^n个状态，每个状态要用O(n)来构造子集，空间复杂度O(n)：临时数组代价是O(n)，递归的栈空间是O(n)
+
+也可以用位运算的做法来实现迭代版本
+
+时间
+8 ms
+击败
+5.39%
+内存
+7 MB
+击败
+42.28%
 
 ```c++
 class Solution {
@@ -12277,7 +15045,74 @@ public:
 };
 ```
 
-### 79. 单词搜索
+刷hot100，感觉这种写法更容易记忆，与46.全排列很像，比如1，2,3要选子集大小为2的，首先选取1，另一个元素可以选2和3，然后选取2，此时另一个元素只能选3，再选取3，另一个元素不存在了，就像锦标赛，子集有多大，for循环就有多少层，用代码表示不现实（子集为2的要写双层for循环，子集为3的要写三层for循环....），所以用递归的dfs
+
+时间
+0 ms
+击败
+100%
+内存
+7 MB
+击败
+57.61%
+
+```c++
+class Solution {
+public:
+    vector<vector<int>> res = {{}};
+    vector<vector<int>> subsets(vector<int>& nums) {
+        if (nums.empty()) return res;
+        vector<int> subset;
+        for (int i = 0; i < nums.size(); ++i) {
+            dfs(nums, subset, i);
+        }
+        return res;
+    }
+    void dfs(vector<int> &nums, vector<int> &subset, int index) {
+        subset.push_back(nums[index]); // 加入当前节点
+        res.push_back(subset);
+        for (int i = index + 1; i < nums.size(); ++i) {
+            dfs(nums, subset, i);
+        }
+        subset.pop_back(); // 撤销操作
+    }
+};
+```
+
+看讨论区，有人用动态规划的思想，dp[i]表示前i个数的解集，dp[i] = dp[i - 1] + collections(i)。其中，collections(i)表示把dp[i-1]的所有子集都加上第i个数形成的子集。
+
+时间复杂度：i=0，j=[0,0],i=1,j=[0,1],i=2,j=[0,1,2,3]，。。。可知是2^n，又因为构造子集复制需要O(n)，所以总时间复杂度是O(n*2^n)
+
+空间复杂度：O(n)，用于额外数组
+
+时间
+0 ms
+击败
+100%
+内存
+7 MB
+击败
+34.67%
+
+```c++
+class Solution {
+public:
+    vector<vector<int>> subsets(vector<int>& nums) {
+        vector<vector<int>> res = {{}}; // 初始subsets含有空集
+        for (int i = 0; i < nums.size(); ++i) {
+            int last_size = res.size(); // 记录dp[i-1]的subsets个数
+            for (int j = 0; j < last_size; ++j) {
+                vector<int> tmp = res[j];
+                tmp.push_back(nums[i]); // dp[i-1]的每个subsets都加上当前节点nums[i]
+                res.push_back(tmp);
+            }
+        }
+        return res;
+    }
+};
+```
+
+### 79. 单词搜索(Medium) @hot100
 
 [LeetCode 79. 单词搜索](https://leetcode-cn.com/problems/word-search/)
 
@@ -12375,6 +15210,50 @@ bool exist(vector<vector<char>> &board, string word) {
     }
     return false;
 }
+```
+
+刷hot100，看起来更容易理解，这题的简单之处在于只需要返回bool，所以在dfs函数中只要符合条件，直接return true即可
+
+时间
+276 ms
+击败
+90.77%
+内存
+8.1 MB
+击败
+8.57%
+
+```c++
+class Solution {
+public:
+
+    bool exist(vector<vector<char>>& board, string word) {
+        int m = board.size();
+        if (m == 0) return false;
+        int n = board[0].size();
+        if (n == 0) return false;
+        for (int i = 0; i < m; ++i) {
+            for (int j = 0; j < n; ++j) {
+                vector<vector<bool>> visited (m, vector<bool>(n, false));
+                if (dfs(board, i, j, word, 0, visited)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    bool dfs(vector<vector<char>> &board, int i, int j, string &word, int k, vector<vector<bool>> &visited) {
+        if (board[i][j] != word[k] || visited[i][j] == true) return false;
+        if (k == word.size() - 1) return true;
+        visited[i][j] = true;
+        if (i > 0 && dfs(board, i - 1, j, word, k + 1, visited)) return true;
+        if (j > 0 && dfs(board, i, j - 1, word, k + 1, visited)) return true;
+        if (i < board.size() - 1 && dfs(board, i + 1, j, word, k + 1, visited)) return true;
+        if (j < board[0].size() - 1 && dfs(board, i, j + 1, word, k + 1, visited)) return true;
+        visited[i][j] = false; // 当前节点遍历完，撤销访问状态，以便后续其他节点能遍历到这个节点
+        return false;
+    }
+};
 ```
 
 ### 257. 二叉树的所有路径
@@ -12548,85 +15427,241 @@ public:
 };
 ```
 
-### 394. 字符串解码(Medium)
+### 131. 分割回文串(Medium) @hot100
 
-给定一个经过编码的字符串，返回它解码后的字符串。
+给你一个字符串 s，请你将 s 分割成一些子串，使每个子串都是 回文串 。返回 s 所有可能的分割方案。
 
-编码规则为: k[encoded_string]，表示其中方括号内部的 encoded_string 正好重复 k 次。注意 k 保证为正整数。
+回文串 是正着读和反着读都一样的字符串。
 
-你可以认为输入字符串总是有效的；输入字符串中没有额外的空格，且输入的方括号总是符合格式要求的。
+示例 1：
 
-此外，你可以认为原始数据不包含数字，所有的数字只表示重复的次数 k ，例如不会出现像 3a 或 2[4] 的输入。
+输入：s = "aab"
+输出：[["a","a","b"],["aa","b"]]
+示例 2：
 
-示例:
+输入：s = "a"
+输出：[["a"]]
 
-s = "3[a]2[bc]", 返回 "aaabcbc".
-s = "3[a2[c]]", 返回 "accaccacc".
-s = "2[abc]3[cd]ef", 返回 "abcabccdcdcdef".
+提示：
 
-方法一：括号要匹配，所以很容易联想到栈
+1 <= s.length <= 16
+s 仅由小写英文字母组成
 
-方法二：每碰到一个`[`就需要递归一层，完成之后`]`再跳出该层
+刷hot100第一次刷到，直接回溯法，注意下一个可能状态是从当前状态开始的可能回文串，所以自定义一个判断回文串的函数，注意一下dfs的int k的边界即可
 
-TODO
+时间复杂度：O(n*2^n)，每个位置可拆分，也可以不拆分，所以是2^n，判断回文子串需要O(n)，乘起来
 
-刷字节top时碰到了，只用了一个栈，没有用逆波兰式那样把操作数和操作符号分开存放，代码略微繁琐，但也能接受
+空间复杂度：O(n)，递归调用栈的高度为n，所以栈空间O(n)，辅助数组O(n)，记起来
+
+时间
+104 ms
+击败
+80.51%
+内存
+73.9 MB
+击败
+69.82%
 
 ```c++
 class Solution {
 public:
-    string decodeString(string s) {
-        string ans;
-        string tmp;
-        string tmp_single;
-        stack<string> st;
-        for (char & ch : s) {
-            if (ch >= '0' && ch <= '9') {// 数字有可能不止一位，要与前面出现的数字组合起来
-                if (!st.empty() && isNum(st.top())) {
-                    tmp = st.top();
-                    st.pop();
-                    st.push(tmp+ch);
-                } else {
-                    st.push(string(1, ch));
-                }
-                continue;
-            }
-            if (ch == ']') {
-                tmp = "";
-                while (!st.empty() && st.top()[0] != '[') {
-                    tmp = st.top() + tmp;
-                    st.pop();
-                    cout << tmp << endl;
-                }
-                if (!st.empty()) {
-                    st.pop(); // 弹出'['
-                    int k = 1;
-                    if (!st.empty() && isNum(st.top())) { // 检测'['之前的数字
-                        k = stoi(st.top());
-                        st.pop();
-                    }
-                    tmp_single = tmp;
-                    tmp = "";
-                    while (k-- > 0){
-                        tmp += tmp_single;
-                    }
-                }
-                cout << tmp << endl;
-                st.push(tmp);
-            } else {
-                st.push(string(1, ch)); // '['也会push进去
+    vector<vector<string>> res;
+    vector<vector<string>> partition(string s) {
+        if (s.empty()) return res;
+        if (s.size() == 1) return {{s}};
+        vector<string> cur;
+        dfs(s, cur, 0);
+        return res;
+    }
+    void dfs(string &s, vector<string> &cur, int k) {
+        if (k == s.size()) {
+            res.push_back(cur);
+            return;
+        }
+        for (int i = k; i < s.size(); ++i) {
+            if (isSym(s, k, i)) {
+                string sub;
+                sub.assign(s.begin() + k, s.begin() + i + 1);
+                cur.push_back(sub);
+                dfs(s, cur, i + 1);
+                cur.pop_back();
             }
         }
-        while (!st.empty()) { // 这时栈里只剩字母
-            ans = st.top() + ans;
-            st.pop();
+    }
+    bool isSym(string &s, int l, int r) {
+        if (l == r) return true;
+        for (int i = 0; i <= (r - l) / 2; ++i) {
+            if (s[l + i] != s[r - i]) {
+                return false;
+            }
         }
-        return ans;
+        return true;
+    }
+};
+```
+
+看官方题解，我这种做法还可以优化，因为在判断isSym的时候，其实有多次重复计算，所以可以先预处理，dp[i, j]表示i到j的子串是否回文，在dfs的时候直接读dp[i,j]即可，动态规划的状态转移方程为：`dp[i][j]=dp[i+1][j-1] && s[i]==s[j]`
+
+时间复杂度：O(n*2^n)，每个位置可拆分，也可以不拆分，所以是2^n，判断回文子串需要O(n)，乘起来，预处理需要O(n^2)，渐进意义下小于`O(n*2^n)`，所以最后就是`O(n*2^n)`
+
+空间复杂度：O(n^2)，因为需要预处理需要n^2的空间
+
+时间
+100 ms
+击败
+86.42%
+内存
+74 MB
+击败
+50.33%
+
+```c++
+class Solution {
+public:
+    vector<vector<string>> res;
+    vector<vector<bool>> dp;
+    vector<vector<string>> partition(string s) {
+        if (s.empty()) return res;
+        int n = s.size();
+        if (n == 1) return {{s}};
+        dp.assign(n, vector<bool>(n, true)); // 初始化全是true，其实只需要对角线上的dp[i][j]=true即可，这里全部初始化为true也没关系，因为后面还会更新s[i]==s[j]的
+        for (int i = n - 1; i >= 0; --i) {
+            for (int j = i + 1; j < n; ++j) {
+                dp[i][j] = s[i] == s[j] && dp[i+1][j-1];
+            }
+        }
+        vector<string> cur;
+        dfs(s, cur, 0);
+        return res;
+    }
+    void dfs(string &s, vector<string> &cur, int k) {
+        if (k == s.size()) {
+            res.push_back(cur);
+            return;
+        }
+        for (int i = k; i < s.size(); ++i) {
+            if (dp[k][i]) {
+                string sub;
+                sub.assign(s.begin() + k, s.begin() + i + 1);
+                cur.push_back(sub);
+                dfs(s, cur, i + 1);
+                cur.pop_back();
+            }
+        }
+    }
+};
+```
+
+因为dp[i][j]从dp[i+1][j-1]而来，所以预处理时每次遍历要扩大范围，不能是i从0到n-1 && j从0到n-1，这样i的范围是在缩小的，除了上面的做法，还可以反过来，其实就是求矩阵的上三角或者下三角，另一个三角是对称的
+
+```c++
+        for (int r = 0; r < n; ++r) {
+            for (int l = 0; l < r; ++l) {
+                dp[l][r] = s[l] == s[r] && dp[l+1][r-1];
+            }
+        }
+```
+
+判断回文子串，还可以用中心扩散的方法
+
+```c++
+        dp.assign(n, vector<bool>(n, false));
+        for (int i = 0; i < n; ++i) {
+            pre(s, i, i);
+            pre(s, i, i + 1);
+        }
+
+        void pre(string &s, int l, int r) {
+            while (l >= 0 && r <= s.size() - 1 && s[l] == s[r]) {
+                dp[l][r] = true;
+                --l;
+                ++r;
+            }
+        }
+```
+
+### 200. 岛屿数量(medium) @hot100
+
+给你一个由 '1'（陆地）和 '0'（水）组成的的二维网格，请你计算网格中岛屿的数量。
+
+岛屿总是被水包围，并且每座岛屿只能由水平方向和/或竖直方向上相邻的陆地连接形成。
+
+此外，你可以假设该网格的四条边均被水包围。
+
+示例 1：
+
+输入：grid = [
+  ["1","1","1","1","0"],
+  ["1","1","0","1","0"],
+  ["1","1","0","0","0"],
+  ["0","0","0","0","0"]
+]
+输出：1
+示例 2：
+
+输入：grid = [
+  ["1","1","0","0","0"],
+  ["1","1","0","0","0"],
+  ["0","0","1","0","0"],
+  ["0","0","0","1","1"]
+]
+输出：3
+
+提示：
+
+m == grid.length
+n == grid[i].length
+1 <= m, n <= 300
+`grid[i][j]` 的值为 '0' 或 '1'
+
+dfs一把梭
+
+小贴士：
+
+在一些题解中，可能会把「已遍历过的陆地格子」标记为和海洋格子一样的 0，美其名曰「陆地沉没方法」，即遍历完一个陆地格子就让陆地「沉没」为海洋。这种方法看似很巧妙，但实际上有很大隐患，因为这样我们就无法区分「海洋格子」和「已遍历过的陆地格子」了。如果题目更复杂一点，这很容易出 bug。
+
+作者：nettee
+链接：https://leetcode.cn/problems/number-of-islands/solutions/211211/dao-yu-lei-wen-ti-de-tong-yong-jie-fa-dfs-bian-li-/
+来源：力扣（LeetCode）
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+
+时间
+24 ms
+击败
+98.20%
+内存
+11.9 MB
+击败
+81.17%
+
+```c++
+class Solution {
+public:
+    int numIslands(vector<vector<char>>& grid) {
+        if (grid.empty()) return 0;
+        if (grid[0].empty()) return 0;
+        int m = grid.size();
+        int n = grid[0].size();
+        int res = 0;
+        for (int i = 0; i < m; ++i) {
+            for (int j = 0; j < n; ++j) {
+                if (grid[i][j] == '1') {
+                    dfs(grid, i, j, m, n);
+                    ++res;
+                }
+            }
+        }
+        return res;
     }
 
-    bool isNum(string str) {
-        if (str[0] >= '0' && str[0] <= '9') return true;
-        return false;
+    void dfs(vector<vector<char>> &grid, int i, int j, int m, int n) {
+        if (i < 0 || i > m - 1 || j < 0 || j > n - 1) return;
+        if (grid[i][j] != '1') return;
+        grid[i][j] = '0';
+        dfs(grid, i+1, j, m, n);
+        dfs(grid, i-1, j, m, n);
+        dfs(grid, i, j+1, m, n);
+        dfs(grid, i, j-1, m, n);
     }
 };
 ```
@@ -12690,6 +15725,180 @@ B   C   D
 bottom 的长度范围在 [2, 8]。
 allowed 的长度范围在[0, 200]。
 方块的标记字母范围为{'A', 'B', 'C', 'D', 'E', 'F', 'G'}。
+
+### 994. 腐烂的橘子(Medium) @hot100
+
+在给定的 m x n 网格 grid 中，每个单元格可以有以下三个值之一：
+
+值 0 代表空单元格；
+值 1 代表新鲜橘子；
+值 2 代表腐烂的橘子。
+每分钟，腐烂的橘子 周围 4 个方向上相邻 的新鲜橘子都会腐烂。
+
+返回 直到单元格中没有新鲜橘子为止所必须经过的最小分钟数。如果不可能，返回 -1 。
+
+示例 1：
+
+输入：grid = [[2,1,1],[1,1,0],[0,1,1]]
+输出：4
+示例 2：
+
+输入：grid = [[2,1,1],[0,1,1],[1,0,1]]
+输出：-1
+解释：左下角的橘子（第 2 行， 第 0 列）永远不会腐烂，因为腐烂只会发生在 4 个正向上。
+示例 3：
+
+输入：grid = [[0,2]]
+输出：0
+解释：因为 0 分钟时已经没有新鲜橘子了，所以答案就是 0 。
+
+提示：
+
+m == grid.length
+n == grid[i].length
+1 <= m, n <= 10
+`grid[i][j]` 仅为 0、1 或 2
+
+刷hot100时第一次刷到，debug了很久（大于一小时）才AC，cur+2的处理是为了与原grid中的初始腐化橘子（值为2）进行区分，`ending[i][j] != INT_MAX && ending[i][j] > 2`的{i, j}肯定是新鲜橘子后面被腐化了
+
+时间
+4 ms
+击败
+91.11%
+内存
+14.9 MB
+击败
+5.9%
+
+```c++
+class Solution {
+public:
+    int orangesRotting(vector<vector<int>>& grid) {
+        if (grid.empty()) return -1;
+        int m = grid.size();
+        if (grid[0].empty()) return -1;
+        int n = grid[0].size();
+        vector<vector<int>> ending = grid;
+        for (int i = 0; i < m; ++i) {
+            for (int j = 0; j < n; ++j) {
+                if (ending[i][j] == 1) {
+                    ending[i][j] = INT_MAX; // 初始化新鲜橘子的最终状态，ending[i][j]表示这个新鲜橘子需要腐化的时间分钟数
+                }
+            }
+        }
+        for (int i = 0; i < m; ++i) {
+            for (int j = 0; j < n; ++j) {
+                if (grid[i][j] == 2) {
+                    vector<vector<int>> visited = grid;
+                    dfs(grid, i, j, m, n, 0, true, ending);
+                }
+            }
+        }
+        int ans = 0;
+        for (int i = 0; i < m; ++i) {
+            for (int j = 0; j < n; ++j) {
+                if (ending[i][j] == INT_MAX) {
+                    return -1;
+                } else if (ending[i][j] > 2) {
+                    ans = max(ans, ending[i][j] - 2);
+                }
+            }
+        }
+        return ans;
+    }
+
+    void dfs(vector<vector<int>> &grid, int i, int j, int m, int n, int cur, bool is_first, vector<vector<int>> &ending) {
+        if (i < 0 || j < 0 || i > m - 1 || j > n - 1) return;
+        if (grid[i][j] == 0) return;
+        if (grid[i][j] == 2 && is_first == false) return;
+        if (grid[i][j] == 1) {
+            if (ending[i][j] <= 2 + cur) return; // 之前遍历能获得更快的腐化速度，所以此次遍历可直接结束
+            ++cur;
+            ending[i][j] = 2 + cur; // 更新当前新鲜橘子的最小分钟数（用大于3的值x表示该橘子腐化的最小分钟数(x-2)
+        }
+        // 腐化橘子不用判断，从腐化橘子出发，它们附近的新鲜橘子肯定能获得最快的腐坏速度
+        dfs(grid, i+1, j, m, n, cur, false, ending);
+        dfs(grid, i, j+1, m, n, cur, false, ending);
+        dfs(grid, i-1, j, m, n, cur, false, ending);
+        dfs(grid, i, j-1, m, n, cur, false, ending);
+    }
+};
+```
+
+查看官方题解，这题适合用BFS，因为每次腐化都是旁边一层，所以用BFS更好
+
+回到题目中，假设图中只有一个腐烂的橘子，它每分钟向外拓展，腐烂上下左右相邻的新鲜橘子，那么下一分钟，就是这些被腐烂的橘子再向外拓展腐烂相邻的新鲜橘子，这与广度优先搜索的过程均一一对应，上下左右相邻的新鲜橘子就是该腐烂橘子尝试访问的同一层的节点，路径长度就是新鲜橘子被腐烂的时间。我们记录下每个新鲜橘子被腐烂的时间，最后如果单元格中没有新鲜橘子，腐烂所有新鲜橘子所必须经过的最小分钟数就是新鲜橘子被腐烂的时间的最大值。
+
+以上是基于图中只有一个腐烂的橘子的情况，可实际题目中腐烂的橘子数不止一个，看似与广度优先搜索有所区别，不能直接套用，但其实有两个方向的思路。
+
+一个是耗时比较大且不推荐的做法：我们对每个腐烂橘子为起点都进行一次广度优先搜索，时间复杂度需要在原先广度优先搜索遍历的时间复杂度上再乘以腐烂橘子数，这在整个网格范围变大的时候十分耗时
+
+更好的做法是：多源广度优先搜索
+
+思路：观察到对于所有的腐烂橘子，其实它们在广度优先搜索上是等价于同一层的节点的。
+
+假设这些腐烂橘子刚开始是新鲜的，而有一个腐烂橘子(我们令其为超级源点)会在下一秒把这些橘子都变腐烂，而这个腐烂橘子刚开始在的时间是 −1 ，那么按照广度优先搜索的算法，下一分钟也就是第 000 分钟的时候，这个腐烂橘子会把它们都变成腐烂橘子，然后继续向外拓展，所以其实这些腐烂橘子是同一层的节点。那么在广度优先搜索的时候，我们将这些腐烂橘子都放进队列里进行广度优先搜索即可，最后每个新鲜橘子被腐烂的最短时间 `dis[x][y]` 其实是以这个超级源点的腐烂橘子为起点的广度优先搜索得到的结果。
+
+为了确认是否所有新鲜橘子都被腐烂，可以记录一个变量 cnt 表示当前网格中的新鲜橘子数，广度优先搜索的时候如果有新鲜橘子被腐烂，则 cnt-=1 ，最后搜索结束时如果 cnt 大于 000 ，说明有新鲜橘子没被腐烂，返回 −1 ，否则返回所有新鲜橘子被腐烂的时间的最大值即可，也可以在广度优先搜索的过程中把已腐烂的新鲜橘子的值由 1 改为 2，最后看网格中是否由值为 1 即新鲜的橘子即可。
+
+时间
+12 ms
+击败
+21.24%
+内存
+12.8 MB
+击败
+35.26%
+
+```c++
+class Solution {
+public:
+    int orangesRotting(vector<vector<int>>& grid) {
+        int m = grid.size();
+        if (m == 0) return 0;
+        int n = grid[0].size();
+        if (n == 0) return 0;
+        vector<pair<int, int>> rots;
+        queue<pair<int, int>> q;
+        int cnt = 0;
+        for (int i = 0; i < m; ++i) {
+            for (int j = 0; j < n; ++j) {
+                if (grid[i][j] == 2) {
+                    q.push({i ,j}); // 开局先把腐烂橘子压入队列
+                }
+                if (grid[i][j] == 1){
+                    ++cnt;
+                }
+            }
+        }
+        if (cnt == 0) return 0;
+        int sz = q.size();
+        int cur = 0;
+        int ans = 0;
+        while (!q.empty()) {
+            pair<int, int> p = q.front();
+            int i = p.first;
+            int j = p.second;
+            q.pop();
+            // 只需判断新鲜橘子，腐化橘子由它们自身为起点进行扩张肯定更快
+            if (grid[i][j] == 1) {
+                --cnt;
+                ans = cur; // 因为是一层层遍历，越后遍历到的，肯定是越晚腐化的
+                grid[i][j] = 2; //这里会修改原数组，如果不能修改，得用一个标记数组
+            }
+            if (i - 1 >= 0 && grid[i-1][j] == 1) q.push({i-1, j});
+            if (i + 1 <= m - 1 && grid[i+1][j] == 1) q.push({i+1, j});
+            if (j - 1 >= 0 && grid[i][j-1] == 1) q.push({i, j-1});
+            if (j + 1 <= n - 1 && grid[i][j+1] == 1) q.push({i, j+1});
+            if (--sz == 0) { // 到下一层了，时间+1
+                ++cur;
+                sz = q.size();
+            }
+        }
+        return cnt == 0 ? ans : -1; // 新鲜橘子没有全部腐化就返回-1
+    }
+};
+```
 
 ### 1020. 飞地的数量(Medium)
 
@@ -12890,6 +16099,83 @@ public:
 ```
 
 ## 模拟
+
+### 6. N 字形变换(Medium)
+
+将一个给定字符串 s 根据给定的行数 numRows ，以从上往下、从左到右进行 Z 字形排列。
+
+比如输入字符串为 "PAYPALISHIRING" 行数为 3 时，排列如下：
+
+P   A   H   N
+A P L S I I G
+Y   I   R
+之后，你的输出需要从左往右逐行读取，产生出一个新的字符串，比如："PAHNAPLSIIGYIR"。
+
+请你实现这个将字符串进行指定行数变换的函数：
+
+string convert(string s, int numRows);
+
+示例 1：
+
+输入：s = "PAYPALISHIRING", numRows = 3
+输出："PAHNAPLSIIGYIR"
+示例 2：
+输入：s = "PAYPALISHIRING", numRows = 4
+输出："PINALSIGYAHRPI"
+解释：
+P     I    N
+A   L S  I G
+Y A   H R
+P     I
+示例 3：
+
+输入：s = "A", numRows = 1
+输出："A"
+
+提示：
+
+1 <= s.length <= 1000
+s 由英文字母（小写和大写）、',' 和 '.' 组成
+1 <= numRows <= 1000
+
+题目理解：
+
+- 字符串 s 是以 Z 字形为顺序存储的字符串，目标是按行打印。
+- 设 numRows 行字符串分别为 s1s2s3...sn，则容易发现：按顺序遍历字符串 s 时，每个字符 c 在 Z 字形中对应的 行索引 先从 s1增大至 sn，再从 sn减小至 s1…… 如此反复。
+- 因此，解决方案为：模拟这个行索引的变化，在遍历 s 中把每个字符填到正确的行 res[i] 。
+- 算法流程： 按顺序遍历字符串 s；
+  - res[i] += c： 把每个字符 c 填入对应行 si
+  - i += flag： 更新当前字符 c 对应的行索引；
+  - flag = - flag： 在达到 ZZZ 字形转折点时，执行反向。
+
+复杂度分析：
+时间复杂度 O(N) ：遍历一遍字符串 s；
+空间复杂度 O(N) ：各行字符串共占用 O(N) 额外空间。
+
+```c++
+class Solution {
+public:
+    string convert(string s, int numRows) {
+        if (numRows < 2) return s;
+        int n = s.size();
+        vector<string> rows(numRows);
+        int flag = -1;
+        int row = 0;
+        for (int i = 0; i < n; ++i) {
+            rows[row] += s[i];
+            if (row == 0 || row == numRows - 1) {
+                flag = -flag;
+            }
+            row += flag;
+        }
+        string ans;
+        for (string &row : rows) {
+            ans += row;
+        }
+        return ans;
+    }
+};
+```
 
 ### 190.颠倒二进制位(Easy)
 
@@ -13148,7 +16434,7 @@ public:
 };
 ```
 
-### 54. 螺旋矩阵
+### 54. 螺旋矩阵 @hot100
 
 给定一个包含 m x n 个元素的矩阵（m 行, n 列），请按照顺时针螺旋顺序，返回矩阵中的所有元素。
 
@@ -13204,6 +16490,49 @@ public:
                 res.push_back(matrix[i][j]);
             }
             ++left;
+        }
+        return res;
+    }
+};
+```
+
+刷hot100，直接A了，定义方向，在遍历时不管当前方向，遍历到到该方向最大值时，改变方向
+
+```c++
+class Solution {
+public:
+    vector<int> spiralOrder(vector<vector<int>>& matrix) {
+        vector<vector<int>> direction = {{0, 1}, {1, 0}, {0, -1}, {-1, 0}}; // →↓←↑
+        int m = matrix.size();
+        if (m == 1) return matrix[0];
+        if (m == 0) return {};
+        int n = matrix[0].size();
+        vector<int> res;
+        int cur_dir = 0;
+        int i = 0;
+        int j = 0;
+        int count = m*n;
+        int max_index_right = n - 1;
+        int max_index_down = m - 1;
+        int max_index_left = 0;
+        int max_index_up = 1;
+        while (count-- > 0) {
+            res.push_back(matrix[i][j]);
+            if (cur_dir == 0 && j == max_index_right) {
+                max_index_right--;
+                cur_dir = (cur_dir + 1) % 4;
+            } else if (cur_dir == 1 && i == max_index_down) {
+                max_index_down--;
+                cur_dir = (cur_dir + 1) % 4;
+            } else if ( cur_dir == 2 && j == max_index_left) {
+                max_index_left++;
+                cur_dir = (cur_dir + 1) % 4;
+            } else if (cur_dir == 3 && i == max_index_up) {
+                max_index_up++;
+                cur_dir = (cur_dir + 1) % 4;
+            }
+            i = i + direction[cur_dir][0];
+            j = j + direction[cur_dir][1];
         }
         return res;
     }
@@ -13739,7 +17068,7 @@ int main()
 
 ### 1. 两数之和
 
-### 49. 字母异位词分组
+### 49. 字母异位词分组 #hot 100
 
 给定一个字符串数组，将字母异位词组合在一起。字母异位词指字母相同，但排列不同的字符串。
 
@@ -13774,6 +17103,76 @@ public:
             ans.push_back(n.second);
         return ans;
     }
+};
+```
+
+最开始想的是这些字符串能否映射到唯一哈希上，26个小写字母，因为长度是100，所以相邻字母的哈希值跃迁是100，比如a代表1，b代表100，c代表1000，但这样一个字符串的哈希值太大了，所以没想通
+
+于是，第一次尝试，很挫的写法，直接暴力
+
+时间
+1348 ms
+击败
+5.5%
+内存
+30.5 MB
+击败
+5%
+
+```c++
+class Solution {
+public:
+struct Combine {
+  vector<int> strIndex;
+  vector<int> alphaVec;
+};
+vector<vector<string>> groupAnagrams(vector<string> &strs) {
+  vector<vector<string>> res;
+  if (strs.size() == 1) {
+    return {strs};
+  }
+  Combine combine = {{0}, vector<int>(26, 0)};
+  for (int j = 0; j < strs[0].size(); ++j) {
+    combine.alphaVec[strs[0][j] - 'a']++;
+  }
+  vector<Combine> combines = {combine};
+
+  for (int i = 1; i < strs.size(); ++i) {
+    vector<int> vec = vector<int>(26, 0);
+    for (int j = 0; j < strs[i].size(); ++j) {
+      vec[strs[i][j] - 'a']++;
+    }
+    bool currentHasAnagramsBefore = false;
+    for (auto &combine : combines) {
+      bool isSame = true;
+      for (int k = 0; k < 26; ++k) {
+        if (combine.alphaVec[k] != vec[k]) {
+          isSame = false;
+          break;
+        }
+      }
+      if (isSame) {
+        combine.strIndex.push_back(i);
+        currentHasAnagramsBefore = true;
+        break;
+      }
+    }
+    if (!currentHasAnagramsBefore) {
+      Combine newCombine;
+      newCombine.strIndex = {i};
+      newCombine.alphaVec = vec;
+      combines.push_back(newCombine);
+    }
+  }
+  for (auto &combine : combines) {
+    vector<string> anagrams;
+    for (int strIndex : combine.strIndex) {
+      anagrams.push_back(strs[strIndex]);
+    }
+    res.push_back(anagrams);
+  }
+  return res;
+}
 };
 ```
 
@@ -13825,6 +17224,15 @@ public:
 例如 abc ，就对应 'a' - 'a'， 'b' - 'a'， 'c' - 'a'，即 0, 1, 2，也就是对应素数 2 3 5，然后相乘 `2 * 3 * 5 = 30`，就把 "abc" 映射到了 30。
 
 时间复杂度O(n*K) K是字符串最大长度，空间复杂度O(NK) ，用来存储结果，但这种方法有一定局限性，累乘可能会溢出，不过需要字符串长度很长才行，力扣OJ里没有这么刁难的case
+
+时间
+20 ms
+击败
+98.77%
+内存
+18.1 MB
+击败
+92.55%
 
 ```c++
 class Solution {
@@ -13885,7 +17293,7 @@ class Solution {
 
 前面两题都很简单，用哈希表，空间换取时间
 
-### 560. 和为K的子数组
+### 560. 和为K的子数组 @hot100
 
 给定一个整数数组和一个整数 k，你需要找到该数组中和为 k 的连续的子数组的个数。
 
@@ -13900,7 +17308,7 @@ class Solution {
 
 题解：
 
-- num1,num2,num3,num4，其中num2 + num3 = sum3 - sum1，所以可以用一次遍历搞定，每次都把当前值加入到**累加和**sum中
+- 所以可以用一次遍历搞定，每次都把当前值加入到**累加和**sum中
 
 - 借助哈希表保存累加和sum及出现的次数。若累加和sum−k在哈希表中存在，则说明存在连续序列使得和为k。则之前的累加和中，sum−k出现的次数即为有多少种子序列使得累加和为sum−k。
 
@@ -13920,18 +17328,22 @@ class Solution {
 
 为什么初始化：hash[0]=1，因为sum为0的次数还没遍历之前就算有一次了
 
+为什么不用dp数组：因为状态转换方程：sum[i] = sum[i-1] = nums[i]，遍历时，sum只与前一个sum状态有关，所以直接省略成单变量
+
 举个例子，[1,1]，和为2，当遍历到i=1时，发现k-sum=2-2=0，所以找到之前存储的hash[0]=1，于是count=count+1=0+1=1，1就是正确答案
 
 ```c++
 class Solution {
 public:
     int subarraySum(vector<int>& nums, int k) {
+        // key前缀和，value出现次数，前缀和为0还没开始遍历就有1次了，所以初始化为1
         unordered_map<int, int> hash;
-        hash[0] = 1; // 初始化：前缀和为0已经出现过一次了，所以初始化为1
+        hash[0] = 1;
         int count = 0;
         int sum = 0;  // 前缀和
         for(int i = 0; i < nums.size(); ++i){
             sum += nums[i];
+            // 求下标j到i的子数组和为k，条件可转换为sum[i] - sum[j-1] == k
             count += hash[sum-k]; // 之前没有出现过的key，初始化为0，所以相当于没有加count
             ++hash[sum];
         }
@@ -14045,7 +17457,7 @@ int n2 = abs(countT, countA);
 cout << n1 + n2;
 ```
 
-### 347. 前 K 个高频元素
+### 347. 前 K 个高频元素 (Medium) @hot100
 
 给定一个非空的整数数组，返回其中出现频率前 k 高的元素。
 
@@ -14074,7 +17486,7 @@ cout << n1 + n2;
 
 时间复杂度分析：用哈希表统计每个数出现次数的计算量是 O(n)，计数排序的计算量是 O(n)，最终用下界过滤结果的计算量也是 O(n)，所以总时间复杂度是 O(n)。
 
-上面是y总的题解，我觉得这题用优秀队列（最大堆）会更好
+上面是y总的题解，我觉得这题用优先队列（最大堆）会更好
 
 ```c++
 class Solution {
@@ -14088,6 +17500,72 @@ public:
         for(int i=0;i<k;i++) {
             res.push_back(pq.top().second);
             pq.pop();
+        }
+        return res;
+    }
+};
+```
+
+如果堆中不允许存放多余元素，那么我们就维护一个最大大小为k的最小堆，当还有元素，与堆顶最小值判断，大于就加入，然后把堆顶最小值pop，这样最后最小堆的所有元素即为答案
+
+```c++
+class Solution {
+public:
+    static bool cmp(pair<int, int>& m, pair<int, int>& n) {
+        return m.second > n.second;
+    }
+
+    vector<int> topKFrequent(vector<int>& nums, int k) {
+        unordered_map<int, int> occurrences;
+        for (auto& v : nums) {
+            occurrences[v]++;
+        }
+
+        // pair 的第一个元素代表数组的值，第二个元素代表了该值出现的次数
+        priority_queue<pair<int, int>, vector<pair<int, int>>, decltype(&cmp)> q(cmp);
+        for (auto& [num, count] : occurrences) {
+            if (q.size() == k) {
+                if (q.top().second < count) {
+                    q.pop();
+                    q.emplace(num, count);
+                }
+            } else {
+                q.emplace(num, count);
+            }
+        }
+        vector<int> ret;
+        while (!q.empty()) {
+            ret.emplace_back(q.top().first);
+            q.pop();
+        }
+        return ret;
+    }
+};
+
+作者：力扣官方题解
+链接：https://leetcode.cn/problems/top-k-frequent-elements/solutions/402568/qian-k-ge-gao-pin-yuan-su-by-leetcode-solution/
+来源：力扣（LeetCode）
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+```
+
+用了排序，时间复杂度为O(nlogn)，没有满足题目进阶要求的优于O(nlogn)
+
+```c++
+class Solution {
+public:
+    static bool myComp(pair<int, int> &a, pair<int, int> &b) {
+        return a.second > b.second;
+    }
+    vector<int> topKFrequent(vector<int>& nums, int k) {
+        map<int, int> freq;
+        for (int num : nums) {
+            ++freq[num];
+        }
+        vector<pair<int, int>> vec (freq.begin(), freq.end());
+        sort(vec.begin(), vec.end(), myComp); // 用了排序，时间复杂度为O(nlogn)，没有满足题目进阶要求的优于
+        vector<int> res(k, 0);
+        for (int i = 0; i < k; ++i) {
+            res[i] = vec[i].first;
         }
         return res;
     }
@@ -14739,9 +18217,9 @@ public:
  */
 ```
 
-### 128. 最长连续序列(Hard)
+### 128. 最长连续序列(Hard) @hot100
 
-hard题，就不看了hhh
+hard题，就不看了hhh(改为中等题了)
 
 刷字节top题碰到了，还是看答案弄懂它吧
 
@@ -14770,6 +18248,48 @@ public:
                 ++i;
             }
             max_len = max(max_len, cur_len);
+        }
+        return max_len;
+    }
+};
+```
+
+刷hot100时刷到了，
+
+自己想的是用char数组，但是超时了
+
+思路：用一个大数组存储最小数和最小数之间的所有，最后遍历大数组，取最长的出现的序列，满足O(n)要求，但是这个例子运行超时了“[0,1,2,4,8,5,6,7,9,3,55,88,77,99,999999999]”
+
+```c++
+class Solution {
+public:
+    int longestConsecutive(vector<int>& nums) {
+        if (nums.empty()) return 0;
+        if (nums.size() == 1) return 1;
+        int max_ = INT_MIN;
+        int min_ = INT_MAX;
+        for (auto num : nums) {
+            max_ = max(max_, num);
+            min_ = min(min_, num);
+        }
+        long len = (long)(max_ - min_ + 1);
+        vector<char> a (len, 0);
+        for (auto num : nums) {
+            a[num - min_] = 1;
+        }
+        int max_len = 1;
+        int begin = -1;
+        int cur_len = 0;
+        for (int i = 0; i < len; ++i) {
+            if (a[i] != 1) {
+                begin = -1;
+            } else {
+                if (begin == -1){
+                    begin = i;
+                }
+                cur_len = i - begin + 1;
+                max_len = max(max_len, cur_len);
+            }
         }
         return max_len;
     }
@@ -15048,7 +18568,7 @@ public:
 };
 ```
 
-### 55. 跳跃游戏
+### 55. 跳跃游戏 @hot100
 
 给定一个非负整数数组，你最初位于数组的第一个位置。
 
@@ -15071,7 +18591,31 @@ public:
 
 观察又发现：如果这个数组全是正整数，则肯定可以全部跳完，之所有不能全部跳完，是因为出现了0，所以只需要判断能否跳过所有的即可
 
-动态规划或者贪心或者回溯都可解决
+动态规划或者贪心或者回溯都可解决,
+
+动态规划：dp[i]记录nums[i]之前所能到达的最远距离，dp[i] = max(dp[i-1], i + nums[i])，空间优化可以将dp[i]变为dp
+
+直接一次遍历即可，用一个变量记录当前能够跳到的最远距离，如果当前位置超过了最远距离，则失败
+
+```c++
+class Solution {
+public:
+    bool canJump(vector<int>& nums) {
+        int n = nums.size();
+        if (n == 1) return true;
+        if (nums[0] == 0) return false;
+        int range = 0; // 初始时，只能到达下标0
+        for (int i = 0; i < n; ++i) {
+            if (i > range) {
+                return false;
+            } else {
+                range = max(range, i + nums[i]);
+            }
+        }
+        return true;
+    }
+};
+```
 
 #### 贪心
 
@@ -15093,6 +18637,8 @@ public:
 ```
 
 #### 回溯
+
+回溯：从终点（末位置）开始试探回溯。不只是终点，对于任意的一个点i，我们可以遍历[0,i-1]中的点j，如果有nums[j] >= i-j，那么就能够从点i到达点j，随之进一步考察j能否被[0,j-1]中的点到达。如果中途出现不可到达点，则回溯到上一层（离终点较近）的点。
 
 思路没错，但是超出时间限制，如果想AC，得加入一个标志来判断当前点是否被搜索过，相当于剪枝
 
@@ -15226,6 +18772,8 @@ public:
 
 - 记录 跳跃 次数，如果跳到了终点，就得到了结果。
 
+与直观解法的差别：直观解法关注的是当前格子能跳多远，并以此更新后面的跳数，而贪心法尝试从最少步数开始，一步步地向最远段扩展
+
 ```c++
 class Solution{
 public:
@@ -15277,6 +18825,33 @@ public:
 };
 ```
 
+刷hot100时的写法，也很好理解，区别在于steps算不算
+
+```c++
+class Solution {
+public:
+    int jump(vector<int>& nums) {
+        int n = nums.size();
+        if (n == 1) return 0;
+        int step = 1; // 从第1跳开始，计算第i跳的最远距离
+        int end = 0; // 前1跳的最远距离
+        int farthest = 0; // 在第i跳时，更新下一跳的最远距离
+        int i = 0;
+        while (end < n) {
+            farthest = max(farthest, i + nums[i]);
+            if (farthest >= n - 1) {
+                return step;
+            }
+            if (i == end) {
+                ++step;
+                end = farthest;
+            }
+            ++i;
+        }
+        return step;
+    }
+};
+```
 ### 376. 摆动序列
 
 如果连续数字之间的差严格地在正数和负数之间交替，则数字序列称为摆动序列。第一个差（如果存在的话）可能是正数或负数。少于两个元素的序列也是摆动序列。
@@ -15621,18 +19196,81 @@ public:
 };
 ```
 
+### 763. 划分字母区间(Medium) @hot100
+
+给你一个字符串 s 。我们要把这个字符串划分为尽可能多的片段，同一字母最多出现在一个片段中。
+
+注意，划分结果需要满足：将所有划分结果按顺序连接，得到的字符串仍然是 s 。
+
+返回一个表示每个字符串片段的长度的列表。
+
+示例 1：
+输入：s = "ababcbacadefegdehijhklij"
+输出：[9,7,8]
+解释：
+划分结果为 "ababcbaca"、"defegde"、"hijhklij" 。
+每个字母最多出现在一个片段中。
+像 "ababcbacadefegde", "hijhklij" 这样的划分是错误的，因为划分的片段数较少。 
+示例 2：
+
+输入：s = "eccbbbbdec"
+输出：[10]
+
+提示：
+
+1 <= s.length <= 500
+s 仅由小写英文字母组成
+
+刷hot100时直接AC了
+
+```c++
+class Solution {
+public:
+    vector<int> partitionLabels(string s) {
+        // 贪心，从左往右，第1个元素得在片段里，然后找最后一个元素的位置，这期间遍历到的每个元素，都得去找它最后的位置
+        // 直到到达这样的一个i，i的左边所有元素的最后一个位置出现在i之前，即可划分出来
+        // 然后继续划分剩余子串
+        unordered_map<char, int> pos; // 记录每个字符的最后一次出现位置
+        for (int i = 0; i < s.size(); ++i) {
+            pos[s[i]] = i; // 更新最后一次出现位置
+        }
+        vector<int> res;
+        int begin = 0, end = 0;
+        for (int i = 0; i < s.size(); ++i) {
+            end = max(end, pos[s[i]]);  
+            if (i == end) { // 当前片段以当前字符结束
+                res.push_back(end - begin + 1);
+                begin = i + 1;
+            }
+        }
+        return res;
+
+    }
+};
+```
+
 ## 二分
 
 转载自[力扣题解](https://leetcode-cn.com/problems/search-insert-position/solution/te-bie-hao-yong-de-er-fen-cha-fa-fa-mo-ban-python-/)
 
-把待搜索的目标值留在最后判断，在循环体内不断地把不符合题目要求的子区间排除掉，在退出循环以后，因为只剩下 1 个数没有看到，它要么是目标元素，要么不是目标元素，单独判断即可。
+二分查找重点概括：
 
-这种思路也非常符合「二分」的名字，就是把「待搜索区间」分为「有目标元素的区间」和「不包含目标元素的区间」，排除掉「不包含目标元素的区间」的区间，剩下就是「有目标元素的区间」。
+- 写成 while(left < right) ，退出循环的时候有 left == right 成立，好处是：不用判断应该返回 left 还是 right；
+- 区间 [left..right] 划分只有以下两种情况：
+  - 分成 [left..mid] 和 [mid + 1..right]，分别对应 right = mid 和 left = mid + 1；
+  - 分成 [left..mid - 1] 和 [mid..right]，分别对应 right = mid - 1 和 left = mid，这种情况下。需要将 int mid = (left + right) / 2 改成 int mid = (left + right + 1) / 2，否则会出现死循环，这一点不用记，出现死循环的时候，把 left 和 right 的值打印出来看一下就很清楚了；
+- 退出循环 left == right，如果可以确定区间 [left..right] 一定有解，直接返回 left 就可以，否则还需要对 left 这个位置单独做一次判断；
+始终保持不变的是：在区间 [left..right] 里查找目标元素。
+
+二分查找思路：
+
+- 把待搜索的目标值留在最后判断，在循环体内不断地把不符合题目要求的子区间排除掉，在退出循环以后，因为只剩下 1 个数没有看到，它要么是目标元素，要么不是目标元素，单独判断即可。
+- 这种思路也非常符合「二分」的名字，就是把「待搜索区间」分为「有目标元素的区间」和「不包含目标元素的区间」，排除掉「不包含目标元素的区间」的区间，剩下就是「有目标元素的区间」。
 
 建议：
 
 1、确定搜索区间初始化时候的左右边界，有时需要关注一下边界值。在初始化时，有时把搜索区间设置大一点没有关系，但是如果恰好把边界值排除在外，再怎么搜索都得不到结果。
-2、无条件写上 `while (left < right)` ，表示退出循环的条件是 left == right，对于返回左右边界就不用思考了，因此此时它们的值相等；有的是`while(left <= right)`，其实是把待搜索区间“三分”，略微码放
+2、无条件写上 `while (left < right)` ，表示退出循环的条件是 left == right，对于返回左右边界就不用思考了，因此此时它们的值相等；有的是`while(left <= right)`，其实是把待搜索区间“三分”，略微麻烦
 3、先写**向下取整的中间数取法**，然后从如何把 mid 排除掉的角度思考 if 和 else 语句应该怎样写。记住：**在 if else 语句里面只要出现 left = mid 的时候，把取中间数行为改成上取整即可**。
 4、根据 if else 里面写的情况，看看是否需要修改中间数下取整的行为。向下：`int mid = l + (r - l) / 2;`，向上：`int mid = l + (r - l + 1) / 2;`
 5、退出循环的时候，一定有 left == right 成立。有些时候可以直接返回 left （或者 right，由于它们相等，后面都省略括弧）或者与 left 相关的数值，有些时候还须要再做一次判断，判断 left 与 right 是否是我们需要查找的元素，这一步叫“后处理”。
@@ -15666,7 +19304,7 @@ int bsearch_2(int l, int r)
 }
 ```
 
-### 4. 寻找两个有序数组的中位数(hard)
+### 4. 寻找两个有序数组的中位数(hard) @hot100
 
 给定两个大小为 m 和 n 的有序数组 nums1 和 nums2。
 
@@ -15689,7 +19327,243 @@ nums2 = [3, 4]
 
 TODO
 
-### 33.搜索旋转排序数组(medium, based on 153)
+刷hot100，暂时只能想到借用一个数组存下来
+
+时间
+16 ms
+击败
+97.6%
+内存
+87.5 MB
+击败
+21.63%
+
+```c++
+class Solution {
+public:
+    double findMedianSortedArrays(vector<int>& nums1, vector<int>& nums2) {
+        int m = nums1.size();
+        int n = nums2.size();
+        vector<int> nums(m + n);
+        for (int i = 0, j = 0, k = 0; k < m + n; ++k) {
+            if (j == n) {
+                nums[k] = nums1[i++];
+            } else if (i == m) {
+                nums[k] = nums2[j++];
+            } else if (nums1[i] < nums2[j]) {
+                nums[k] = nums1[i++];
+            } else {
+                nums[k] = nums2[j++];
+            }
+        }
+        int mid = (m + n) / 2;
+        if ((m + n) % 2 == 0) {
+            return (double) (nums[mid] + nums[mid-1]) / 2;
+        }
+        return nums[mid];
+    }
+};
+```
+
+实际上，不用专门申请辅助数组，因为长度已知，只需要用一个从零开始的指针，走到(m+n)/2的中点即可，这里注意奇偶的情况
+
+但此时还达不到O(logn)的时间复杂度，只能用二分查找，找中位数，其实就是找第k大的数。我们一次遍历就相当于去掉不可能是中位数的一个值，也就是一个一个排除。由于数列是有序的，其实我们完全可以一半儿一半儿的排除。假设我们要找第 k 小数，我们可以每次循环排除掉 k/2 个数。
+
+1. 假设有， A[1] ，A[2] ，A[3]，A[k/2] ... ，B[1]，B[2]，B[3]，B[k/2] ... ，如果 `A[k/2]<B[k/2]` ，那么A[1]，A[2]，A[3]，A[k/2]都不可能是第 k 小的数字。更特别的情况，假设B[1]...B[k/2-1]都比A[k/2]小，因为A[k/2]只大于A[1]..A[k/2-1]以及B[1]..B[k/2-1]，这里一共是k-2个，所以A[k/2]最大也就是第k-1大的元素。
+2. 于是，排除掉了A[1]..A[k/2]，这些元素都不可能是第k大元素，排除掉后，A数组减少k/2个元素，下一步是寻找第(k-k/2)个元素，比较的是B[1]..B[(k-k/2)/2]与A[k/2+1]..A[k/2+(k-k/2)/2]
+3. 重复上面的步骤，AorB数组会减少掉k/4个元素，下一步就是寻找第(k-k/2-k/4)大的元素
+4. 重复上面步骤，直到寻找第1大的元素，此时
+5. 有可能出现k/2（或者后面的k/4,k/8...）大于数组剩余长度，此时只需要把原先指向k/2的指针指向数组末尾即可
+
+时间复杂度O(log(m+n))，每次循环都会排除k/2个数，空间复杂度O(1)
+
+```c++
+class Solution {
+public:
+    int getKthElement(const vector<int>& nums1, const vector<int>& nums2, int k) {
+        /* 主要思路：要找到第 k (k>1) 小的元素，那么就取 pivot1 = nums1[k/2-1] 和 pivot2 = nums2[k/2-1] 进行比较
+         * 这里的 "/" 表示整除
+         * nums1 中小于等于 pivot1 的元素有 nums1[0 .. k/2-2] 共计 k/2-1 个
+         * nums2 中小于等于 pivot2 的元素有 nums2[0 .. k/2-2] 共计 k/2-1 个
+         * 取 pivot = min(pivot1, pivot2)，两个数组中小于等于 pivot 的元素共计不会超过 (k/2-1) + (k/2-1) <= k-2 个
+         * 这样 pivot 本身最大也只能是第 k-1 小的元素
+         * 如果 pivot = pivot1，那么 nums1[0 .. k/2-1] 都不可能是第 k 小的元素。把这些元素全部 "删除"，剩下的作为新的 nums1 数组
+         * 如果 pivot = pivot2，那么 nums2[0 .. k/2-1] 都不可能是第 k 小的元素。把这些元素全部 "删除"，剩下的作为新的 nums2 数组
+         * 由于我们 "删除" 了一些元素（这些元素都比第 k 小的元素要小），因此需要修改 k 的值，减去删除的数的个数
+         */
+
+        int m = nums1.size();
+        int n = nums2.size();
+        int index1 = 0, index2 = 0;
+        while (true) {
+            // 边界情况
+            if (index1 == m) {
+                return nums2[index2 + k - 1]; // 此时只需要找nums2剩余数组的第k大的数，比如第1大的数，就是剩余数组的头元素，故下标=1
+            }
+            if (index2 == n) {
+                return nums1[index1 + k - 1];
+            }
+            if (k == 1) {
+                return min(nums1[index1], nums2[index2]);
+            }
+
+            // 正常情况
+            int newIndex1 = min(index1 + k / 2 - 1, m - 1); // 不能超出数组
+            int newIndex2 = min(index2 + k / 2 - 1, n - 1); // 不能超出数组
+            int pivot1 = nums1[newIndex1];
+            int pivot2 = nums2[newIndex2];
+            if (pivot1 <= pivot2) {
+                k -= newIndex1 - index1 + 1; // 比如数组1,2,3,4，index1=0，newIndex1=2，此时会把1、2、3都删除，所以第k大变成第k-(newIndex1-index1+1)大
+                index1 = newIndex1 + 1;
+            }
+            else {
+                k -= newIndex2 - index2 + 1;
+                index2 = newIndex2 + 1;
+            }
+        }
+    }
+
+    double findMedianSortedArrays(vector<int>& nums1, vector<int>& nums2) {
+        int totalLength = nums1.size() + nums2.size();
+        if (totalLength % 2 == 1) { 
+            return getKthElement(nums1, nums2, (totalLength + 1) / 2); // 比如1,2,3,4,5，k为第3大
+        }
+        else {
+            return (getKthElement(nums1, nums2, totalLength / 2) + getKthElement(nums1, nums2, totalLength / 2 + 1)) / 2.0; // 比如1,2,3,4,5,6，k为第3大和第4大的平均值
+        }
+        // 也可以去掉if-else语句，将奇偶情况合并
+        // return (getKthElement(nums1, nums2, (totalLength + 1) / 2) + getKthElement(nums1, nums2, (totalLength  + 2)/ 2)) / 2.0; // 将奇偶的情况合并，如果是奇数，会求两次
+    }
+};
+```
+
+看题解还有更快的，时间复杂度只需要O(log(min(m,n)))
+
+一个长度为 m 的数组，有 0 到 m 总共 m + 1 个位置可以切。我们把数组 A 和数组 B 分别在 i 和 j 进行切割。将 i 的左边和 j 的左边组合成「左半部分」，将 i 的右边和 j 的右边组合成「右半部分」。
+
+当 A 数组和 B 数组的总长度是偶数时，如果我们能够保证
+
+- 左半部分的长度等于右半部分
+  - i + j = m - i  + n - j  , 也就是 j = ( m + n ) / 2 - i
+- 左半部分最大的值小于等于右半部分最小的值
+  - max ( A [ i - 1 ] , B [ j - 1 ]）） <= min ( A [ i ] , B [ j ]））
+- 那么，中位数就可以表示如下
+  - （左半部分最大值 + 右半部分最小值 ）/ 2：（max ( A [ i - 1 ] , B [  j  - 1 ]）+ min ( A [ i ] , B [ j ]）） /  2
+
+当 A 数组和 B 数组的总长度是奇数时，如果我们能够保证
+
+- 左半部分的长度比右半部分大 1
+  - i + j = m - i  + n - j  + 1也就是 j = ( m + n + 1) / 2 - i
+- 左半部分最大的值小于等于右半部分最小的值
+  - max ( A [ i - 1 ] , B [ j - 1 ]）） <= min ( A [ i ] , B [ j ]））
+- 那么，中位数就是
+  - 左半部分最大值，也就是左半部比右半部分多出的那一个数：max ( A [ i - 1 ] , B [  j - 1 ]）
+
+上边的第一个条件我们其实可以合并为 j = (m+n+1)/2-i，因为如果m+n是偶数，(m+n)/2 == (m+n+1)/2，int向下取整
+
+上边的第二个条件是一样的，因为`A[i-1]<A[i] && B[i-1]<B[i]`，所以只需要保证B [ j - 1 ] < = A [ i ] 和 A [ i - 1 ] <= B [ j ]，所以我们分两种情况讨论：
+
+1. B [ j - 1 ] > A [ i ]，并且为了不越界，要保证 j != 0，i != m，很明显，此时需要增加i，幸运的是 j = ( m + n + 1) / 2 - i，i的增大，j会随之减少
+2. A [ i - 1 ] > B [ j ]，并且为了不越界，要保证 i != 0，j != n，和上面反过来，减少i，j会随之增大
+3. 边界情况：当 i = 0, 或者 j = 0，也就是切在了最前边。此时左半部分当 j = 0 时，最大的值就是 A [ i - 1 ] ；当 i = 0 时 最大的值就是 B [ j - 1] 。右半部分最小值和之前一样。
+4. 边界情况：当 i = m 或者 j = n，也就是切在了最后边。此时左半部分最大值和之前一样。右半部分当 j = n 时，最小值就是 A [ i ] ；当 i = m 时，最小值就是B [ j ] 。
+
+ok，以上就是所有思路了，可以看到我们是通过不断地寻找i的切点，j会随之变化，从而寻找最后的解，因为原始数组有序，所以i的切点可以用二分来查找
+
+时间
+16 ms
+击败
+97.6%
+内存
+87.2 MB
+击败
+42%
+
+```c++
+class Solution {
+public:
+    double findMedianSortedArrays(vector<int>& nums1, vector<int>& nums2) {
+        if (nums1.size() > nums2.size()) {
+            return findMedianSortedArrays(nums2, nums1); // 确保nums1是更少的数组
+        }
+        int m = nums1.size();
+        int n = nums2.size();
+        int left = 0, right = m;
+        while (left <= right) {
+            // 前一部分包含 nums1[0 .. i-1] 和 nums2[0 .. j-1]
+            // 后一部分包含 nums1[i .. m-1] 和 nums2[j .. n-1]
+            int i = (left + right) / 2; // i也代表了二分钟mid的含义
+            int j = (m + n + 1) / 2 - i; // 条件一，j随i变化
+            if (j != 0 && i != m && nums2[j-1] > nums1[i]){ // i 需要增大
+                left = i + 1; 
+            } else if (i != 0 && j != n && nums1[i-1] > nums2[j]) { // i 需要减小
+                right = i - 1; 
+            } else { // 达到要求，并且将边界条件列出来单独考虑
+                int maxLeft = 0;
+                if (i == 0) { maxLeft = nums2[j-1]; }
+                else if (j == 0) { maxLeft = nums1[i-1]; }
+                else { maxLeft = max(nums1[i-1], nums2[j-1]); }
+                if ( (m + n) % 2 == 1 ) { return maxLeft; } // 奇数的话不需要考虑右半部分
+
+                int minRight = 0;
+                if (i == m) { minRight = nums2[j]; }
+                else if (j == n) { minRight = nums1[i]; }
+                else { minRight = min(nums2[j], nums1[i]); }
+
+                return (maxLeft + minRight) / 2.0; //如果是偶数的话返回结果
+            }
+        }
+        return 0.0; // never runs here
+    }
+};
+```
+
+官方题解用了一个证明，感觉比较麻烦，找到最大的i，使得A[i-1]<=B[j]成立，这样的i，也能使得B[j-1]<=A[i]，证明：i+1不满足，代入，即A[i]<=B[j]不成立，即A[i]>B[j]>=B[j-1]，故`B[j-1]<A[i]`，条件甚至更强。
+
+既然是找最大的i，那么就在满足A[i-1]<=B[j]时继续收缩左边，直到循环退出
+
+```c++
+class Solution {
+public:
+    double findMedianSortedArrays(vector<int>& nums1, vector<int>& nums2) {
+        if (nums1.size() > nums2.size()) {
+            return findMedianSortedArrays(nums2, nums1);
+        }
+        
+        int m = nums1.size();
+        int n = nums2.size();
+        int left = 0, right = m;
+        // median1：前一部分的最大值
+        // median2：后一部分的最小值
+        int median1 = 0, median2 = 0;
+
+        while (left <= right) {
+            // 前一部分包含 nums1[0 .. i-1] 和 nums2[0 .. j-1]
+            // 后一部分包含 nums1[i .. m-1] 和 nums2[j .. n-1]
+            int i = (left + right) / 2;
+            int j = (m + n + 1) / 2 - i;
+
+            // nums_im1, nums_i, nums_jm1, nums_j 分别表示 nums1[i-1], nums1[i], nums2[j-1], nums2[j]
+            int nums_im1 = (i == 0 ? INT_MIN : nums1[i - 1]);
+            int nums_i = (i == m ? INT_MAX : nums1[i]);
+            int nums_jm1 = (j == 0 ? INT_MIN : nums2[j - 1]);
+            int nums_j = (j == n ? INT_MAX : nums2[j]);
+
+            if (nums_im1 <= nums_j) {
+                median1 = max(nums_im1, nums_jm1);
+                median2 = min(nums_i, nums_j);
+                left = i + 1;
+            } else {
+                right = i - 1;
+            }
+        }
+
+        return (m + n) % 2 == 0 ? (median1 + median2) / 2.0 : median1;
+    }
+};
+```
+
+### 33.搜索旋转排序数组(medium, based on 153) @hot100
 
 假设按照升序排序的数组在预先未知的某个点上进行了旋转。
 
@@ -15788,7 +19662,7 @@ public:
         int l = 0, r = nums.size() - 1;
         while (l < r){
             // 当前区间是旋转的，缩小搜索区间
-            int mid = l + (r - l) / 2; // 中间数向上取整
+            int mid = l + (r - l) / 2; // 中间数向下取整
             if (nums[mid] <= nums[r]){ // 缩小搜索区间为[l,mid]，因为此题无重复元素，加不加等于均可
                 r = mid;
             }
@@ -15810,6 +19684,52 @@ public:
             }
         }
         if(nums[l] == target) return l;
+        return -1;
+    }
+};
+```
+
+刷hot100，啪一下很快啊
+
+时间
+0 ms
+击败
+100%
+内存
+10.8 MB
+击败
+24.41%
+
+```c++
+class Solution {
+public:
+    int search(vector<int>& nums, int target) {
+        if (nums.empty()) return -1;
+        int n = nums.size();
+        int mid = 0, l = 0, r = n - 1;
+        while (l < r) { // 寻找最小值（旋转前的头元素）
+            mid = l + (r - l) / 2; // 因为左边收缩包括了mid，所以可以向下取整，不会死循环
+            if (nums[mid] > nums[r]) { // 最小值肯定在(mid, r]中，所以可以放心收缩[l, mid]
+                l = mid + 1;
+            } else {
+                r = mid;
+            }
+        }
+        // 此时nums[l]即为最小值
+        // int append = l; // 右边接上append个元素，旋转回去，此时[l, l + n - 1]为有序数组
+        r = l + n - 1;
+        while (l < r) {
+            mid = l + (r - l) / 2;
+            int offset = mid % n;
+            if (nums[offset] < target) {
+                l = mid + 1;
+            } else {
+                r = mid;
+            }
+        }
+        if (nums[l % n] == target) {
+            return l % n;
+        }
         return -1;
     }
 };
@@ -15838,7 +19758,7 @@ public:
 3. 如果目标元素在有序数组范围中，使用二分查找;
 4. 如果目标元素在循环有序数组中，设定数组边界后，使用以上方法继续查找。
 
-### 34. 在排序数组中查找元素的第一个和最后一个位置(medium)
+### 34. 在排序数组中查找元素的第一个和最后一个位置(medium) @hot100
 
 给定一个按照升序排列的整数数组 nums，和一个目标值 target。找出给定目标值在数组中的开始位置和结束位置。
 
@@ -15900,7 +19820,7 @@ public:
 };
 ```
 
-看了AcWing上的解答，其实在if-else中不需要第三个分支，只需要注意往左还是往右搜索即可
+看了AcWing上的解答，其实在if-else中不需要第三个分支，只需要注意往左还是往右搜索即可，推荐这种解法
 
 ```c++
 class Solution {
@@ -15937,7 +19857,60 @@ public:
 };
 ```
 
-### 35. 搜索插入位置(easy)
+刷hot100，用了三次循环，第一次找是否存在target，第二次找target的lower_bound，第三次找target的upper_bound
+
+```c++
+class Solution {
+public:
+    vector<int> searchRange(vector<int>& nums, int target) {
+        if (nums.empty()) return {-1, -1};
+        int n = nums.size();
+        if (nums[0] > target || nums[n-1] < target) return {-1, -1};
+        int mid = 0, l = 0, r = n - 1;
+        while (l <= r) {
+            mid = l + (r - l) / 2;
+            if (nums[mid] < target) {
+                l = mid + 1;
+            } else if (nums[mid] > target){
+                r = mid - 1;
+            } else {
+                break;
+            }
+        }
+        if (nums[mid] != target ) return {-1, -1}; // 找不到target，直接返回
+        vector<int> res;
+        l = 0, r = mid;
+        while (l < r) {
+            mid = l + (r - l) / 2;
+            if (nums[mid] < target) {
+                l = mid + 1;
+            } else if (nums[mid] > target || (mid > 0 && nums[mid-1] == target)){
+                r = mid - 1;
+            } else {
+                res.push_back(mid);
+                break;
+            }
+        }
+        if (res.empty()) res.push_back(l);
+        l = mid, r = n - 1;
+        while (l < r) {
+            mid = l + (r - l) / 2;
+            if (nums[mid] > target) {
+                r = mid - 1;
+            } else if (nums[mid] < target || (mid < n - 1 && nums[mid+1] == target)){
+                l = mid + 1;
+            } else {
+                res.push_back(mid);
+                break;
+            }
+        }
+        if (res.size() != 2) res.push_back(l);
+        return res;
+    }
+};
+```
+
+### 35. 搜索插入位置(easy) @hot100
 
 给定一个排序数组和一个目标值，在数组中找到目标值，并返回其索引。如果目标值不存在于数组中，返回它将会被按顺序插入的位置。
 
@@ -15976,6 +19949,29 @@ public:
             }
             else{
                 r = mid;
+            }
+        }
+        return l;
+    }
+};
+```
+
+刷hot100，这种写法貌似更容易理解，甚至不用判断nums[0]与nums[n-1]，不过得仔细判断，有些题解是不会输出待插入位置的
+
+```c++
+class Solution {
+public:
+    int searchInsert(vector<int>& nums, int target) {
+        int l = 0;
+        int r = nums.size() - 1;
+        while (l <= r) {
+            int mid = l + (r - l) / 2;
+            if (nums[mid] == target) {
+                return mid;
+            } else if (nums[mid] > target) {
+                r = mid - 1;
+            } else {
+                l = mid + 1;
             }
         }
         return l;
@@ -16038,7 +20034,7 @@ public:
 };
 ```
 
-### 74. 搜索二维矩阵(easy)
+### 74. 搜索二维矩阵(easy) @hot100
 
 编写一个高效的算法来判断 m x n 矩阵中，是否存在一个目标值。该矩阵具有如下特性：
 
@@ -16075,9 +20071,9 @@ public:
         int rows = matrix.size();
         int cols = matrix[0].size();
         int row, col, mid;
-        int l = 0, r = rows * cols - 1;
+        int l = 0, r = rows * cols - 1; // 直接将二维矩阵打平（flaten）
         while(l < r){
-            mid = l + (r - l) / 2;
+            mid = l + (r - l) / 2; // 因为左边收缩时把mid也收缩了，所以mid可以向下取整
             row = mid / cols;
             col = mid % cols;
             if(matrix[row][col] < target){ // 搜小搜索区间为[mid+1,r]
@@ -16091,6 +20087,52 @@ public:
         col = l % cols;
         if(matrix[row][col] != target) return false;
         return true;
+    }
+};
+```
+
+刷hot100，用了两个循环，注意搜索行时，边界的收缩情况要小心
+
+时间
+0 ms
+击败
+100%
+内存
+9.2 MB
+击败
+56.14%
+
+```c++
+class Solution {
+public:
+    bool searchMatrix(vector<vector<int>>& matrix, int target) {
+        int m = matrix.size();
+        if (m == 0) return false;
+        int n = matrix[0].size();
+        if (n == 0) return false;
+        if (matrix[0][0] > target || matrix[m-1][n-1] < target) return false;
+        int l = 0, r = m - 1;
+        while (l < r) {
+            int mid = l + (r - l) / 2 + 1; // 因为边界收缩时l=mid，为防止死循环，mid向上取整
+            if (matrix[mid][0] == target) return true;
+            else if (matrix[mid][0] > target) r = mid - 1; // 当前行首元素大于target，则可以把当前行以及之后行都排除掉
+            else l = mid; // 当前行首元素小于target，则可以把之前行都排除掉
+        }
+        if (matrix[l][0] == target) return true;
+        int row = l;
+        l = 0, r = n - 1;
+        while (l < r) {
+            int mid = l + (r - l) / 2;
+            if (matrix[row][mid] < target) {
+                l = mid + 1;
+            } else {
+                r = mid;
+            }
+        }
+        if (matrix[row][l] == target) {
+            return true;
+        }
+        return false;
     }
 };
 ```
@@ -16168,7 +20210,7 @@ public:
 };
 ```
 
-### 153. 寻找旋转排序数组中的最小值(medium)
+### 153. 寻找旋转排序数组中的最小值(medium) @hot100
 
 假设按照升序排序的数组在预先未知的某个点上进行了旋转。
 
@@ -16186,6 +20228,17 @@ public:
 
 输入: [4,5,6,7,0,1,2]
 输出: 0
+
+比33.搜索旋转排序数组还简单，是33题的子问题
+
+时间
+0 ms
+击败
+100%
+内存
+9.8 MB
+击败
+79.58%
 
 ```c++
 class Solution {
@@ -16478,7 +20531,7 @@ public:
 };
 ```
 
-### 287. 寻找重复数(medium)
+### 287. 寻找重复数(medium) @hot100
 
 给定一个包含 n + 1 个整数的数组 nums，其数字都在 1 到 n 之间（包括 1 和 n），可知至少存在一个重复的整数。假设只有一个重复的整数，找出这个重复的数。
 
@@ -16497,7 +20550,7 @@ public:
 时间复杂度小于 O(n2) 。
 数组中只有一个重复的数字，但它可能不止重复出现一次。
 
-算法1：二分查找，时间复杂度O(nlogn)
+**算法1：二分查找，时间复杂度O(nlogn)**
 
 因为数组上下界都确定了，所以可以用二分搜索来确定该重复数字在哪
 
@@ -16534,11 +20587,13 @@ public:
 };
 ```
 
-算法2：循环检测，时间复杂度O(n)
+**算法2：循环检测，时间复杂度O(n)**
 
 [快慢指针的解释](https://leetcode-cn.com/problems/find-the-duplicate-number/solution/kuai-man-zhi-zhen-de-jie-shi-cong-damien_undoxie-d/)
 
 有点类似于判断环的入口节点，这篇题解解释得很清楚了
+
+我们对 nums 数组建图，每个位置 连一条 i→nums[i] 的边。由于存在的重复的数字 target，因此 target 这个位置一定有起码两条指向它的边，因此整张图一定存在环，且我们要找到的 target 就是这个环的入口，那么整个问题就等价于 142. 环形链表 II。
 
 ```c++
 class Solution {
@@ -16550,16 +20605,70 @@ public:
             slow = nums[slow];
             fast = nums[fast];
             fast = nums[fast];
-            if(slow == fast) break;
+            if(slow == fast) break; // 找到快慢指针的相遇点
         }
         int finder = slow;
-        slow = 0;
+        slow = 0; // 第三个指针从起点开始
         while(true){
             slow = nums[slow];
             finder = nums[finder];
-            if(slow == finder) break;
+            if(slow == finder) break; // 这时相遇点就是环的入口
         }
         return slow;
+    }
+};
+```
+
+算法3：位运算（很难想到）
+
+简单来说，把数字转为二进制，那么其实只需要关注1的个数及位数。具体到第i位，我们统计nums数组中二进制展开后第i位为1的数为x个，数字[1,n]这nnn个数二进制展开后第i位为1的数有y个，那么很显然只有x>y的情况下，重复的数的第i位为1。
+
+分别把[1,n]和数组数字的所有位为1统计出来，然后按位还原，即可得到这个重复的数。
+
+```c++
+class Solution {
+public:
+    int findDuplicate(vector<int>& nums) {
+        int n = nums.size(), ans = 0;
+        int bit_max = 31; // 确定二进制下最高位是多少
+        while (!((n - 1) >> bit_max)) {
+            bit_max -= 1;
+        }
+        for (int bit = 0; bit <= bit_max; ++bit) {
+            int x = 0, y = 0;
+            for (int i = 0; i < n; ++i) {
+                if (nums[i] & (1 << bit)) {
+                    x += 1;
+                }
+                if (i >= 1 && (i & (1 << bit))) {
+                    y += 1;
+                }
+            }
+            if (x > y) {
+                ans |= 1 << bit; // 组装ans的第bit位
+            }
+        }
+        return ans;
+    }
+};
+```
+
+刷hot100时，想到了另一种做法，看注释，但是这题不满足题意，因为会修改数组！
+
+```c++
+class Solution {
+public:
+    int findDuplicate(vector<int>& nums) {
+        // 从左往右遍历，到第i位时，将nums[i]与nums[nums[i]]调换，直到nums[i] = i
+        // 如果在后面的遍历中，发现nums[i] < i，说明当前元素已经在前面正确的放置过1次了，所以是重复的
+        for (int i = 1; i <= nums.size(); ++i) {
+            if (nums[i-1] < i ) return nums[i-1];
+            while (nums[i-1] != i) { // 有可能会出现死循环，比如[3,1,3,4,2]，3与3无限调换
+                if (nums[i-1] == nums[nums[i-1]-1]) return nums[i-1]; // 破解死循环，直接if输出解
+                swap(nums[i-1], nums[nums[i-1]-1]);
+            }
+        }
+        return 0; // never runs here
     }
 };
 ```
@@ -16709,4 +20818,1278 @@ public:
         return l;
     }
 };
+```
+
+## 栈
+
+单调栈的理解：https://leetcode.cn/problems/largest-rectangle-in-histogram/solutions/142012/bao-li-jie-fa-zhan-by-liweiwei1419/
+
+单调栈有时加前置哨兵和后置哨兵
+
+- 头部的0是为了不用判断栈是否为空, 因为题目中都是非负整数, 所以没有数会比0小, 即0一直会在栈底，同时也是为了记住left的值
+- 尾部的0是为了压出最后已经形成的单调栈的, 比如说示例: 2,1,5,6,2,3遍历完之后单调栈[1,2,3],然后如果没有尾部0, 我们就会像weiwei哥第一段代码那样子, 最后考虑单调栈是否为空,做一个额外的判断,写很多类似的逻辑代码, 加入了尾部0, 就可以把遍历完单调栈[1,2,3]给压出来.
+
+### 20. 有效的括号(easy) @hot100
+
+给定一个只包括 '('，')'，'{'，'}'，'['，']' 的字符串，判断字符串是否有效。
+
+有效字符串需满足：
+
+左括号必须用相同类型的右括号闭合。
+左括号必须以正确的顺序闭合。
+注意空字符串可被认为是有效字符串。
+
+示例 1:
+
+输入: "()"
+输出: true
+示例 2:
+
+输入: "()[]{}"
+输出: true
+示例 3:
+
+输入: "(]"
+输出: false
+示例 4:
+
+输入: "([)]"
+输出: false
+示例 5:
+
+输入: "{[]}"
+输出: true
+
+```c++
+class Solution {
+public:
+    bool isValid(string s) {
+        if (s.empty()) return true;
+        stack<char> st;
+        if (!isLeftQuote(s[0])) {
+            return false;
+        }
+        st.push(s[0]);
+        for (int i = 1; i < s.size(); ++i) {
+            if (isLeftQuote(s[i])) st.push(s[i]);
+            else if (!st.empty() && isMatch(st.top(), s[i])) st.pop();
+            else return false;
+        }
+        if (!st.empty()) return false;
+        return true;
+    }
+    bool isLeftQuote(char ch) {
+        if (ch == '(' || ch == '[' || ch == '{') {
+            return true;
+        } else {
+            return false;
+        }
+    }
+    bool isMatch(char ch1, char ch2) {
+        if (ch1 == '[' && ch2 == ']') return true;
+        if (ch1 == '{' && ch2 == '}') return true;
+        if (ch1 == '(' && ch2 == ')') return true;
+        return false;
+    }
+};
+```
+
+刷hot100，直接A了
+
+```c++
+class Solution {
+public:
+    bool isValid(string s) {
+        if (s.empty()) return true;
+        stack<char> st;
+        for (int i = 0; i < s.size(); ++i) {
+            if (s[i] == '(' || s[i] == '[' || s[i] == '{') {
+                st.push(s[i]);
+            } else if (s[i] == ')') {
+                if (st.empty() || st.top() != '(') {
+                    return false;
+                }
+                st.pop();
+            } else if (s[i] == ']') {
+                if (st.empty() || st.top() != '[') {
+                    return false;
+                }
+                st.pop();
+            } else if (s[i] == '}') {
+                if (st.empty() || st.top() != '{') {
+                    return false;
+                }
+                st.pop();
+            }
+        }
+        return st.empty();
+    }
+};
+```
+
+还有个优化，在最开始判断长度，如果为奇数，肯定不是有效的，直接返回false
+
+```c++
+        if (n % 2 == 1) {
+            return false;
+        }
+```
+
+### 42. 接雨水(Hard) @hot100
+
+已有题解
+
+### 84. 柱状图中最大的矩形(Hard) @hot100
+
+给定 n 个非负整数，用来表示柱状图中各个柱子的高度。每个柱子彼此相邻，且宽度为 1 。
+
+求在该柱状图中，能够勾勒出来的矩形的最大面积。
+
+以上是柱状图的示例，其中每个柱子的宽度为 1，给定的高度为 [2,1,5,6,2,3]。
+
+图中阴影部分为所能勾勒出的最大矩形面积，其面积为 10 个单位。
+
+示例:
+
+输入: [2,1,5,6,2,3]
+输出: 10
+
+无论枚举柱子的高度还是宽度，暴力都会超时
+
+[单调栈解法](https://leetcode-cn.com/problems/largest-rectangle-in-histogram/solution/84-by-ikaruga/)
+
+单调栈分为单调递增栈和单调递减栈
+
+1. 单调递增栈即栈内元素保持单调递增的栈
+1. 同理单调递减栈即栈内元素保持单调递减的栈
+
+操作规则（下面都以单调递增栈为例）
+
+1. 如果新的元素比栈顶元素大，就入栈
+2. 如果新的元素较小，那就一直把栈内元素弹出来，直到栈顶比新元素小
+
+加入这样一个规则之后，会有什么效果
+
+1. 栈内的元素是递增的
+2. 当元素出栈时，说明这个新元素是出栈元素向后找第一个比其小的元素
+    > 举个例子，[2,1,5,6,2,3]，现在索引在 6 ，栈里是 1 5 6 。接下来新元素是 2 ，那么 6 需要出栈。当 6 出栈时，右边 2 代表是 6 右边第一个比 6 小的元素。
+3. 当元素出栈后，说明新栈顶元素是出栈元素向前找第一个比其小的元素。
+    > 当 6 出栈时，5 成为新的栈顶，那么 5 就是 6 左边第一个比 6 小的元素。
+
+单调递增栈的模板代码：
+
+```c++
+stack<int> st;
+for(int i = 0; i < nums.size(); i++)
+{
+    while (!st.empty() && st.top() > nums[i]) {
+        st.pop();
+    }
+    st.push(nums[i]);
+}
+```
+
+**为什么这题要用单调栈？**
+
+因为遍历高度与宽度的时间复杂度是O(n^2)，所以选择遍历每个高度，是要以当前高度为基准，寻找最大的宽度 组成最大的矩形面积那就是要找左边第一个小于当前高度的下标left，再找右边第一个小于当前高度的下标right 那宽度就是这两个下标之间的距离了 但是要排除这两个下标 所以是right-left-1 用单调栈就可以很方便确定这两个边界了
+
+思路
+
+1. 对于一个高度，如果能得到向左和向右的边界
+2. 那么就能对每个高度求一次面积
+3. 遍历所有高度，即可得出最大面积
+4. 使用单调栈，在出栈操作时，计算出栈元素的前后边界并计算面积
+
+为了简便，在前后都插入了0，这是哨兵，以为我们要找每个柱子的左右边界，如果不加哨兵，第一个柱子不好计算左边界，最后一个柱子不好计算右边界，
+
+- 因为没有在heights前加0，不能保证stack不为空，所以left的值就需要赋初始值0
+- 在最后加0可以保证矩形高度都是递增的特殊情况下ans也能进行计算
+
+因为函数入参是引用，为了不修改原数组，新建了vec
+
+每一个位置只会入栈一次（在枚举到它时），并且最多出栈一次。因此当我们从左向右/总右向左遍历数组时，对栈的操作的次数就为O(n)，所以总的时间复杂度就为O(n)
+
+```c++
+class Solution {
+public:
+    int largestRectangleArea(vector<int>& heights) {
+        stack<int> st;
+        vector<int> vec(heights.begin(), heights.end());
+        vec.insert(vec.begin(), 0);
+        vec.push_back(0);
+        int ans = 0;
+        for (int i = 0; i < vec.size(); ++i) {
+            while (!st.empty() && vec[st.top()] > vec[i]) { // 此时栈顶元素需要出栈，开始计算以它为高的矩形最大面积
+                int cur = st.top();
+                st.pop();
+                int left = st.top() + 1; // 查找左边界：st.top()是第一个比cur低的柱子，[left, cur-1]这部分的柱子肯定比cur高，因为是单调栈，如果其中的柱子比cur低，肯定在栈顶！所以cur的左边界（含）是st.top()+1
+                int right = i - 1; // 查找右边界：i是第一个比cur低的柱子，所以cur的右边界（含）是i-1
+                ans = max(ans, (right - left + 1) * vec[cur]); // 左右边界是闭区间，所以宽度+1
+            }
+            st.push(i);
+        }
+        return ans;
+    }
+};
+```
+
+刷hot100时，想着用双指针，首先求出`dp[i][j]`，它表示i到j的最小高度，然后双指针依次变化，但是这种解法会把最优解给跳过，比如[4,2,0,3,2,4,3,4]最后输出4，实际是10，比如[4,2,1,3,2,4,3,4]，最后输出8，实际是10，这题与接雨水还不太一样，每次移动指针，并不能保证最优解不在这里面
+
+```c++
+class Solution {
+public:
+    int largestRectangleArea(vector<int>& heights) {
+        // 第i个柱子到第j个柱子形成的矩形面积 S[i,j] = (j-i+1) * min{ i<=x<=j | height[x]}
+        // 最后答案 res = max{ 0<=i<=j<=n-1 | S[i,j]}
+        int n = heights.size();
+        if (n == 1) return heights[0];
+        vector<int> mono_incs(n, 0); // 升序，里面的元素是原heights升序后的下标
+        for (int i = 1; i < n; ++i) {
+            mono_incs[i] = i;
+        }
+        auto myComp = [&heights](int index1, int index2) {
+            return heights[index1] < heights[index2];
+        };
+        sort(mono_incs.begin(), mono_incs.end(), myComp);
+        // dp[i][j]的意义是从下标i到j的最低的柱子的下标
+        vector<vector<int>> dp (n, vector<int>(n, 0));
+        for (int i = 0; i < n; ++i) {
+            for (int j = i; j < n; ++j) {
+                for (int k = 0; k < n; ++k) { // mono升序，所以从0开始，找到第一个符合要求的，即为这段区间最低柱子
+                    if (i <= mono_incs[k] && mono_incs[k] <= j) {
+                        dp[i][j] = mono_incs[k];
+                        break;
+                    }
+                }
+            }
+        }
+        int l = 0, r = n - 1;
+        int res = 0;
+        while (l <= r) {
+            int s = (r - l + 1) * heights[dp[l][r]];
+            res = max(res, s);
+            if (heights[l] < heights[r]) {
+                ++l;
+            } else {
+                --r;
+            }
+        }
+        return res;
+    }
+};
+```
+
+### 155. 最小栈 (Medium) @hot100
+
+设计一个支持 push ，pop ，top 操作，并能在常数时间内检索到最小元素的栈。
+
+push(x) —— 将元素 x 推入栈中。
+pop() —— 删除栈顶的元素。
+top() —— 获取栈顶元素。
+getMin() —— 检索栈中的最小元素。
+
+两个栈模拟，其中一个正常push和pop，另外一个每次压入元素前先比较一下与栈顶元素的大小，若小于才压入，若不小于则压入与栈顶一样的元素，保证两个栈同等高度，辅助栈是同步的，缺点是保存不必要的元素
+
+```c++
+class MinStack {
+public:
+    /** initialize your data structure here. */
+    stack<int> s1, s2;
+    MinStack() {}
+
+    void push(int x) {
+        if (s1.empty() && s2.empty()) {
+            s1.push(x);
+            s2.push(x);
+        } else {
+            s1.push(x);
+            if (s2.top() > x) {
+                s2.push(x);
+            } else {
+                s2.push(s2.top());
+            }
+        }
+    }
+    void pop() {
+        s1.pop();
+        s2.pop();
+    }
+    int top() {
+        return s1.top();
+    }
+    int getMin() {
+        return s2.top();
+    }
+};
+
+/**
+ * Your MinStack object will be instantiated and called as such:
+ * MinStack* obj = new MinStack();
+ * obj->push(x);
+ * obj->pop();
+ * int param_3 = obj->top();
+ * int param_4 = obj->getMin();
+ */
+```
+
+刷hot100，换了种思路，也是两个栈，其中栈2当压入元素比当前元素小于等于时才压入，pop时，若st1pop元素等于当前st2栈顶元素，则st2也pop，这种也是不同步的栈，辅助栈只存必要元素
+
+```c++
+class MinStack {
+public:
+    stack<int> st1;
+    stack<int> st2;
+    MinStack() {}
+    void push(int val) {
+        st1.push(val);
+        if (st2.empty() || val <= st2.top()) {
+            st2.push(val);
+        }
+    }
+    void pop() {
+        // if (st1.empty()) throw new exception("pop empty stack");
+        int t = st1.top();
+        st1.pop();
+        if (st2.top() == t) {
+            st2.pop();
+        }
+    }
+    int top() {
+        return st1.top();
+    }
+    int getMin() {
+        return st2.top();
+    }
+};
+```
+
+### 316. 去除重复字母(Medium)
+
+给你一个字符串 s ，请你去除字符串中重复的字母，使得每个字母只出现一次。需保证 返回结果的字典序最小（要求不能打乱其他字符的相对位置）。
+
+示例 1：
+
+输入：s = "bcabc"
+输出："abc"
+示例 2：
+
+输入：s = "cbacdcbc"
+输出："acdb"
+
+提示：
+
+1 <= s.length <= 104
+s 由小写英文字母组成
+
+**解法：贪心+单调栈**
+
+实际上，题解需满足三个条件：
+
+要求一、要去重。
+
+要求二、去重字符串中的字符顺序不能打乱 s 中字符出现的相对顺序。
+
+要求三、在所有符合上一条要求的去重字符串中，字典序最小的作为最终结果。
+
+去重很简答，搞个长度为26的标记数组或者哈希表都可以，不能打乱顺序也很简单，按顺序遍历即可，难点是要求三，比如：s = "babc"，如果仅按照普通遍历，会输出"bac"，但其实答案是"abc"，字典序更小，如何找到字典序更小的解？答案就是贪心，当第一次遍历到x时，比x大的都弹出来，然后以x作为起点，这就可以用单调递减栈来实现
+
+但是有可能出现错误答案：s = "bcac"，会输出"ac"，因为在压栈a时，把b给弹出来了，a后面没有b了，所以不能弹b，故出栈时还需要该字母剩余出现次数，这里用freq哈希表记录，预处理生成所有字母的出现次数，遍历字符串时，对应字母的频次-1，表明后面还有x-1个该元素
+
+```c++
+class Solution {
+public:
+    string removeDuplicateLetters(string s) {
+        map<char, int> freq; // 统计各字符的频次
+        for (char &i : s) {
+            freq[i] += 1;
+        }
+        vector<char> res; // 用一个向量作为栈
+        for (char & c:s) {
+            if (!count(res.begin(), res.end(), c)) {
+                while (!res.empty() && c < res.back() && freq[res.back()] > 0) {
+                    res.pop_back();
+                }
+                res.push_back(c);
+            }
+            freq[c]--; // 当前字符的频次-1
+        }
+        string ans(res.begin(), res.end());
+        return ans;
+    }
+};
+```
+
+用stack来做，还需要用一个数据结构来存放stack中目前去重的字母种类，这里用set来统计，因为stack得一个个pop，且不好搜索，所以这题没必要一定要用stack，可以用vector甚至是string来模拟栈
+
+时间
+4 ms
+击败
+60.82%
+内存
+6.9 MB
+击败
+8.83%
+
+```c++
+class Solution {
+public:
+    string removeDuplicateLetters(string s) {
+        map<char, int> freq;
+        for (char &ch : s) {
+            freq[ch]++;
+        }
+        set<char> cur_letters; // 记录当前栈中的去重元素
+        stack<char> st;
+        for (int i = 0; i < s.size(); ++i) {
+            if (!cur_letters.count(s[i])) { // 该字母之前没出现过，入栈，并尝试将小于它的字母出栈
+                while (!st.empty() && st.top() > s[i] && freq[st.top()] > 0) {
+                    char ch = st.top();
+                    st.pop();
+                    cur_letters.erase(ch);
+                }
+                st.push(s[i]);
+                cur_letters.insert(s[i]);
+            }
+            freq[s[i]]--;
+        }
+        string res;
+        while (!st.empty()) {
+            char ch = st.top();
+            st.pop();
+            res = string(1, ch).append(res);
+        }
+        return res;
+    }
+};
+```
+
+用string来模拟栈，可以巧妙地使用string本身的函数，非常简洁，注意不能写成`!st.find(s[i])`
+
+```c++
+class Solution {
+public:
+    string removeDuplicateLetters(string s) {
+        map<char, int> freq;
+        for (char &ch : s) {
+            freq[ch]++;
+        }
+        string st;
+        for (int i = 0; i < s.size(); ++i) {
+            if (st.find(s[i]) == string::npos) { // 该字母之前没出现过，入栈，并尝试将小于它的字母出栈
+                while (!st.empty() && st.back() > s[i] && freq[st.back()] > 0) {
+                    char ch = st.back();
+                    st.pop_back();
+                }
+                st.push_back(s[i]);
+            }
+            freq[s[i]]--;
+        }
+        return st;
+    }
+};
+```
+
+### 394. 字符串解码(Medium) @hot100
+
+给定一个经过编码的字符串，返回它解码后的字符串。
+
+编码规则为: k[encoded_string]，表示其中方括号内部的 encoded_string 正好重复 k 次。注意 k 保证为正整数。
+
+你可以认为输入字符串总是有效的；输入字符串中没有额外的空格，且输入的方括号总是符合格式要求的。
+
+此外，你可以认为原始数据不包含数字，所有的数字只表示重复的次数 k ，例如不会出现像 3a 或 2[4] 的输入。
+
+示例:
+
+s = "3[a]2[bc]", 返回 "aaabcbc".
+s = "3[a2[c]]", 返回 "accaccacc".
+s = "2[abc]3[cd]ef", 返回 "abcabccdcdcdef".
+
+方法一：括号要匹配，所以很容易联想到栈
+
+方法二：每碰到一个`[`就需要递归一层，完成之后`]`再跳出该层
+
+刷字节top时碰到了，只用了一个栈，没有用逆波兰式那样把操作数和操作符号分开存放，代码略微繁琐，但也能接受，时间空间复杂度都是O(n)
+
+```c++
+class Solution {
+public:
+    string decodeString(string s) {
+        string ans;
+        string tmp;
+        string tmp_single;
+        stack<string> st;
+        for (char & ch : s) {
+            if (ch >= '0' && ch <= '9') {// 数字有可能不止一位，要与前面出现的数字组合起来
+                if (!st.empty() && isNum(st.top())) {
+                    tmp = st.top();
+                    st.pop();
+                    st.push(tmp+ch);
+                } else {
+                    st.push(string(1, ch));
+                }
+                continue;
+            }
+            if (ch == ']') {
+                tmp = "";
+                while (!st.empty() && st.top()[0] != '[') {
+                    tmp = st.top() + tmp;
+                    st.pop();
+                    cout << tmp << endl;
+                }
+                if (!st.empty()) {
+                    st.pop(); // 弹出'['
+                    int k = 1;
+                    if (!st.empty() && isNum(st.top())) { // 检测'['之前的数字
+                        k = stoi(st.top());
+                        st.pop();
+                    }
+                    tmp_single = tmp;
+                    tmp = "";
+                    while (k-- > 0){
+                        tmp += tmp_single;
+                    }
+                }
+                cout << tmp << endl;
+                st.push(tmp);
+            } else {
+                st.push(string(1, ch)); // '['也会push进去
+            }
+        }
+        while (!st.empty()) { // 这时栈里只剩字母
+            ans = st.top() + ans;
+            st.pop();
+        }
+        return ans;
+    }
+
+    bool isNum(string str) {
+        if (str[0] >= '0' && str[0] <= '9') return true;
+        return false;
+    }
+};
+```
+
+刷hot100，用的`stack<char>`，代码直观点，在while循环中，最外层的if-else只管区分`]`与否，不是`]`的直接压栈，是`]`的话，就pop前面一段字符串，先组建tmp子串，再查找`[`前面的times，解码后再压回去
+
+时间
+0 ms
+击败
+100%
+内存
+6.4 MB
+击败
+53%
+
+```c++
+class Solution {
+public:
+    string decodeString(string s) {
+        stack<char> st;
+        int i = 0;
+        int n = s.size();
+        while (i < n) {
+            if (s[i] == ']') {
+                string tmp;
+                while (st.top() != '[') {
+                    tmp.append(string(1, st.top())); // char to string, 使用string的构造函数string(int count, char ch)
+                    st.pop();
+                }
+                st.pop(); // 将`[`pop
+                reverse(tmp.begin(), tmp.end());
+                int times = 0;
+                int tens = 1;
+                while (!st.empty() && st.top() - '0' <= 9) { // 根据题意，`[`前面肯定有数字
+                    times += (st.top() - '0') * tens;
+                    tens *= 10;
+                    st.pop();
+                }
+                string decoded_tmp;
+                for (int i = 0; i < times; ++i) {
+                    decoded_tmp.append(tmp);
+                }
+                for (const char &ch : decoded_tmp) {
+                    st.push(ch); // 解码后压栈
+                }
+            } else {
+                st.push(s[i]); // 其他情况只管压栈
+            }
+            ++i;
+        }
+        string decoded;
+        while (!st.empty()) {
+            decoded.append(string(1, st.top()));
+            st.pop();
+        }
+        reverse(decoded.begin(), decoded.end());
+        return decoded;
+    }
+};
+```
+
+看官方题解，用到了递归法，从左向右解析字符串：
+
+- 如果当前位置为数字位，那么后面一定包含一个用方括号表示的字符串，即属于这种情况：k[...]：
+  - 我们可以先解析出一个数字，然后解析到了左括号，递归向下解析后面的内容，遇到对应的右括号就返回，此时我们可以根据解析出的数字 x 解析出的括号里的字符串 s’ 构造出一个新的字符串 x × s‘
+  - 我们把 k[...] 解析结束后，再次调用递归函数，解析右括号右边的内容。实现上可以用一个全局指针后移实现
+- 如果当前位置是字母位，那么我们直接解析当前这个字母，然后递归向下解析这个字母后面的内容。
+
+时间复杂度O(n)，空间复杂度是栈空间，极端情况下需要n次递归，所以是O(n)
+
+```c++
+class Solution {
+public:
+    string src; 
+    size_t ptr; // 全局指针，getString函数从ptr开始解析
+
+    int getDigits() {
+        int ret = 0;
+        while (ptr < src.size() && isdigit(src[ptr])) {
+            ret = ret * 10 + src[ptr++] - '0';
+        }
+        return ret;
+    }
+
+    string getString() {
+        if (ptr == src.size() || src[ptr] == ']') {
+            return "";
+        }
+        char cur = src[ptr];
+        int repTime = 1;
+        string ret;
+        if (isdigit(cur)) {
+            repTime = getDigits(); 
+            ++ptr; // 由题可知，数字后面紧跟左括号，过滤左括号
+            string str = getString(); // 递归调用，解析[]中间的String
+            ++ptr; // 过滤右括号
+            while (repTime--) ret += str; // 构造字符串
+        } else if (isalpha(cur)) {
+            ret = string(1, src[ptr++]); // 当前字母遍历完，指针后移
+        }
+        
+        return ret + getString(); // 此时指针指向后面一个字符，递归处理
+    }
+
+    string decodeString(string s) {
+        src = s;
+        ptr = 0;
+        return getString();
+    }
+};
+```
+
+### 402. 移掉 K 位数字(Medium)
+
+给你一个以字符串表示的非负整数 num 和一个整数 k ，移除这个数中的 k 位数字，使得剩下的数字最小。请你以字符串形式返回这个最小的数字。
+
+示例 1 ：
+
+输入：num = "1432219", k = 3
+输出："1219"
+解释：移除掉三个数字 4, 3, 和 2 形成一个新的最小的数字 1219 。
+示例 2 ：
+
+输入：num = "10200", k = 1
+输出："200"
+解释：移掉首位的 1 剩下的数字为 200. 注意输出不能有任何前导零。
+示例 3 ：
+
+输入：num = "10", k = 2
+输出："0"
+解释：从原数字移除所有的数字，剩余为空就是 0 。
+
+提示：
+
+1 <= k <= num.length <= 105
+num 仅由若干位数字（0 - 9）组成
+除了 0 本身之外，num 不含任何前导零
+
+贪心+单调栈，与316.去除重复字母很像
+
+若要使得剩下的数字最小，需要保证靠前的数字尽可能小。
+
+用一个栈维护当前的答案序列，栈中的元素代表截止到当前位置，删除不超过 k 次个数字后，所能得到的最小整数。因此，对于每个数字，如果该数字小于栈顶元素，我们就不断地弹出栈顶元素，直到
+
+- 栈为空
+- 或者新的栈顶元素不大于当前数字
+- 或者我们已经删除了 k 位数字
+
+上述步骤结束后我们还需要针对一些情况做额外的处理：
+
+- 如果我们删除了 m 个数字且 `m<k`，这种情况下我们需要从序列尾部删除额外的 k−m 个数字。
+- 如果最终的数字序列存在前导零，我们要删去前导零。(前导零是最后删除的，不计入上面的k)
+- 如果最终数字序列为空，我们应该返回 0。
+
+最终，从栈底到栈顶的答案序列即为最小数。
+
+考虑到实现方便，直接用string模拟栈
+
+```c++
+class Solution {
+public:
+    string removeKdigits(string num, int k) {
+        // 维护单调递增栈，当栈顶元素出栈时，判断剩余元素是否满足k的大小
+        int n = num.size();
+        if (k == n) return "0";
+        string st;
+        for (int i = 0; i < n; ++i) {
+            while (!st.empty() && st.back() > num[i] && k > 0) {
+                st.pop_back();
+                --k;
+            }
+            st.push_back(num[i]);
+        }
+        // 还有k个需要删除，从末尾删
+        if (st.size() <= k) return {"0"};
+        st.erase(st.end() - k, st.end());
+        
+        int i = 0;
+        while (i < st.size() - 1) { // 保留最后的0
+            if (st[i] != '0') {
+                break; // 去除前导零
+            }
+            ++i;
+        }
+        string res(st.begin() + i, st.end());
+        return res;
+    }
+};
+```
+
+### 496. 下一个更大元素 I
+
+nums1 中数字 x 的 下一个更大元素 是指 x 在 nums2 中对应位置 右侧 的 第一个 比 x 大的元素。
+
+给你两个 没有重复元素 的数组 nums1 和 nums2 ，下标从 0 开始计数，其中nums1 是 nums2 的子集。
+
+对于每个 0 <= i < nums1.length ，找出满足 nums1[i] == nums2[j] 的下标 j ，并且在 nums2 确定 nums2[j] 的 下一个更大元素 。如果不存在下一个更大元素，那么本次查询的答案是 -1 。
+
+返回一个长度为 nums1.length 的数组 ans 作为答案，满足 ans[i] 是如上所述的 下一个更大元素 。
+
+示例 1：
+
+输入：nums1 = [4,1,2], nums2 = [1,3,4,2].
+输出：[-1,3,-1]
+解释：nums1 中每个值的下一个更大元素如下所述：
+
+- 4 ，用加粗斜体标识，nums2 = [1,3,4,2]。不存在下一个更大元素，所以答案是 -1 。
+- 1 ，用加粗斜体标识，nums2 = [1,3,4,2]。下一个更大元素是 3 。
+- 2 ，用加粗斜体标识，nums2 = [1,3,4,2]。不存在下一个更大元素，所以答案是 -1 。
+
+示例 2：
+
+输入：nums1 = [2,4], nums2 = [1,2,3,4].
+输出：[3,-1]
+解释：nums1 中每个值的下一个更大元素如下所述：
+
+- 2 ，用加粗斜体标识，nums2 = [1,2,3,4]。下一个更大元素是 3 。
+- 4 ，用加粗斜体标识，nums2 = [1,2,3,4]。不存在下一个更大元素，所以答案是 -1 。
+
+提示：
+
+1 <= nums1.length <= nums2.length <= 1000
+0 <= nums1[i], nums2[i] <= 104
+nums1和nums2中所有整数 互不相同
+nums1 中的所有整数同样出现在 nums2 中
+
+进阶：你可以设计一个时间复杂度为 O(nums1.length + nums2.length) 的解决方案吗？
+
+单调栈，用一个哈希表存储，空间复杂度O(num2.size())，时间复杂度O(nums1.size()+nums2.size())
+
+```c++
+class Solution {
+public:
+    vector<int> nextGreaterElement(vector<int>& nums1, vector<int>& nums2) {
+        unordered_map<int, int> hash; // key=nums[i]，val=nums[i]的下一个更大元素
+        stack<int> st; // 构建单调递减栈
+        int n2 = nums2.size();
+        for (int i = 0; i < n2; ++i) {
+            while (!st.empty() && nums2[st.top()] < nums2[i]) {
+                int cur = st.top(); // 处理cur的下一个更大元素
+                st.pop();
+                hash[nums2[cur]] = nums2[i]; // nums2[cur]的下一个更大元素是nums2[i]
+            }
+            st.push(i);
+        }
+        int n1 = nums1.size();
+        vector<int> res(n1, -1);
+        for (int i = 0; i < n1; ++i) {
+            if (hash.count(nums1[i])) {
+                res[i] = hash[nums1[i]];
+            }
+        }
+        return res;
+    }
+};
+```
+
+### 581. 最短无序连续子数组(Medium)
+
+给你一个整数数组 nums ，你需要找出一个 连续子数组 ，如果对这个子数组进行升序排序，那么整个数组都会变为升序排序。
+
+请你找出符合题意的 最短 子数组，并输出它的长度。
+
+示例 1：
+
+输入：nums = [2,6,4,8,10,9,15]
+输出：5
+解释：你只需要对 [6, 4, 8, 10, 9] 进行升序排序，那么整个表都会变为升序排序。
+示例 2：
+
+输入：nums = [1,2,3,4]
+输出：0
+示例 3：
+
+输入：nums = [1]
+输出：0
+
+提示：
+
+1 <= nums.length <= 104
+-105 <= nums[i] <= 105
+
+进阶：你可以设计一个时间复杂度为 O(n) 的解决方案吗？
+
+差点放弃了，用了两个单调栈，第一次找到最右端，第二次找到最左端，时间复杂度O(n)，空间复杂度O(n)
+
+```c++
+class Solution {
+public:
+    int findUnsortedSubarray(vector<int>& nums) {
+        // 0~i-1升序，i~j最小值大于nums[i-1]，i~j最大值小于nums[j+1]，j+1~n-1升序
+        nums.insert(nums.begin(), INT_MIN); // 哨兵
+        int n = nums.size();
+        vector<int> st; // 维护单调递减栈，栈中元素是对应nums的下标
+        st.push_back(0); // 哨兵
+        int r = -1;
+        for (int i = 1; i < n; ++i) {
+            while (!st.empty() && nums[st.back()] < nums[i]) {
+                st.pop_back();
+            }
+            if (!st.empty() && nums[st.back()] == nums[i] && nums[st.front()] == nums[i]) { // 与之前的最大值相等，且当前值等于栈底的最大值，不压栈，保持最早的offset
+                continue;
+            }
+            st.push_back(i);
+            if (st.size() >= 2) {
+                r = max(r, st.back());
+            }
+        }
+        if (r == -1) return 0; // 根本没有逆序对，返回0
+        nums.erase(nums.begin());
+        nums.push_back(INT_MAX); // 哨兵
+        n = nums.size();
+        st.clear(); // 此时维护单调递增栈
+        st.push_back(n-1);
+        int l = n;
+        for (int i = n - 2; i >= 0; --i) {
+            while (!st.empty() && nums[st.back()] > nums[i]) {
+                st.pop_back();
+            }
+            if (!st.empty() && nums[st.back()] == nums[i] && nums[st.front()] == nums[i]) { // 与之前的最大值相等，且当前值等于栈底的最大值，不压栈，保持最早的offset
+                continue;
+            }
+            st.push_back(i);
+            if (st.size() >= 2) {
+                l = min(l, st.back());
+            }
+        }
+        return r - l;
+    }
+};
+```
+
+时间复杂度O(nlogn)，可以用排序，因为0~i-1升序，i~j最小值大于nums[i-1]，i~j最大值小于nums[j+1]，j+1~n-1升序，我们只需对原数组排序，再与原数组比较，找到最长的前缀相同，找到最长的后缀相同，中间的即为最短的连续子数组
+
+再优化一下，我们可以假设把这个数组分成三段，左段和右段是标准的升序数组，中段数组虽是无序的，但满足最小值大于左段的最大值，最大值小于右段的最小值。
+
+那么我们目标就很明确了，找中段的左右边界，我们分别定义为begin 和 end; 分两头开始遍历:
+
+- 从左到右维护一个最大值max,在进入右段之前，那么遍历到的nums[i]都是小于max的，我们要求的end就是遍历中最后一个小于max元素的位置；
+- 同理，从右到左维护一个最小值min，在进入左段之前，那么遍历到的nums[i]也都是大于min的，要求的begin也就是最后一个大于min元素的位置。
+
+时间复杂度O(n)，空间复杂度O(1)
+```c++
+class Solution {
+public:
+    int findUnsortedSubarray(vector<int>& nums) {
+        //一段中间有无序序列、其余部分有序的数组满足
+        //max和min并非数组中的最大最小值，而是我们路途中遇到的最大最小值
+        //从左往右走，max值一定会连续增加；若不增加，说明这一段无序
+            //max初始值为nums[0]，因为我们是从左往右走
+        //从右往左走，min值一定会连续降低；若不降低，说明这一段无序
+            //min初始值为nums[len-1]，因为我们是从右往左走
+        //因此，我们可以两次遍历，从而找出无序的左右边界
+        //第一次： 正序遍历，找到最后一个值小于我们连续更新的max值的位置
+        //第二次： 逆序遍历，找到最后一个值大于我们连续更新的min值的位置
+        int len = nums.size();
+        
+        // 找end
+        int max = nums[0];
+        int end = -1; // end为-1，表示这个数组没有无序字段
+        for (int i = 0; i < len; ++i) {
+            if (nums[i] < max) { //逆序了
+                end = i;
+            } else {
+                max = nums[i];
+            }
+        }
+
+        //找begin
+        int min = nums[len - 1];
+        int begin = 0; //begin为0，是为了与end初始值为-1联动
+        for (int i = len - 1; i >= 0; --i) {
+            if (nums[i] > min) { // 逆序了
+                begin = i;
+            } else {
+                min = nums[i];
+            }
+        }
+
+        return end - begin + 1;// 从index i 到index j，就是有j - i + 1个数字的
+    }
+};
+```
+
+### 739. 每日温度(Medium) @hot100
+
+请根据每日 气温 列表，重新生成一个列表。对应位置的输出为：要想观测到更高的气温，至少需要等待的天数。如果气温在这之后都不会升高，请在该位置用 0 来代替。
+
+例如，给定一个列表 temperatures = [73, 74, 75, 71, 69, 72, 76, 73]，你的输出应该是 [1, 1, 4, 2, 1, 1, 0, 0]。
+
+提示：气温 列表长度的范围是 [1, 30000]。每个气温的值的均为华氏度，都是在 [30, 100] 范围内的整数。
+
+单调栈模板解决"下一个更大/更小元素"一类问题。  一定要注意：入栈的是索引，比较的时候比的是数值。
+
+复习单调栈的绝佳例题，ans初始化都是0，所以最后不用管st里面还有没有元素，时空复杂度都是O(n)
+
+```c++
+class Solution {
+public:
+    vector<int> dailyTemperatures(vector<int>& T) {
+        if (T.empty()) return {};
+        vector<int> ans(T.size(), 0);
+        stack<int> st; // mono decreasing stack
+        for (int i = 0; i < T.size(); ++i) {
+            while (!st.empty() && T[st.top()] < T[i]) {
+                int cur = st.top();
+                st.pop();
+                ans[cur] = i - cur;
+            }
+            st.push(i);
+        }
+        return ans;
+    }
+};
+```
+
+刷hot100，用了pair，其实不需要的，有index就知道temperatures[index]的值，所以只需要index即可
+
+```c++
+class Solution {
+public:
+    vector<int> dailyTemperatures(vector<int>& temperatures) {
+        if (temperatures.empty()) return {};
+        int n = temperatures.size();
+        if (n == 1) return {0};
+        vector<int> res (n, 0);
+        stack<pair<int, int>> st; // 栈中存放暂未找到下一个更高温度的pair={temperatures[i], i}
+        for (int i = 0; i < n; ++i) {
+            while (!st.empty() && temperatures[i] > st.top().first) {
+                res[st.top().second] = i - st.top().second; // 间隔几天
+                st.pop();
+            }
+            st.push({temperatures[i], i});
+        }
+        return res;
+    }
+};
+```
+
+### 901. 股票价格跨度(Medium)
+
+设计一个算法收集某些股票的每日报价，并返回该股票当日价格的 跨度 。
+
+当日股票价格的 跨度 被定义为股票价格小于或等于今天价格的最大连续日数（从今天开始往回数，包括今天）。
+
+例如，如果未来 7 天股票的价格是 [100,80,60,70,60,75,85]，那么股票跨度将是 [1,1,1,2,1,4,6] 。
+
+实现 StockSpanner 类：
+
+StockSpanner() 初始化类对象。
+int next(int price) 给出今天的股价 price ，返回该股票当日价格的 跨度 。
+
+示例：
+
+输入：
+["StockSpanner", "next", "next", "next", "next", "next", "next", "next"]
+[[], [100], [80], [60], [70], [60], [75], [85]]
+输出：
+[null, 1, 1, 1, 2, 1, 4, 6]
+
+解释：
+StockSpanner stockSpanner = new StockSpanner();
+stockSpanner.next(100); // 返回 1
+stockSpanner.next(80);  // 返回 1
+stockSpanner.next(60);  // 返回 1
+stockSpanner.next(70);  // 返回 2
+stockSpanner.next(60);  // 返回 1
+stockSpanner.next(75);  // 返回 4 ，因为截至今天的最后 4 个股价 (包括今天的股价 75) 都小于或等于今天的股价。
+stockSpanner.next(85);  // 返回 6
+
+提示：
+
+1 <= price <= 105
+最多调用 next 方法 104 次
+
+单调栈，本质上是找前一个大于自身的下标，单调递减栈
+
+```c++
+class StockSpanner {
+public:
+    stack<int> st; // 单调递减栈，元素是其对应stocks数组的下标
+    vector<int> stocks = {0};
+    int cur = 0; // 永远指向当前操作结束后stocks数组最后一位元素的
+    StockSpanner() {
+        st.push(0); // 前置哨兵，对应stocks的下标0
+    }
+    int next(int price) {
+        ++cur;
+        while (!st.empty() && stocks[st.top()] <= price) {
+            st.pop();
+        }
+        int earliest = st.empty() ? 0 : st.top();
+        st.push(cur);
+        stocks.push_back(price);
+        return cur - earliest;
+    }
+};
+
+/**
+ * Your StockSpanner object will be instantiated and called as such:
+ * StockSpanner* obj = new StockSpanner();
+ * int param_1 = obj->next(price);
+ */
+```
+
+### 1081. 不同字符的最小子序列(Medium)
+
+返回 s 字典序最小的子序列，该子序列包含 s 的所有不同字符，且只包含一次。
+
+注意：该题与 316 https://leetcode.com/problems/remove-duplicate-letters/ 相同
+
+示例 1：
+
+输入：s = "bcabc"
+输出："abc"
+示例 2：
+
+输入：s = "cbacdcbc"
+输出："acdb"
+
+提示：
+
+1 <= s.length <= 1000
+s 由小写英文字母组成
+
+题解同316
+
+## 堆
+
+C++的堆用priority_queue实现，默认比较函数是less，默认构造大根堆/最大堆，可以传入自定义的比较函数，当传入自定义的比较函数时，存放元素的容器也必须显式指定，一般用`vector<T>`
+
+有三种方法传入自定义的比较函数
+
+```c++
+// 1. 直接使用stl已有的比较函数
+priority_queue<int, vector<int>, greater<int>> pq; // 小根堆
+priority_queue<pair<int, int>,vector<pair<int, int>>,greater<pair<int, int>>> q; // 小根堆
+
+// 2. 自定义结构体，并重载operator()函数调用符
+struct myComp{
+    bool operator()(int a, int b) {
+        return a > b;
+    }
+};
+priority_queue<int, vector<int>, myComp> pq; // 构建最小堆
+
+// 3. lambda表示式
+auto lambdaComp = [] (int a, int b) {
+    return a > b;
+};
+priority_queue<int, vector<int>, decltype(lambdaComp)> pq(lambdaComp); // 构建最小堆，decltype、pq(lambda)不能省略
+
+bool (*lambdaComp)(int, int) = [] (int a, int b) {
+    return a > b;
+};
+priority_queue<int, vector<int>, decltype(lambdaComp)> pq(lambdaComp); // 构建最小堆
+```
+
+### 215.数组中的第K个最大元素(Medium) @hot100
+
+在未排序的数组中找到第 k 个最大的元素。请注意，你需要找的是数组排序后的第 k 个最大的元素，而不是第 k 个不同的元素。
+
+示例 1:
+
+输入: [3,2,1,5,6,4] 和 k = 2
+输出: 5
+示例 2:
+
+输入: [3,2,3,1,2,4,5,5,6] 和 k = 4
+输出: 4
+说明:
+
+提示：
+
+1 <= k <= nums.length <= 105
+-104 <= nums[i] <= 104
+
+因为时间复杂度要求O(n)，基本上只能线性遍历，无法嵌套遍历，借助小根堆（最小堆）
+
+```c++
+class Solution {
+public:
+    int findKthLargest(vector<int>& nums, int k) {
+        priority_queue<int, vector<int>, greater<int>> pq; // 小根堆
+        for (int i = 0; i < nums.size(); ++i) {
+            pq.push(nums[i]);
+            if (pq.size() > k) {
+                pq.pop();
+            }
+        }
+        return pq.top();
+    }
+};
+```
+
+大根堆，得多遍历一下
+
+```c++
+class Solution {
+public:
+    int findKthLargest(vector<int>& nums, int k) {
+        priority_queue<int> pq;
+        for (int i = 0; i < nums.size(); ++i) {
+            pq.push(nums[i]);
+        }
+        for (int i = 0; i < k - 1; ++i) {
+            pq.pop();
+        }
+        return pq.top();
+    }
+};
+```
+
+快速选择，找到个很容易理解（背诵）的模板，它直接取最左端为pivot，在数组有序时效率很差，不过对于模板来说，这份代码很工整
+
+```c++
+class Solution {
+public:
+    int findKthLargest(vector<int>& nums, int k) {
+        if (nums.empty()) return 0;
+        int left = 0, right = nums.size() - 1;
+        while (true) {
+            int position = partition(nums, left, right);
+            if (position == k - 1) return nums[position]; //每一轮返回当前pivot的最终位置，它的位置就是第几大的，如果刚好是第K大的数
+            else if (position > k - 1) right = position - 1; //二分的思想
+            else left = position + 1;
+        }
+    }
+
+    int partition(vector<int>& nums, int left, int right) {
+        int pivot = left;
+        int l = left + 1; //记住这里l是left + 1
+        int r = right;
+        while (l <= r) {
+            while (l <= r && nums[l] >= nums[pivot]) l++; //从左边找到第一个小于nums[pivot]的数
+            while (l <= r && nums[r] <= nums[pivot]) r--; //从右边找到第一个大于nums[pivot]的数
+            if (l <= r && nums[l] < nums[pivot] && nums[r] > nums[pivot]) {
+                swap(nums[l++], nums[r--]);
+            }
+        }
+        swap(nums[pivot], nums[r]); //交换pivot到它所属的最终位置，也就是在r的位置，因为此时r的左边都比r大，右边都比r小
+        return r; //返回最终pivot的位置
+    }
+};
+```
+
+### 295. 数据流的中位数(Hard) @hot100
+
+中位数是有序整数列表中的中间值。如果列表的大小是偶数，则没有中间值，中位数是两个中间值的平均值。
+
+例如 arr = [2,3,4] 的中位数是 3 。
+例如 arr = [2,3] 的中位数是 (2 + 3) / 2 = 2.5 。
+实现 MedianFinder 类:
+
+MedianFinder() 初始化 MedianFinder 对象。
+
+void addNum(int num) 将数据流中的整数 num 添加到数据结构中。
+
+double findMedian() 返回到目前为止所有元素的中位数。与实际答案相差 10-5 以内的答案将被接受。
+
+示例 1：
+
+输入
+["MedianFinder", "addNum", "addNum", "findMedian", "addNum", "findMedian"]
+[[], [1], [2], [], [3], []]
+输出
+[null, null, null, 1.5, null, 2.0]
+
+解释
+MedianFinder medianFinder = new MedianFinder();
+medianFinder.addNum(1);    // arr = [1]
+medianFinder.addNum(2);    // arr = [1, 2]
+medianFinder.findMedian(); // 返回 1.5 ((1 + 2) / 2)
+medianFinder.addNum(3);    // arr[1, 2, 3]
+medianFinder.findMedian(); // return 2.0
+提示:
+
+-105 <= num <= 105
+在调用 findMedian 之前，数据结构中至少有一个元素
+最多 5 * 104 次调用 addNum 和 findMedian
+
+剑指offer上的原题，用最大堆和最小堆辅助，数据流遍历时，保持最小堆的最小值大于最大堆的最大值，并且保证最小堆的大小要么等于最大堆大小，要么多1，findMedian函数只需要去查看两个堆的堆顶即可知道中位数是多少
+
+````c++
+class MedianFinder {
+public:
+    priority_queue<int> max_heap; // 大根堆的最大值小于小根堆的最小值
+    priority_queue<int, vector<int>, greater<int>> min_heap; // 保证小根堆.size() = 大根堆.size() 或+1
+    MedianFinder() {
+    }
+    
+    void addNum(int num) {
+        if (min_heap.empty()) {
+            min_heap.push(num);
+            return;
+        }
+        if (min_heap.top() < num){
+            min_heap.push(num);
+        } else {
+            max_heap.push(num);
+        }
+        if (min_heap.size() < max_heap.size()) {
+            int tmp = max_heap.top();
+            max_heap.pop();
+            min_heap.push(tmp);
+        } else if (min_heap.size() > max_heap.size() + 1) {
+            int tmp = min_heap.top();
+            min_heap.pop();
+            max_heap.push(tmp);
+        }
+    }
+    
+    double findMedian() {
+        if (max_heap.size() == min_heap.size()) {
+            return (double)(max_heap.top() + min_heap.top()) / 2.0;
+        }
+        return min_heap.top();
+    }
+};
+
+/**
+ * Your MedianFinder object will be instantiated and called as such:
+ * MedianFinder* obj = new MedianFinder();
+ * obj->addNum(num);
+ * double param_2 = obj->findMedian();
+ */
 ```

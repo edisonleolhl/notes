@@ -8,7 +8,7 @@
 
 ## 分布式唯一id：snowflake算法思考
 
-[snowflake算法的Java实现](<https://www.cnblogs.com/jiangxinlingdu/p/8440413.html>)
+[snowflake算法的Java实现](https://www.cnblogs.com/jiangxinlingdu/p/8440413.html)
 
 - snowflake是Twitter开源的分布式ID生成算法，结果是一个long型的ID。其核心思想是：使用41bit作为毫秒数，10bit作为机器的ID（5个bit是数据中心，5个bit的机器ID），12bit作为毫秒内的流水号（意味着每个节点在每毫秒可以产生 4096 个 ID），最后还有一个符号位，永远是0。
 - 优点：快，简单，熟悉原理后可更根据时机情况调整位段
@@ -16,7 +16,7 @@
 
 ## 百度分布式ID生成器UidGenerator
 
-[github地址](<https://github.com/baidu/uid-generator/blob/master/README.zh_cn.md>
+[github地址](https://github.com/baidu/uid-generator/blob/master/README.zh_cn.md>
 )
 
 [百度开源分布式id生成器uid-generator源码剖析](https://www.cnblogs.com/yeyang/p/10226284.html)
@@ -65,7 +65,7 @@
 
 ## 微信IM序列号生成算法与容灾实践
 
-[IM消息ID技术专题(一)：微信的海量IM聊天消息序列号生成实践（算法原理篇）](<http://www.52im.net/thread-1998-1-1.html>)
+[IM消息ID技术专题(一)：微信的海量IM聊天消息序列号生成实践（算法原理篇）](http://www.52im.net/thread-1998-1-1.html)
 [IM消息ID技术专题(二)：微信的海量IM聊天消息序列号生成实践（容灾方案篇）](http://www.52im.net/thread-1999-1-1.html)
 
 ### 背景
@@ -108,7 +108,7 @@
 
 ## 深度解密美团的分布式ID生成算法
 
-[深度解密美团的分布式ID生成算法](<http://www.52im.net/thread-2751-1-1.html>)
+[深度解密美团的分布式ID生成算法](http://www.52im.net/thread-2751-1-1.html)
 
 [Leaf——美团点评分布式ID生成系统](https://tech.meituan.com/2017/04/21/mt-leaf.html)
 

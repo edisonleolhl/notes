@@ -3545,8 +3545,14 @@ priority_queue<pair<int, int>,vector<pair<int, int>>,greater<pair<int, int>>> q;
 // 声明示例
 auto my_comp = [](const ListNode* a, const ListNode* b){
     return a->val > b->val;
-}
+};
 priority_queue<ListNode *, vector<ListNode*>, decltype(my_cmp)> q(my_cmp); // 构建最小堆
+
+// 同上，不用auto
+bool (*lambdaComp)(int, int) = [] (int a, int b) {
+    return a > b;
+};
+priority_queue<int, vector<int>, decltype(lambdaComp)> pq(lambdaComp); // 构建最小堆
 
 struct cmp{  //对新的数据类型的<进行重写
     bool operator()(ListNode *a,ListNode *b){
