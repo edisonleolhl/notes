@@ -444,11 +444,6 @@
   assertEquals("c", emptyOptional.orElseGet(() -> "c"));
   ```
 
-- 习题
-
-  ```java
-
-
 ## 高级集合类和收集器
 
 ### 方法引用
@@ -592,7 +587,8 @@
     public Function<StringCombiner, String> finisher() {
       return StringCombiner::toString;
     }
-  }；
+  };
+  ```
 
 ### 一些细节
 
@@ -651,6 +647,7 @@
       .mapToInt(Track::getLength)
       .sum();
   }
+  ```
 
 - 限制:
 
@@ -787,3 +784,5 @@
 - 我们说不可变对象实现了开闭原则，是因为它们的内部状态无法改变，可以安全地为其增
 加新的方法。新增加的方法无法改变对象的内部状态，因此对修改是闭合的；但它们又增
 加了新的行为，因此对扩展是开放的
+
+> 原文写于 2022-06-19

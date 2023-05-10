@@ -324,28 +324,27 @@
 1. 关于泛型还可深入研究，在《Effective Java 2th Edition》有相关介绍，感兴趣的同学可以阅读一下。
 
 2. 最后还介绍一下关于泛型通配符的上下边界问题，什么时候用上边界，什么时候用下边界？
-PECS：producer extends consumer super
 
-    1. 频繁往外读取内容的，适合用上界Extends。
+PECS：producer extends consumer super，该准则是以容器为视角
+
+    1. producer：只读，适合用上界Extends。
     
-    2. 经常往里插入的，适合用下界Super。
+    2. consumer：只写，适合用下界Super。
 
-3. 例如：
+    3. 又读又写时，不用通配符
 
-    ```java
-        // compile error
-        //    List <? extends Fruit> appList2 = new ArrayList();
-        //    appList2.add(new Fruit());
-        //    appList2.add(new Apple());
-        //    appList2.add(new RedApple());
+Suppose you have a method that takes as its parameter a collection of things, but you want it to be more flexible than just accepting a Collection<Thing>.
 
-        // no error
-        List <? super Fruit> appList = new ArrayList();
-        appList.add(new Fruit());
-        appList.add(new Apple());
-        appList.add(new RedApple());
-    ```
+Case 1: You want to go through the collection and do things with each item.
+Then the list is a producer, so you should use a Collection<? extends Thing>.
+
+The reasoning is that a Collection<? extends Thing> could hold any subtype of Thing, and thus each element will behave as a Thing when you perform your operation. (You actually cannot add anything (except null) to a Collection<? extends Thing>, because you cannot know at runtime which specific subtype of Thing the collection holds.)
+
+Case 2: You want to add things to the collection.
+Then the list is a consumer, so you should use a Collection<? super Thing>.
+
+The reasoning here is that unlike Collection<? extends Thing>, Collection<? super Thing> can always hold a Thing no matter what the actual parameterized type is. Here you don't care what is already in the list as long as it will allow a Thing to be added; this is what ? super Thing guarantees.
 
 > 参考：http://stackoverflow.com/questions/2723397/what-is-pecs-producer-extends-consumer-super
 
-> 原文发表于：https://www.jianshu.com/p/dc70a0058a29, by 2016.10.03 17:49:50
+> 原文发表于：https://www.jianshu.com/p/dc70a0058a29, by 2016.10.03 17:49:50 有所修改
