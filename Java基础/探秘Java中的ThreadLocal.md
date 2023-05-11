@@ -12,8 +12,6 @@ ThreadLocal是一个关于创建线程局部变量的类。
 
 通常情况下，我们创建的变量是可以被任何一个线程访问并修改的。而使用ThreadLocal创建的变量只能被当前线程访问，其他线程则无法访问和修改。
 
-
-
 ### 用法
 
 创建，支持泛型
@@ -62,6 +60,11 @@ mStringThreadLocal.get();
       else
           createMap(t, value);
     }
+
+    void createMap(Thread t, T firstValue) {
+        t.threadLocals = new ThreadLocalMap(this, firstValue);
+    }
+
 
 ThreadLocalMap getMap(Thread t) {
     return t.threadLocals;
@@ -162,13 +165,18 @@ Thread类不仅有threadLocals变量，还有inheritableThreadLocals变量（它
 
 ## 一些问题
 
+### Thread, ThreadLocal, ThreadLocalMap的关系
+
+1. ThreadLocalMap 是 ThreadLocal 的内部类 
+2. ThreadLocalMap 的 key 是 ThreadLocal，value是 TLS
+3. Thread 有 ThreadLocal.ThreadLocalMap 成员变量，set 方法会 createMap
+
 ### ThreadLocalMap的底层结构？数组？链表？哈希表？
 
-用数组是因为，我们开发过程中可以一个线程可以有多个TreadLocal来存放不同类型的对象的，但是他们都将放到你当前线程的ThreadLocalMap里，所以肯定要数组来存。
+1. ThreadLocal 的数据结构是个环形数组
+2. ThreadLocalMap 维护了 Entry 环形数组，数组中元素 Entry 的逻辑上的 key 为某个 ThreadLocal 对象（实际上是指向该 ThreadLocal 对象的弱引用），value 为代码中该线程往该 ThreadLoacl 变量实际塞入的值。
 
-很像HashMap的，但是看源码可以发现，它并未实现Map接口，而且他的Entry是继承WeakReference（弱引用）的，也没有看到HashMap中的next，所以不存在链表了。
-
-### **能跟我说一下对象存放在哪里么？**
+### **对象存放在哪里么？**
 
 在Java中，栈内存归属于单个线程，每个线程都会有一个栈内存，其存储的变量只能在其所属线程中可见，即栈内存可以理解成线程的私有内存，而堆内存中的对象对所有线程可见，堆内存中的对象可以被所有线程访问。
 
@@ -190,11 +198,19 @@ ThreadLocal在保存的时候会把自己当做Key存在ThreadLocalMap中，正�
 
 按照道理一个线程使用完，ThreadLocalMap是应该要被清空的，但是现在线程被复用了。
 
+get方法、set方法不能防止内存泄漏，remove可以
+
 **解决**：在代码的最后使用remove就好了（参见上文的『注意』小节
 
-### **那为什么ThreadLocalMap的key要设计成弱引用？**
+### **为什么ThreadLocalMap的key要设计成弱引用？**
 
 key不设置成弱引用的话就会造成和entry中value一样内存泄漏的场景。
+
+## 为什么 ThreadLocalMap 采用开放地址法来解决哈希冲突
+
+1. 因为开放地址法的优点：当节点规模较少，或者装载因子较少的时候，使用开放寻址较为节省空间
+2. ThreadLocal 往往存放的数据量不会特别大（而且key 是弱引用又会被垃圾回收，及时让数据量更小），这个时候开放地址法简单的结构会显得更省空间
+3. ThreadLocal 中看到一个属性 HASH_INCREMENT = 0x61c88647 ，0x61c88647 是一个神奇的数字，让哈希码能均匀的分布在 2 的 N 次方的数组里, 即 Entry[] table
 
 ## C++的ThreadLocal
 

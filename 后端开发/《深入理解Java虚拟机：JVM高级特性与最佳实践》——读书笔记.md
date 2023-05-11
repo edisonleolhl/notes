@@ -888,11 +888,11 @@ jar, java, javac, javadoc, javah, javap, jlink, jdb, idlj, jhsdb jcmd jconsole �
 
 - 加载和存储指令用于将数据在栈帧中的局部变量表和操作数栈（见第2章关于内存区域的介绍）之间来回传输，这类指令包括：
 
-  - 将一个局部变量加载到操作栈：iload、iload_<n>、lload、lload_<n>、fload、fload_<n>、dload、dload_<n>、aload、aload_<n>
+  - 将一个局部变量加载到操作栈：`iload、iload_<n>、lload、lload_<n>、fload、fload_<n>、dload、dload_<n>、aload、aload_<n>`
 
-  - 将一个数值从操作数栈存储到局部变量表：istore、istore_<n>、lstore、lstore_<n>、fstore、fstore_<n>、dstore、dstore_<n>、astore、astore_<n>
+  - 将一个数值从操作数栈存储到局部变量表：`istore、istore_<n>、lstore、lstore_<n>、fstore、fstore_<n>、dstore、dstore_<n>、astore、astore_<n>`
 
-  - 将一个常量加载到操作数栈：bipush、sipush、ldc、ldc_w、ldc2_w、aconst_null、iconst_m1、iconst_<i>、lconst_<l>、fconst_<f>、dconst_<d>
+  - 将一个常量加载到操作数栈：`bipush、sipush、ldc、ldc_w、ldc2_w、aconst_null、iconst_m1、iconst_<i>、lconst_<l>、fconst_<f>、dconst_<d>`
 
   - 扩充局部变量表的访问索引的指令：wide
 
@@ -2096,3 +2096,4 @@ public int calc();
 - 偏向锁中的“偏”，就是偏心的“偏”、偏袒的“偏”。它的意思是这个锁会偏向于第一个获得它的线程，如果在接下来的执行过程中，该锁一直没有被其他的线程获取，则持有偏向锁的线程将永远不需要再进行同步。
 - 一旦出现另外一个线程去尝试获取这个锁的情况，偏向模式就马上宣告结束
 - 如果程序中大多数的锁都总是被多个不同的线程访问，那偏向模式就是多余的。在这种情况下，有时候使用参数-XX：-UseBiasedLocking来禁止偏向锁优化反而可以提升性能。
+

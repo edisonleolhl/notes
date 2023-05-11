@@ -77,6 +77,7 @@ https://stackoverflow.com/questions/45460577/default-forkjoinpool-executor-takin
 6. 上线一切岁月静好，但在后来的一次排查问题时，发现traceid断了，这会对我们的后期运维会带来极大的麻烦
 
 > 阿里巴巴Eagleeye，一款分布式追踪工具，与Google的Dapper很像，能够把微服务架构中的各个服务串联起来，参考：https://www.alibabacloud.com/blog/alibaba-eagleeye-ensuring-business-continuity-through-link-monitoring_594157
+> 美团技术团队的这篇文章很完整地描述了traceid丢失的现象与本质：https://mp.weixin.qq.com/s/T7P2-tiroXWI9xd8FhsuFA
 
 ## 第三版代码
 1. traceid信息其实放在ThreadLocal里面，写Java的同学或多或少都了解过，经过搜索，发现Eagleeye已有对策

@@ -1439,6 +1439,33 @@ Ranges，范围，不用begin()与end()来包围了
 
 目的是使C++语言对于开发者友好，开发者可以把更多的经历投入到其他开发领域去，而不是纠结编写晦涩难懂的或者是炫技般的C++代码
 
+### C++23 有什么新特性
+
+std::expected：当前的常用方式是通过错误码或异常，但使用起来还是多有不便。`std::expected<T, E>`表示期望，算是std::variant和std::optional的结合，它要么保留T（期望的类型），要么保留E（错误的类型），它的接口又和std::optional相似。
+
+Multidimensional Arrays： 多维数组可以用m[1,2]来访问，而不是m[1][2]
+
+std::print(): 随着Formatting Library加入C++20，已在fmt库中使用多年的fmt::print()加入标准也是顺理成章。比count更快，格式化支持更友好
+
+Formatting Ranges：格式化输出ranges，优化C++代码，能像python一样写`print("how you doing".split(" "))`
+
+string, string_view 新增 contains 函数，直接判断是否有对应子串
+
+std::unreachabl: 当我们知道某个位置是不可能执行到，而编译器不知道时，使用std::unreachalbe可以告诉编译器，从而避免没必要的运行期检查。
+
+```c++
+ 2    switch (a) {
+ 3        case 1:
+ 4            // do something
+ 5            break;
+ 6        case 2:
+ 7            // do something
+ 8            break;
+ 9        default:
+10            std::unreachable();
+11    }
+```
+
 ### 基本误区
 
 [C++编程新手容易犯的 10 种编程错误](https://mp.weixin.qq.com/s/tiA57wnvWeE-rO3IyWf_Hg)
@@ -3250,25 +3277,28 @@ google C++编程风格的建议，为了加强可读性和避免隐含依赖，�
 
 - #pragma once：只能保证**物理（磁盘）文件**，但如果有拷贝的话没法保证
 
-### Qt信号槽机制原理以及优缺点
+### LIBRARY_PATH和LD_LIBRARY_PATH环境变量的区别
 
-信号槽是Qt的精髓，实际就是**观察者模式**。当某个事件发生之后，比如，按钮检测到自己被点击了一下，它就会发出一个**信号（signal）**。这种发出是没有目的的，类似广播。如果有对象对这个信号感兴趣，它就会使用**连接（connect）**函数，意思是，将想要处理的信号和自己的一个函数（称为槽（slot））绑定来处理这个信号。也就是说，当信号发出时，被连接的槽函数会**自动被回调**。
+LIBRARY_PATH和LD_LIBRARY_PATH是Linux下的两个环境变量，二者的含义和作用分别如下：
 
-用于对象间的通信，如果不用信号槽机制的话，得用**回调函数**，但有两个缺点：
+- LIBRARY_PATH环境变量用于在程序编译期间查找动态链接库时指定查找共享库的路径，例如，指定gcc编译需要用到的动态链接库的目录。设置方法如下（其中，LIBDIR1和LIBDIR2为两个库目录）：
 
-1. 它们并**不是类型安全**，我们永远都不能确定调用者是否将通过正确的参数来调用“回调函数”
-2. 回调函数与处理函数是**紧耦合（strongly coupled）**的，因为调用者必须知道应该在什么时候调用哪个回调函数。
+    ```bash
+    export LIBRARY_PATH=LIBDIR1:LIBDIR2:$LIBRARY_PATH
+    ```
 
-主要优点如下：
+- LD_LIBRARY_PATH环境变量用于在程序加载运行期间查找动态链接库时指定除了系统默认路径之外的其他路径，注意，LD_LIBRARY_PATH中指定的路径会在系统默认路径之前进行查找。设置方法如下（其中，LIBDIR1和LIBDIR2为两个库目录）：
 
-1. 信号槽是**类型安全**：信号的参数必须与接收槽匹配
-2. 信号槽是**松耦合**：激发信号的Qt对象无需知道哪个对象的哪个槽接收信号
-3. 信号槽加强了对象通信的**灵活性**：一个信号可以关联多个槽，一个槽也可以关联多个信号
-4. 建立和绑定非常**方便**
+    ```bash
+    export LD_LIBRARY_PATH=LIBDIR1:LIBDIR2:$LD_LIBRARY_PATH
+    ```
 
-信号槽的缺点也是有的：
+- 举个例子，我们开发一个程序，经常会需要使用某个或某些动态链接库，为了保证程序的可移植性，可以先将这些编译好的动态链接库放在自己指定的目录下，然后按照上述方式将这些目录加入到LD_LIBRARY_PATH环境变量中，这样自己的程序就可以动态链接后加载库文件运行了。
 
-信号槽机制**运行速度较慢**
+区别与使用：
+
+- 开发时，设置LIBRARY_PATH，以便gcc能够找到编译时需要的动态链接库。
+- 发布时，设置LD_LIBRARY_PATH，以便程序加载运行时能够自动找到需要的动态链接库。
 
 ## STL
 
@@ -8602,7 +8632,7 @@ Hash法：如果这些数据中有很多重复的数据，可以先通过hash法
 如果位图不开辟大空间，那就用哈希，但是有可能会哈希冲突，可以用多个哈希函数来减小冲突，但是会有误判，这就是布隆过滤器
 
 布隆过滤器本身就是基于位图的，是对位图的一种改进。高效插入与查询，支持计数才能删除，可以用来告诉你 “**某样东西一定不存在或者可能存在**”，本质是**允许一定误差的查询**。
-
+`
 布隆过滤器其实是二进制向量（或者说bit数组）
 
 - 插入时，通过k个不同的哈希函数生成多个哈希值，并对每个生成的哈希值指向的bit位置1（如果已经是1了就覆盖）
@@ -8620,12 +8650,49 @@ Hash法：如果这些数据中有很多重复的数据，可以先通过hash法
 - Google BigTable，Apache HBbase 和 Apache Cassandra 使用布隆过滤器减少对不存在的行和列的查找。
 - 解决**缓存穿透**的问题。所谓的缓存穿透就是服务调用方**每次都是查询不在缓存中的数据**，这样每次服务调用都会到数据库中进行查询，如果这类请求比较多的话，就会导致数据库压力增大，这样缓存就失去了意义。
 
+#### 支持计数的可删除元素的BF（Count-BF）
+
+- 2000年的一篇论文，对普通BF做了强化，弥补了布隆过滤器不支持删除的缺点，并将 CBF 引入提出新的 ICP（Internet Cache Protocol）以达到降低 Web 缓存代理带宽、cpu 时间、消息数量的同时还提高命中率的效果。
+- CBF 和普通 BF 的区别，仅仅是将原来的只能记 0/1 的一位，拓展为了多位。如果遇到哈希冲突，则把该位的值+1，删除时则将该位-1。
+
+#### 支持动态扩容的 Scalable Bloom Filter
+
 如何改进布隆过滤器的假阳性误判率？
 
 - [scalable bloomfilter](https://haslab.uminho.pt/cbm/files/dbloom.pdf?spm=ata.21736010.0.0.71f62d5fNUA3zz&file=dbloom.pdf)
 - 最开始SBF与普通的BF一样，但当插入的数据越来越多，误判率不满足用户需求时，开辟新的一层BF，后续的插入都在新层操作，如果新层插入的过多，又会再开辟一层，每一层的长度与k的值都比前一层大很多
 - 查询的过程是从最新层开始的，如果最新层查到了，那么可以肯定该数据已存在，如果最新层没查到，则到次新层查找，以此类推
 - 根据论文推导，从不浪费内存角度考虑，层数最好选择2
+- 大部分情况下，我们并不能事先知道集合中到底会插入多少个元素，因此有必要有一种能动态根据集合中的元素计算适合的哈希函数个数和 filter 大小的机制，这就是 Scalable BF
+- Scalable Bloom Filter 是 Redis 中布隆过滤器的内部实现
+
+#### 空间BF
+
+- 支持将多个有优先级的集合使用同一个数据结构
+
+#### 如何构建一个好的BF
+
+从概率计算和速度角度，哈希函数需满足：
+
+1）独立、均匀分布。
+
+2）计算速度快。
+
+因此：
+
+Murmur3，FNV系列和Jenkins等非密码学哈希函数适合，其中Murmur3因其简单，并且在速度和随机分布上有最好的权衡，实践中多选用它作为哈希函数。
+
+哈佛大学的一篇论文计算证明，其实按照一定策略，只需要取 2 个哈希函数，即可以达到生成任意多个哈希函数的目的。论文中提出了两种可行的策略:
+
+Partition Schemes:
+
+hi=h1(u) + ih2(u) mod m′
+
+Double Hashing Schemes:hi=h1(u) + ih2(u) + f(i) mod m
+
+其中 h1 和 h2 是两个哈希函数，m 是 bloom filter 大小，m'是 m/k（要求 m 能整除 k）。
+
+> 在 go 语言的 BloomFilters 实现中，利用了类似 partition schemes 的策略，通过 2 个哈希函数（第二个哈希函数实际上是将输入值+1 后取哈希值实现的)，生成无数多个哈希函数。
 
 ### 多阶哈希
 
@@ -10306,508 +10373,6 @@ c++首先引入的多重继承带来了诸如**菱形继承**一类的问题，�
 
 Python继承体系包括：单继承、多继承、多级继承、混合继承（两种或多种类型的混合）
 
-### Python闭包
-
-概念：在一个内部函数中，对外部作用域的变量进行引用，并且一般外部函数的返回值为内部函数，那么内部函数就被认为是闭包
-
-作用：闭包可以保存当前的运行环境，闭包在爬虫以及web应用中都有很广泛的应用，并且闭包也是装饰器的基础
-
-理解：闭包=函数块+定义函数时的环境，inner就是函数块，x就是环境
-
-注意：闭包无法修改外部函数的局部变量
-
-举个例子：
-
-在函数startAt中定义了一个incrementBy函数，incrementBy访问了外部函数startAt的变量，并且函数返回值为incrementBy函数（注意python是可以返回一个函数的，这也是python的特性之一）
-
-```python
->>> def startAt(x):
-...     def incrementBy(y):
-...             return x+y
-...     return incrementBy
->>> a = startAt(1) # a是函数incrementBy而不是startAt
->>> a
-<function startAt.<locals>.incrementBy at 0x107c8e290>
->>> a(1)
-2
-```
-
-### Python装饰器
-
-装饰器本质上是一个Python函数，它可以让其他函数在不需要做任何代码变动的前提下增加额外功能，装饰器的返回值也是一个函数对象
-
-本质上，decorator就是一个返回函数的高阶函数。
-
-假设我们要定义一个能打印日志的decorator，代码如下：
-
-log是一个decorator，接受一个函数作为参数，并返回一个函数。
-
-```python
-def log(func):
-    def wrapper(*args, **kw):
-        print('call %s():' % func.__name__)
-        return func(*args, **kw)
-    return wrapper
-
-@log  # 借助Python的@语法，把decorator置于函数的定义处：
-def now():
-    print('2015-3-25')
-```
-
-调用now()函数，不仅会运行now()函数本身，还会在**运行now()函数前**打印一行日志：
-
-```shell
->>> now()
-call now():
-2015-3-25
-```
-
-### Python生成器
-
-列表生成式：Python提供了生成器，使用`()`，**列表元素可以按照某种算法推算出来**，相比于列表`[]`，节省了大量空间
-
-带有yield的函数：如果一个函数定义中包含yield关键字，那么这个函数就不再是一个普通函数，而是一个generator
-
-generator保存的是算法，每次调用next(g)，就计算出g的下一个元素的值，直到计算到最后一个元素，没有更多的元素时，抛出StopIteration的错误。
-
-但是每次都调用next太麻烦，可以用for循环
-
-```python
->>> L = [x * x for x in range(10)]
->>> L
-[0, 1, 4, 9, 16, 25, 36, 49, 64, 81]
->>> g = (x * x for x in range(10))
->>> g
-<generator object <genexpr> at 0x1022ef630>
->>> next(g)
-0
->>> next(g)
-1
->>> g = (x * x for x in range(10))
->>> for n in g:
-...     print(n)
-...
-0
-1
-4
-9
-16
-```
-
-### shell编程
-
-#### shell变量
-
-- 定义变量时，变量名不加美元符号$
-- 定义变量时，**变量名和等号之间不能有空格**
-- 使用一个定义过的变量只要在变量名加上美元符号$即可
-- shell变量分为局部变量（变量前面加local）和全局变量（变量前面不添加），局部变量的可见范围是代码块或函数内，全局变量则全局可见，和别的语言类似。
-
-```shell
-name=chenying
-echo $name
-echo ${name}
-```
-
-#### shell字符串
-
-- 字符串可以用单引号，也可以用双引号。
-- 单引号里的任何字符都会原样输出，单引号字符串中的变量是无效的，也不能出现单独一个的单引号（对单引号使用转义符后也不行），但可成对出现，作为字符串拼接使用。
-- 双引号里可以有变量，双引号里可以出现转义字符。
-
-```shell
-name='Isabella'
-str="Hello, I know you are \"$name\"! \n"
-echo -e $str # echo -e 表示使用转义功能，如果不加-e，则不会输出换行符，会直接输出\n
-# Hello, I know you are "Isabella"
-```
-
-##### 拼接字符串
-
-```shell
-name='Isabella'
-#使用双引号拼接
-a="hello, "$name" !"
-b="hello, ${name} !"
-echo $a $b
-# hello, Isabella ! hello, Isabella !
-#使用单引号拼接
-a1='hello, '$name' !'
-b1='hello, ${name} !'
-echo $a1 $b1
-# hello, Isabella ! hello, ${name} !
-```
-
-##### 获取字符串长度
-
-```shell
-string="Isabella"
-echo ${#string} #输出 8
-```
-
-##### 截取字符串
-
-此栗子从字符串第 3 个字符开始截取 6 个字符：
-
-```shell
-string="abcdefghijklmn"
-echo ${string:2:6} # 输出 cdefgh
-```
-
-#### 数组
-
-用括号来表示数组，数组元素用"空格"符号分割开，既可以一次性定义，也可以一个个定义，可以使用不连续的下标，下标范围也没有限制
-
-```shell
-#定义数组name
-name=(name1 name2 name3)
-#定义数组ary
-ary[0]=name1
-ary[1]=name2
-ary[3]=name3
-
-#读取格式：${数组名[下标]}
-#读取name的第0个元素
-echo ${name[0]}
-#使用@符号可以获取数组中的所有元素
-echo ${name[@]}
-```
-
-##### 获取数组长度
-
-```shell
-# 取得数组元素的个数
-length=${#name[@]}
-echo $length
-
-# 或者
-length=${#name[*]}
-echo $length
-
-# 取得数组单个元素的长度
-lengthn=${#name[n]}
-echo $length
-```
-
-#### 传递参数
-
-脚本内获取参数的格式为：$n。n 代表一个数字，1 为执行脚本的第一个参数，2 为执行脚本的第二个参数，以此类推。
-
-```shell
-#!/bin/bash
-echo "第一个参数为：$1";
-echo "第二个参数为：$2";
-echo "第三个参数为：$3";
-```
-
-执行./test.sh a b c，输出结果为：
-
-```shell
-第一个参数为：a
-第二个参数为：b
-第三个参数为：c
-```
-
-#### 使用expr表达式计算
-
-- 加+ 减- 乘* 除/ 取余% 赋值= 相等== 不相等!=
-- 表达式和运算符之间要有空格，例如 1+1 是不对的，必须写成1 + 1；
-- 整个表达式要被 `` 包含；
-
-```shell
-#!/bin/bash
-
-a=10
-b=20
-
-val=`expr $a + $b`
-echo "a + b : $val"
-
-val=`expr $a - $b`
-echo "a - b : $val"
-
-val=`expr $a \* $b`
-echo "a * b : $val"
-
-val=`expr $b / $a`
-echo "b / a : $val"
-
-val=`expr $b % $a`
-echo "b % a : $val"
-
-if [ $a == $b ]
-then
-   echo "a 等于 b"
-fi
-if [ $a != $b ]
-then
-   echo "a 不等于 b"
-fi
-```
-
-输出结果：
-
-```shell
-a + b : 30
-a - b : -10
-a * b : 200
-b / a : 2
-b % a : 0
-a 不等于 b
-```
-
-#### 流程控制
-
-##### if-else条件分支
-
-```shell
-#判断两个变量是否相等
-a=10
-b=20
-if [ $a == $b ]
-then
-   echo "a 等于 b"
-elif [ $a -gt $b ]
-then
-   echo "a 大于 b"
-elif [ $a -lt $b ]
-then
-   echo "a 小于 b"
-else
-   echo "没有符合的条件"
-fi # a 小于 b
-```
-
-##### for循环
-
-```shell
-#1
-for((i=1;i<=10;i++));  
-do
-echo $(expr $i \* 3 + 1);  
-done
-#2
-for i in $(seq 1 10)  
-do
-echo $(expr $i \* 3 + 1);  
-done
-#3
-for i in `seq 10`  
-do
-echo $(expr $i \* 3 + 1);  
-done
-#4
-for i in {1..10}  
-do  
-echo $(expr $i \* 3 + 1);  
-done
-```
-
-```shell
-#遍历当前文件目录中的所有文件
-for i in `ls`;  
-do
-echo $i is file name\! ;  
-done
-#遍历字符串中每个单词（默认以空格分隔）
-list="corgi is so cute !"  
-for i in $list;  
-do  
-echo $i is block ;  
-done
-```
-
-##### while循环
-
-```shell
-while condition
-do
-    command
-done
-```
-
-##### until循环
-
-until 循环执行一系列命令直至条件为 true 时停止，与 while 循环在处理方式上刚好相反。
-
-```shell
-until condition
-do
-    command
-done
-```
-
-##### case
-
-shell case语句为多选择语句。可以用case语句匹配一个值与一个模式，如果匹配成功，执行相匹配的命令，语法格式：
-
-```shell
-case 值 in
-模式1)
-    command1
-    command2
-    ...
-    commandN
-    ;;
-模式2）
-    command1
-    command2
-    ...
-    commandN
-    ;;
-esac #需要一个esac（就是case反过来）作为结束标记，每个case分支用右圆括号，用两个分号表示break
-```
-
-##### 跳出循环
-
-在循环过程中，有时候需要在未达到循环结束条件时强制跳出循环，Shell使用两个命令来实现该功能：break和continue。
-
-#### shell函数
-
-简化写法中function可以不写，语法格式
-
-```shell
-function name() {
-    statements
-    [return value]
-}
-```
-
-#### grep——擅长查找
-
-这里的模式，要么是字符（串），要么是正则表达式。
-
-```shell
-grep [OPTIONS] PATTERN [FILE...]
-```
-
-grep常用选项如下：
-
-- -c：仅列出文件中包含模式的行数。
-- -i：忽略模式中的字母大小写。
-- -l：列出带有匹配行的文件名。
-- -n：在每一行的最前面列出行号。
-- -v：列出没有匹配模式的行。
-- -w：把表达式当做一个完整的单字符来搜寻，忽略那些部分匹配的行。
-
-#### sed——擅长取行和替换
-
-```shell
-sed [option]... 'script' inputfile
-```
-
-sed常用选项如下：
-
-- -e：可以在同一行里执行多条命令
-- -f：后跟保存了sed指令的文件
-- -i：直接对内容进行修改，**不加-i时默认只是预览，不会对文件做实际修改**
-- -n：sed默认会输出所有文本内容，使用-n参数后只显示处理过的行
-
-sed常用操作：
-
-- a：向匹配行后面插入内容
-- i：向匹配行前插入内容
-- c：更改匹配行的内容
-- d：删除匹配的内容
-- s：替换掉匹配的内容
-- p：打印出匹配的内容，通常与-n选项一起使用
-- w：将匹配内容写入到其他地方。
-
-```shell
-#输出长度不小于50个字符的行
-sed -n '/^.{50}/p'
-
-#统计文件中有每个单词出现了多少次
-sed 's/ /\n/g' file | sort | uniq -c
-
-#在第2行后添加hello
-sed '2ahello' data.js
-
-#向匹配内容123后面添加hello，如果文件中有多行包括123，则每一行后面都会添加
-sed '/123/ahello' data.js
-
-#最后一行添加hello
-sed '$ahello' data.js
-
-#在匹配内容之前插入只需把a换成i
-
-#把文件的第1行替换为hello
-sed '1chello' data.js
-
-#删除第2行
-sed '2d' data.js
-
-#从第一行开始删除，每隔2行就删掉一行，即删除奇数行
-sed '1~2d' data.js
-#删除1~2行
-sed '1,2d' data.js
-#删除1~2之外的行
-sed '1,2!d' data.js
-#删除不匹配123或abc的行，/123\|abc/ 表示匹配123或abc ，！表示取反
-sed '/123\|abc/!d' data.js
-
-#替换每行第1个123为hello
-sed 's/123/hello/' data.js
-#替换每行第2个123为hello
-sed 's/123/hello/2' data.js
-```
-
-替换模式（操作为s）：
-
-![sedsub](https://user-gold-cdn.xitu.io/2019/5/22/16adeea79e660e4e?imageslim)
-
-- g 默认只匹配行中第一次出现的内容，加上g，就可以全文替换了。常用。
-- p 当使用了-n参数，p将仅输出匹配行内容。
-- w 和上面的w模式类似，但是它仅仅输出有变换的行。
-- i 这个参数比较重要，表示忽略大小写。
-- e 表示将输出的每一行，执行一个命令。不建议使用，可以使用xargs配合完成这种功能。
-
-```shell
-# 一行命令替换多处内容，不加-e只能替换第一处的内容
-sed -e 's/abc/qqq/g' -e 's/123/999/g' data.js
-
-#替换，后面的内容为空
-sed 's/,.*//g' data.js
-
-#把文件中的每一行，使用引号包围起来。&是替位符
-sed 's/.*/"&"/' file
-```
-
-#### awk——擅长取列
-
-awk支持用户自定义函数和动态正则表达式等先进功能，是linux/unix下的一个强大编程工具
-
-```shell
-awk [options] 'script' var=value file(s)
-awk [options] -f scriptfile var=value file(s)
-```
-
-- -F fs：fs 指定输入分隔符，fs可以时字符串或正则表达式
-- -v var=value：赋值一个用户定义变量，将外部变量传递给awk
-- -f scriptfile：从脚本文件中读取awk命令
-
-一般的开发语言，数组下标是以0开始的，但awk的列$是以1开始的，而0指的是原始字符串。
-
-```shell
-#对于csv这种文件来说，分隔的字符是,。AWK使用-F参数去指定。以下代码打印csv文件中的第1和第2列。
-awk -F ","  '{print $1,$2}' file
-```
-
-#### 使用sh -x调试shell脚本
-
-sh -x的作用：
-
-- "-x"选项可用来跟踪脚本的执行，是调试shell脚本的强有力工具。
-- “-x”选项使shell在执行脚本的过程中把它实际执行的每一个命令行显示出来，并且在行首显示一个"+"号。
-- "+"号后面显示的是经过了变量替换之后的命令行的内容，有助于分析实际执行的是什么命令。
-
-利用shell内置的环境变量调试：
-
-- $LINENO：代表shell脚本的当前行号，类似于C语言中的内置宏__LINE__
-- $FUNCNAME：函数的名字，类似于C语言中的内置宏__func__,但宏__func__ 只能代表当前所在的函数名，而$FUNCNAME的功能更强大，它是一个数组变量，其中包含了整个调用链上所有的函数的名字，故变量${FUNCNAME [0]}代表shell脚本当前正在执行的函数的名字，而变量${FUNCNAME[1]}则代表调用函数${FUNCNAME[0]}的函数的名字，余者可以依此类推。
-- $PS4：主提示符变量$PS1和第二级提示符变量$PS2比较常见，而$PS4的值将被显示在“-x”选项输出的每一条命令的前面。在Bash Shell中，缺省的$PS4的值是"+"号。
-- 利用$PS4这一特性，通过使用一些内置变量来重定义$PS4的值，我们就可以增强"-x"选项的输出信 息。例如先执行export PS4='+{$LINENO:${FUNCNAME[0]}} ', 然后再使用“-x”选项来执行脚本，就能在每一条实际执行的命令前面显示其行号以及所属的函数名。
-
 ### RPC&&序列化
 
 远程过程调用协议RPC（Remote Procedure Call Protocol)，比如Java的Netty框架，它封装了底层的（序列化、网络传输等）细节
@@ -10938,20 +10503,33 @@ Kubenetes容器平台
 - 另外一种做法是**多线程加锁**，其中第一个线程发现CacheMiss之后进行加锁，再从数据库获取内容之后写到缓存中，其他线程获取锁失败则阻塞数ms之后再进行缓存读取，这样可以降低访问数据数据库的线程数，需要注意在单机和集群需要使用不同的锁，集群环境使用分布式锁来实现，但是由于锁的存在也会影响并发效率。
 - 一种方法是在业务层对使用的热点数据查看是否即将过期，如果即将过期则去数据库获取最新数据进行更新并延长该热点key在缓存系统中的时间，从而避免后面的过期CacheMiss，相当于把事情提前解决了。
 
-#### 缓存更新
+#### cache aside
 
-我们把常见的缓存更新方案总结为两大类，业务层更新和外部组件更新，比较常见的是通过业务更新的方案。
+```java
+data = queryDataRedis(key);
+if (data ==null) {
+     data = queryDataMySQL(key); //缓存查询不到，从MySQL做查询
+     if (data!=null) {
+         updateRedis(key, data);//查询完数据后更新MySQL最新数据到Redis
+     }
+}
+```
+
+也就是说优先查询缓存，查询不到才查询数据库。如果这时候数据库查到数据了，就将缓存的数据进行更新。这是我们常说的 cache aside 的策略，也是最常用的策略。
+
+#### 缓存更新
 
 缓存更新的问题是：先更新缓存还是先更新存储，缓存的处理是通过删除来实现还是通过更新来实现
 
-业务层缓存更新的推荐方案：
-
 - Step1：先更新存储，保证数据可靠性；
 - Step2：再更新缓存，2个策略怎么选：
-  - **惰性更新**：删除缓存，等待下次读 MISS 再缓存（推荐方案）；
-  - 积极更新：将最新的值更新到缓存（不推荐）；
+  - **惰性更新**：删除缓存，等待下次读 MISS 再缓存（推荐方案，不一致的概率更低）；
+  - 积极更新：将最新的值更新到缓存（仅当写操作比较频繁时才选择这个额方案）；
 
-外部组件更新缓存的推荐方案（较复杂，先不做笔记了）
+做个简单总结，足以适应绝大部分的互联网开发场景的决策：
+
+- 针对大部分读多写少场景，建议选择更新数据库后删除缓存的策略。
+- 针对读写相当或者写多读少的场景，建议选择更新数据库后更新缓存的策略。
 
 #### 缓存淘汰
 
@@ -10959,6 +10537,15 @@ Kubenetes容器平台
 
 - 主动淘汰，这是推荐的方式，我们通过对 Key 设置 TTL 的方式来让 Key 定期淘汰，以保障冷数据不会长久的占有内存。TTL 的策略可以保证冷数据一定被淘汰，但是没有办法保障热数据始终在内存，这个我们在后面会展开；
 - 被动淘汰，这个是保底方案，并不推荐，Redis 提供了一系列的 Maxmemory 策略来对数据进行驱逐，触发的前提是内存要到达 maxmemory（内存使用率 100%），在 maxmemory 的场景下缓存的质量是不可控的，因为每次缓存一个 Key 都可能需要去淘汰一个 Key。
+
+#### 缓存不一致无法完全避免
+
+- 客观条件：缓存与主存无法做到强一致，除非付出极大的代价，比如使用分布式事务，但这样会使得系统整体性能大幅度下降，甚至比不用缓存还慢，得不偿失
+- 但可以让缓存与主存做到最终一致，这个不一致的窗口越小约好
+- 做法：
+  - 缓存设置过期时间，最终都能兜底查主存，然后回写到缓存
+  - 如何减少缓存删除/更新的失败？可以借助mq的atleast-once机制，确保缓存能够缓存/更新；更极端场景，如果发mq失败，可以使用rocketmq的事务消息
+  - 如果需要更新多个缓存，最好是通过mq解耦这些操作；或者用更优雅的方法，订阅MySQL的binlog
 
 ### 消息中间件/消息队列
 
@@ -10982,14 +10569,17 @@ broker和consumer之间有推拉两种模式：
 
 RocketMQ就是阿里借鉴Kafka用Java开发出来的
 
-Kafka分布式、可分区、可复制、基于发布/订阅
+#### Kafka
 
 [Producer Performance Tuning for Apache Kafka](https://www.slideshare.net/JiangjieQin/producer-performance-tuning-for-apache-kafka-63147600?qid=84026ff8-243f-49a7-a4d0-69976cf317b7&v=&b=&from_search=9)
 
-Filebeat用于收集本地文件的日志数据。 它监视日志目录或特定的日志文件，尾部文件，并将它们转发到Elasticsearch或Logstash进行索引。
-logstash 和filebeat都具有日志收集功能，filebeat更轻量，使用go语言编写，占用资源更少，可以有很高的并发，但logstash 具有filter功能，能过滤分析日志。一般结构都是filebeat采集日志，然后发送到消息队列，如redis，kafka。然后logstash去获取，利用filter功能过滤分析，然后存储到elasticsearch中。
+- Kafka分布式、可分区、可复制、基于发布/订阅
+- Kafka是LinkedIn开源的分布式发布-订阅消息系统，目前归属于Apache顶级项目。Kafka主要特点是基于Pull的模式来处理消息消费，追求高吞吐量，一开始的目的就是用于日志收集和传输。0.8版本开始支持复制，不支持事务，对消息的重复、丢失、错误没有严格要求，适合产生大量数据的互联网服务的数据收集业务。
+- Kafka 借助 ZooKeeper 进行集群管理。Kafka 中很多信息都在 ZK 中维护，如 broker 集群信息、consumer 集群信息、 topic 相关信息、 partition 信息等。Kafka 的很多功能也是基于 ZK 实现的，如 partition 选主、broker 集群管理、consumer 负载均衡等
+- Broker 接收到消息后只是将数据写入PageCache后便认为消息已写入成功，而 PageCache 中的数据通过 linux 的 flusher 程序进行异步刷盘（避免了同步刷盘的巨大系统开销），将数据顺序追加写到磁盘日志文件中。由于 pagecache 是在内存中进行缓存，因此读写速度非常快，可以大大提高读写效率。顺序追加写充分利用顺序 I/O 写操作，避免了缓慢的随机 I/O 操作，可有效提升 Kafka 吞吐。
 
-Kafka是LinkedIn开源的分布式发布-订阅消息系统，目前归属于Apache顶级项目。Kafka主要特点是基于Pull的模式来处理消息消费，追求高吞吐量，一开始的目的就是用于日志收集和传输。0.8版本开始支持复制，不支持事务，对消息的重复、丢失、错误没有严格要求，适合产生大量数据的互联网服务的数据收集业务。
+> Filebeat用于收集本地文件的日志数据。 它监视日志目录或特定的日志文件，尾部文件，并将它们转发到Elasticsearch或Logstash进行索引。
+logstash 和filebeat都具有日志收集功能，filebeat更轻量，使用go语言编写，占用资源更少，可以有很高的并发，但logstash 具有filter功能，能过滤分析日志。一般结构都是filebeat采集日志，然后发送到消息队列，如redis，kafka。然后logstash去获取，利用filter功能过滤分析，然后存储到elasticsearch中。
 
 ### CAP理论、PACELC理论、BASE理论
 

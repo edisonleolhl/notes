@@ -455,3 +455,419 @@ d
 
 d
 
+
+
+
+## shell编程
+
+### shell变量
+
+- 定义变量时，变量名不加美元符号$
+- 定义变量时，**变量名和等号之间不能有空格**
+- 使用一个定义过的变量只要在变量名加上美元符号$即可
+- shell变量分为局部变量（变量前面加local）和全局变量（变量前面不添加），局部变量的可见范围是代码块或函数内，全局变量则全局可见，和别的语言类似。
+
+```shell
+name=chenying
+echo $name
+echo ${name}
+```
+
+### shell字符串
+
+- 字符串可以用单引号，也可以用双引号。
+- 单引号里的任何字符都会原样输出，单引号字符串中的变量是无效的，也不能出现单独一个的单引号（对单引号使用转义符后也不行），但可成对出现，作为字符串拼接使用。
+- 双引号里可以有变量，双引号里可以出现转义字符。
+
+```shell
+name='Isabella'
+str="Hello, I know you are \"$name\"! \n"
+echo -e $str # echo -e 表示使用转义功能，如果不加-e，则不会输出换行符，会直接输出\n
+# Hello, I know you are "Isabella"
+```
+
+#### 拼接字符串
+
+```shell
+name='Isabella'
+#使用双引号拼接
+a="hello, "$name" !"
+b="hello, ${name} !"
+echo $a $b
+# hello, Isabella ! hello, Isabella !
+#使用单引号拼接
+a1='hello, '$name' !'
+b1='hello, ${name} !'
+echo $a1 $b1
+# hello, Isabella ! hello, ${name} !
+```
+
+#### 获取字符串长度
+
+```shell
+string="Isabella"
+echo ${#string} #输出 8
+```
+
+#### 截取字符串
+
+此栗子从字符串第 3 个字符开始截取 6 个字符：
+
+```shell
+string="abcdefghijklmn"
+echo ${string:2:6} # 输出 cdefgh
+```
+
+### 数组
+
+用括号来表示数组，数组元素用"空格"符号分割开，既可以一次性定义，也可以一个个定义，可以使用不连续的下标，下标范围也没有限制
+
+```shell
+#定义数组name
+name=(name1 name2 name3)
+#定义数组ary
+ary[0]=name1
+ary[1]=name2
+ary[3]=name3
+
+#读取格式：${数组名[下标]}
+#读取name的第0个元素
+echo ${name[0]}
+#使用@符号可以获取数组中的所有元素
+echo ${name[@]}
+```
+
+#### 获取数组长度
+
+```shell
+# 取得数组元素的个数
+length=${#name[@]}
+echo $length
+
+# 或者
+length=${#name[*]}
+echo $length
+
+# 取得数组单个元素的长度
+lengthn=${#name[n]}
+echo $length
+```
+
+### 传递参数
+
+脚本内获取参数的格式为：$n。n 代表一个数字，1 为执行脚本的第一个参数，2 为执行脚本的第二个参数，以此类推。
+
+```shell
+#!/bin/bash
+echo "第一个参数为：$1";
+echo "第二个参数为：$2";
+echo "第三个参数为：$3";
+```
+
+执行./test.sh a b c，输出结果为：
+
+```shell
+第一个参数为：a
+第二个参数为：b
+第三个参数为：c
+```
+
+### 使用expr表达式计算
+
+- 加+ 减- 乘* 除/ 取余% 赋值= 相等== 不相等!=
+- 表达式和运算符之间要有空格，例如 1+1 是不对的，必须写成1 + 1；
+- 整个表达式要被 `` 包含；
+
+```shell
+#!/bin/bash
+
+a=10
+b=20
+
+val=`expr $a + $b`
+echo "a + b : $val"
+
+val=`expr $a - $b`
+echo "a - b : $val"
+
+val=`expr $a \* $b`
+echo "a * b : $val"
+
+val=`expr $b / $a`
+echo "b / a : $val"
+
+val=`expr $b % $a`
+echo "b % a : $val"
+
+if [ $a == $b ]
+then
+   echo "a 等于 b"
+fi
+if [ $a != $b ]
+then
+   echo "a 不等于 b"
+fi
+```
+
+输出结果：
+
+```shell
+a + b : 30
+a - b : -10
+a * b : 200
+b / a : 2
+b % a : 0
+a 不等于 b
+```
+
+### 流程控制
+
+#### if-else条件分支
+
+```shell
+#判断两个变量是否相等
+a=10
+b=20
+if [ $a == $b ]
+then
+   echo "a 等于 b"
+elif [ $a -gt $b ]
+then
+   echo "a 大于 b"
+elif [ $a -lt $b ]
+then
+   echo "a 小于 b"
+else
+   echo "没有符合的条件"
+fi # a 小于 b
+```
+
+#### for循环
+
+```shell
+#1
+for((i=1;i<=10;i++));  
+do
+echo $(expr $i \* 3 + 1);  
+done
+#2
+for i in $(seq 1 10)  
+do
+echo $(expr $i \* 3 + 1);  
+done
+#3
+for i in `seq 10`  
+do
+echo $(expr $i \* 3 + 1);  
+done
+#4
+for i in {1..10}  
+do  
+echo $(expr $i \* 3 + 1);  
+done
+```
+
+```shell
+#遍历当前文件目录中的所有文件
+for i in `ls`;  
+do
+echo $i is file name\! ;  
+done
+#遍历字符串中每个单词（默认以空格分隔）
+list="corgi is so cute !"  
+for i in $list;  
+do  
+echo $i is block ;  
+done
+```
+
+#### while循环
+
+```shell
+while condition
+do
+    command
+done
+```
+
+#### until循环
+
+until 循环执行一系列命令直至条件为 true 时停止，与 while 循环在处理方式上刚好相反。
+
+```shell
+until condition
+do
+    command
+done
+```
+
+#### case
+
+shell case语句为多选择语句。可以用case语句匹配一个值与一个模式，如果匹配成功，执行相匹配的命令，语法格式：
+
+```shell
+case 值 in
+模式1)
+    command1
+    command2
+    ...
+    commandN
+    ;;
+模式2）
+    command1
+    command2
+    ...
+    commandN
+    ;;
+esac #需要一个esac（就是case反过来）作为结束标记，每个case分支用右圆括号，用两个分号表示break
+```
+
+#### 跳出循环
+
+在循环过程中，有时候需要在未达到循环结束条件时强制跳出循环，Shell使用两个命令来实现该功能：break和continue。
+
+### shell函数
+
+简化写法中function可以不写，语法格式
+
+```shell
+function name() {
+    statements
+    [return value]
+}
+```
+
+### grep——擅长查找
+
+这里的模式，要么是字符（串），要么是正则表达式。
+
+```shell
+grep [OPTIONS] PATTERN [FILE...]
+```
+
+grep常用选项如下：
+
+- -c：仅列出文件中包含模式的行数。
+- -i：忽略模式中的字母大小写。
+- -l：列出带有匹配行的文件名。
+- -n：在每一行的最前面列出行号。
+- -v：列出没有匹配模式的行。
+- -w：把表达式当做一个完整的单字符来搜寻，忽略那些部分匹配的行。
+
+### sed——擅长取行和替换
+
+```shell
+sed [option]... 'script' inputfile
+```
+
+sed常用选项如下：
+
+- -e：可以在同一行里执行多条命令
+- -f：后跟保存了sed指令的文件
+- -i：直接对内容进行修改，**不加-i时默认只是预览，不会对文件做实际修改**
+- -n：sed默认会输出所有文本内容，使用-n参数后只显示处理过的行
+
+sed常用操作：
+
+- a：向匹配行后面插入内容
+- i：向匹配行前插入内容
+- c：更改匹配行的内容
+- d：删除匹配的内容
+- s：替换掉匹配的内容
+- p：打印出匹配的内容，通常与-n选项一起使用
+- w：将匹配内容写入到其他地方。
+
+```shell
+#输出长度不小于50个字符的行
+sed -n '/^.{50}/p'
+
+#统计文件中有每个单词出现了多少次
+sed 's/ /\n/g' file | sort | uniq -c
+
+#在第2行后添加hello
+sed '2ahello' data.js
+
+#向匹配内容123后面添加hello，如果文件中有多行包括123，则每一行后面都会添加
+sed '/123/ahello' data.js
+
+#最后一行添加hello
+sed '$ahello' data.js
+
+#在匹配内容之前插入只需把a换成i
+
+#把文件的第1行替换为hello
+sed '1chello' data.js
+
+#删除第2行
+sed '2d' data.js
+
+#从第一行开始删除，每隔2行就删掉一行，即删除奇数行
+sed '1~2d' data.js
+#删除1~2行
+sed '1,2d' data.js
+#删除1~2之外的行
+sed '1,2!d' data.js
+#删除不匹配123或abc的行，/123\|abc/ 表示匹配123或abc ，！表示取反
+sed '/123\|abc/!d' data.js
+
+#替换每行第1个123为hello
+sed 's/123/hello/' data.js
+#替换每行第2个123为hello
+sed 's/123/hello/2' data.js
+```
+
+替换模式（操作为s）：
+
+![sedsub](https://user-gold-cdn.xitu.io/2019/5/22/16adeea79e660e4e?imageslim)
+
+- g 默认只匹配行中第一次出现的内容，加上g，就可以全文替换了。常用。
+- p 当使用了-n参数，p将仅输出匹配行内容。
+- w 和上面的w模式类似，但是它仅仅输出有变换的行。
+- i 这个参数比较重要，表示忽略大小写。
+- e 表示将输出的每一行，执行一个命令。不建议使用，可以使用xargs配合完成这种功能。
+
+```shell
+# 一行命令替换多处内容，不加-e只能替换第一处的内容
+sed -e 's/abc/qqq/g' -e 's/123/999/g' data.js
+
+#替换，后面的内容为空
+sed 's/,.*//g' data.js
+
+#把文件中的每一行，使用引号包围起来。&是替位符
+sed 's/.*/"&"/' file
+```
+
+### awk——擅长取列
+
+awk支持用户自定义函数和动态正则表达式等先进功能，是linux/unix下的一个强大编程工具
+
+```shell
+awk [options] 'script' var=value file(s)
+awk [options] -f scriptfile var=value file(s)
+```
+
+- -F fs：fs 指定输入分隔符，fs可以时字符串或正则表达式
+- -v var=value：赋值一个用户定义变量，将外部变量传递给awk
+- -f scriptfile：从脚本文件中读取awk命令
+
+一般的开发语言，数组下标是以0开始的，但awk的列$是以1开始的，而0指的是原始字符串。
+
+```shell
+#对于csv这种文件来说，分隔的字符是,。AWK使用-F参数去指定。以下代码打印csv文件中的第1和第2列。
+awk -F ","  '{print $1,$2}' file
+```
+
+### 使用sh -x调试shell脚本
+
+sh -x的作用：
+
+- "-x"选项可用来跟踪脚本的执行，是调试shell脚本的强有力工具。
+- “-x”选项使shell在执行脚本的过程中把它实际执行的每一个命令行显示出来，并且在行首显示一个"+"号。
+- "+"号后面显示的是经过了变量替换之后的命令行的内容，有助于分析实际执行的是什么命令。
+
+利用shell内置的环境变量调试：
+
+- $LINENO：代表shell脚本的当前行号，类似于C语言中的内置宏__LINE__
+- $FUNCNAME：函数的名字，类似于C语言中的内置宏__func__,但宏__func__ 只能代表当前所在的函数名，而$FUNCNAME的功能更强大，它是一个数组变量，其中包含了整个调用链上所有的函数的名字，故变量${FUNCNAME [0]}代表shell脚本当前正在执行的函数的名字，而变量${FUNCNAME[1]}则代表调用函数${FUNCNAME[0]}的函数的名字，余者可以依此类推。
+- $PS4：主提示符变量$PS1和第二级提示符变量$PS2比较常见，而$PS4的值将被显示在“-x”选项输出的每一条命令的前面。在Bash Shell中，缺省的$PS4的值是"+"号。
+- 利用$PS4这一特性，通过使用一些内置变量来重定义$PS4的值，我们就可以增强"-x"选项的输出信 息。例如先执行export PS4='+{$LINENO:${FUNCNAME[0]}} ', 然后再使用“-x”选项来执行脚本，就能在每一条实际执行的命令前面显示其行号以及所属的函数名。
