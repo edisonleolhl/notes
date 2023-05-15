@@ -5130,7 +5130,7 @@ do_mummap()函数从特定的进程地址空间中删除指定地址区间
 
 在用户空间可以通过munmap()系统调用获取内核函数do_mummap()的功能
 
-### 内存分配算法：伙伴(buddy)/slab
+#### 内存分配算法：伙伴(buddy)/slab
 
 进程申请内存大小是任意的，如果malloc用法不对，会产生**内存碎片**，它们小而且不连续，不满足malloc申请连续内存的要求
 
@@ -5688,7 +5688,7 @@ int main() {
 }
 ```
 
-### 手撕两个线程交替打印
+#### 手撕两个线程交替打印
 
 用到了unique_lock来管理mutex，还有条件变量condition_variable来通知另一个线程，
 
@@ -5731,7 +5731,7 @@ int main()
 }
 ```
 
-### 手撕生产者消费者模型
+#### 手撕生产者消费者模型
 
 多生产者多消费者，利用互斥锁、条件变量、阻塞队列实现
 
@@ -5786,7 +5786,7 @@ int main()
 }
 ```
 
-### 手撕线程池
+#### 手撕线程池
 
 线程池中线程，在线程池中等待并执行分配的任务，用条件变量实现等待与通知机制
 
@@ -8741,125 +8741,99 @@ T2 = "it is a banana"
 
 跳表是通过**随机函数**来维护“平衡性”。往跳表中插入数据的时候，可以选择同时将这个数据插入到某个索引层中，随机函数决定每层索引层是否插入该元素。它不要求上下相邻两层链表之间的节点个数有严格的对应关系，而是为每个节点随机出一个层数(level)。比如，一个节点随机出的层数是3，那么就把它链入到第1层到第3层这三层链表中
 
+- 第0层是最全的，上面的都是索引层，越上层，个数越少，因为是有概率才能插入更高层的索引
+
 ![skiplist_insertions](http://zhangtielei.com/assets/photos_redis/skiplist/skiplist_insertions.png)
 
 > Redis中跳表层数是32，概率是0.25
 
-
 实现一个跳表
 
-https://leetcode.cn/problems/design-skiplist/solution/by-tonngw-ls2k/
-
 ```c++
-// 各个节点是如何相连接(关联)的？
-
-// 通过每个节点的forward数组，forward数组存储当前节点，在每一层的下一个节点。
-// 以头节点为例，头结点的forward存储的是每一层的第一个节点。然后通过第一个节点的forward[level],拿到该层的后面元素...... 以次类推，即可遍历该层所有节点。
-// 与普通单链表的区别，我们可以大概理解为，上面多了几层简化的结果，如上面动画所示。
-// update存的是什么?
-
-// 每层中最后一个key小于要插入节点key的节点。
-// 节点生成的level是多少，该节点就从0层到level层一直都出现。
-constexpr int MAX_LEVEL = 32;
-constexpr double P_FACTOR = 0.25;
-
-struct SkiplistNode {
-    int val;
-    vector<SkiplistNode *> forward; // 存储当前节点，在每一层的下一个节点。
-    SkiplistNode(int _val, int _maxLevel = MAX_LEVEL) : 
-        val(_val),
-        forward(_maxLevel, nullptr) {}
-};
-
 class Skiplist {
-private:
-    SkiplistNode * head;
-    int level;
-    mt19937 gen{random_device{}()};
-    uniform_real_distribution<double> dis;
-
 public:
-    Skiplist(): head(new SkiplistNode(-1)), level(0), dis(0, 1) {
+    static const int level = 8; // 层数，经验值 8，太大浪费空间，因为每一个节点都要存在每一层的 next，层数越多节点数越多
+
+    // 定义跳表节点
+    struct Node {
+        int val; // 节点值
+        vector<Node*> next; // 记录节点在每一层的 next，next[i] 表示当前节点第 i 层的 next
+
+        Node(int _val) : val(_val) { // 构造函数
+            next.resize(level, NULL); // 初始化 next 数组的大小和层数 level 相同，初始值都指向 NULL
+        }
+    } *head; // 定义头节点 head
+
+    Skiplist() {
+        head = new Node(-1); // 初始化一个不存在的节点值 -1
     }
 
+    ~Skiplist() {
+        delete head; // 析构函数删除 head
+    }
+
+    // 辅助函数：找到每一层 i 小于目标值 target 的最大节点 pre[i]，最后 pre 中存的就是每一层小于 target 的最大节点
+    void find(int target, vector<Node*>& pre) {
+        auto p = head; // 从头节点开始遍历每一层
+        for (int i = level - 1; i >= 0; i -- ) { // 从上层往下层找
+            while (p->next[i] && p->next[i]->val < target) p = p->next[i]; // 如果当前层 i 的 next 不为空，且它的值小于 target，则 p 往后走指向这一层 p 的 next
+            pre[i] = p; // 退出 while 时说明找到了第 i 层小于 target 的最大节点就是 p
+        }
+    }
+    
+    // 从跳表中查找 target
     bool search(int target) {
-        SkiplistNode *curr = this->head;
-        for (int i = level - 1; i >= 0; i--) {
-            /* 找到第 i 层小于且最接近 target 的元素*/
-            while (curr->forward[i] && curr->forward[i]->val < target) {
-                curr = curr->forward[i]; //提示: forward存储该节点在当前层的下一个节点
-            }
-        }
-        curr = curr->forward[0];
-        /* 检测当前元素的值是否等于 target */
-        if (curr && curr->val == target) {
-            return true;
-        } 
-        return false;
+        vector<Node*> pre(level);
+        find(target, pre); // 先找到每一层 i 小于目标值 target 的最大节点 pre[i]
+        
+        auto p = pre[0]->next[0]; // 因为最下层【0】的节点是全的，所以只需要判断 target 是否在第 0 层即可，而 pre[0] 正好就是小于 target 的最大节点，如果 pre[0]->next[0] 的值不是 target 说明没有这个元素
+        return p && p->val == target;
     }
-
+    
+    // 向跳表中插入元素 num
     void add(int num) {
-        vector<SkiplistNode *> update(MAX_LEVEL, head);
-        SkiplistNode *curr = this->head;
-        for (int i = level - 1; i >= 0; i--) {
-            /* 找到第 i 层小于且最接近 num 的元素*/
-            while (curr->forward[i] && curr->forward[i]->val < num) {
-                curr = curr->forward[i];
-            }
-            update[i] = curr;
-        }
-        int lv = randomLevel(); // 根据一定概率，创建索引，层数越高概率越小
-        level = max(level, lv);
-        SkiplistNode *newNode = new SkiplistNode(num, lv);
-        for (int i = 0; i < lv; i++) {
-            /* 对第 i 层的状态进行更新，将当前元素的 forward 指向新的节点 */
-            newNode->forward[i] = update[i]->forward[i];
-            update[i]->forward[i] = newNode;
+        vector<Node*> pre(level);
+        find(num, pre); // 先找到每一层 i 小于目标值 target 的最大节点 pre[i]
+
+        auto p = new Node(num); // 创建要插入的新节点
+        for (int i = 0; i < level; i ++ ) { // 遍历每一层，从下往上插入新节点
+            p->next[i] = pre[i]->next[i]; // 这两步就是单链表的插入
+            pre[i]->next[i] = p;
+            if (rand() % 2) break; // 每一层有 50% 的概率不插入新节点
         }
     }
-
+    
+    // 从跳表中删除 num
     bool erase(int num) {
-        vector<SkiplistNode *> update(MAX_LEVEL, nullptr);
-        SkiplistNode *curr = this->head;
-        for (int i = level - 1; i >= 0; i--) {
-            /* 找到第 i 层小于且最接近 num 的元素*/
-            while (curr->forward[i] && curr->forward[i]->val < num) {
-                curr = curr->forward[i];
-            }
-            update[i] = curr;
+        vector<Node*> pre(level);
+        find(num, pre); // 先找到每一层 i 小于目标值 target 的最大节点 pre[i]
+
+        // 先判断 num 是否存在，不存在直接返回 false
+        // 第 0 层存储的是全部节点，所以只需要判断 pre[0]->next[0]（第 0 层小于 num 的最大节点的在第 0 层的 next） 是不是 num 即可
+        auto p = pre[0]->next[0];
+        if (!p || p->val != num) return false;
+
+        // 否则删除每一层的 num，如果 pre[i]->next[i] == p 说明第 i 层存在 p
+        for (int i = 0; i < level && pre[i]->next[i] == p; i ++ ) {
+            pre[i]->next[i] = p->next[i]; // 单链表删除
         }
-        curr = curr->forward[0];
-        /* 如果值不存在则返回 false */
-        if (!curr || curr->val != num) {
-            return false;
-        }
-        for (int i = 0; i < level; i++) {
-            if (update[i]->forward[i] != curr) { // 该节点在第i层没有索引，因为是从下到上遍历，可直接break
-                break;
-            }
-            /* 对第 i 层的状态进行更新，将 forward 指向被删除节点的下一跳 */
-            update[i]->forward[i] = curr->forward[i];
-        }
-        delete curr;
-        /* 更新当前的 level */
-        while (level > 1 && head->forward[level - 1] == nullptr) {
-            level--;
-        }
+
+        delete p; // 删除节点 p，防止内存泄漏
+
         return true;
     }
-
-    int randomLevel() {
-        int lv = 1;
-        /* 随机生成 lv */
-        while (dis(gen) < P_FACTOR && lv < MAX_LEVEL) {
-            lv++;
-        }
-        return lv;
-    }
 };
 
-作者：LeetCode-Solution
-链接：https://leetcode.cn/problems/design-skiplist/solution/she-ji-tiao-biao-by-leetcode-solution-e8yh/
+/**
+ * Your Skiplist object will be instantiated and called as such:
+ * Skiplist* obj = new Skiplist();
+ * bool param_1 = obj->search(target);
+ * obj->add(num);
+ * bool param_3 = obj->erase(num);
+ */
+
+作者：tonngw
+链接：https://leetcode.cn/problems/design-skiplist/solutions/1699167/by-tonngw-ls2k/
 来源：力扣（LeetCode）
 著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
 ```
@@ -9279,11 +9253,12 @@ double sqrt_binary(double k, double eps){
 }
 ```
 
-牛顿法
+牛顿法（不断迭代）
 
 令`f(x)=x^2-k`，这是个二次函数，与x轴的交点即为最准确的根号值，可以在不断迭代的过程中，（从右往左）慢慢逼近这个值，前一个值(x0,x0^2)的切线与x轴的交点即为x1，满足x0-x1 = f(x0)/f'(x0)，而f(x0)=x0^2-k，f'(x0)=2x0，整理得`x1=0.5*(x0+k/x0)`
 
 ```c++
+// eps是允许的最小精度
 double sqrt_newton(double k, double eps){
     if(k < 0) return -1;
     if(k == 0) return 0;
@@ -9358,10 +9333,10 @@ bool isPowerOfTwo(int n) {
 - 如果N的阶乘为K和10的M次方的乘积，那么N!末尾就有M的0。
 - 只有偶数和5相乘才能得到10，所以考察有多少个5
 - `n!=1*2*3*4*5*6*7*8*9*(5*2)*....*24*(5*5)*...`
-  - 能被5（5^1）整除的提供1个0
-  - 能被25（5^2）整除的提供2个0
-  - 能被125（5^3）整除的提供3个0
-  - 能被625（5^4）整除的提供4个0
+  - 能被5（5^1）整除的提供1个0，
+  - 能被25（5^2）整除的再多提供2个0
+  - 能被125（5^3）整除的再多提供3个0
+  - 能被625（5^4）整除的再多提供4个0
   - ....
   - 所以 结果= n/5 + n/25 + n/125 + n/625
 
@@ -9381,6 +9356,12 @@ int tailZero(int n){
 
 Fisher–Yates洗牌算法：从原始数组中随机取一个之前没取过的数字到新的数组中，时间O(n)，空间O(1)，不会出现**浪费次数**，保持`n!`的样本空间
 
+- 初始化原始数组和新数组，原始数组长度为（已知）；
+- 从还没处理的数组（假如还剩k个）中，随机产生一个[0，k)之间的数字p(假设数组从0开始)
+- 从剩下的k个数中把第p个数取出；
+- 重复步骤2和3直到数字全部取完；
+- 从步骤3取出的数字序列便是一个打乱了的数列。
+
 ```shell
 To shuffle an array a of n elements (indices 0..n-1):
   for i from n - 1 downto 1 do
@@ -9390,15 +9371,9 @@ To shuffle an array a of n elements (indices 0..n-1):
 
 下面证明其随机性，即每个元素在位置1~n上的概率都是1/n：
 
-- 对于原数组任意第r个元素
+元素m被放入第i个位置的概率 = 前i-1个位置选择元素时没有选中m的概率 * 第i个位置选中m的概率，即：
 
-  - 它在第n个位置的概率是`1/n`（第n个元素与第r个元素交换的概率）
-
-  - 它在第n-1个位置的概率是`[(n-1)/n]*[1/(n-1)]=1/n`（第n个元素不与第r个元素交换的概率 x 第n-1个元素与第r个元素交换的概率）
-
-  - 它在第n-2个位置的概率是`[(n-1)/n]*[(n-2)/(n-1)]*[1/(n-2)]=1/n`（第n个元素不与第r个元素交换的概率 x 第n-1个元素不与第r个交换的概率 x 第n-2个元素与第r个元素交换的概率）
-
-  - 它在第n-k个位置的概率是`[(n-1)/n]*[(n-2)/(n-1)]* ... [1/(n-k)]=1/n`（第n个元素不与第r个元素交换的概率 x 第n-1个元素不与第r个元素交换的概率 x 第n-2个元素不与第r个元素交换的概率 x ... x 第n-k个元素与第r个元素交换的概率）
+`P = [(n-1)/n]*[(n-2)/(n-1)]*...*[(n-i-1)/(n-i)]*[1/(n-i-1)] = 1/n`
 
 #### 蓄水池算法
 
@@ -9434,13 +9409,13 @@ for each i in k to n do
 
 算法的精妙之处在于：当处理完所有的数据时，蓄水池中的每个数据都是以k/N的概率获得的。
 
-#### 如何等概率挑出大文件中的一行
+##### 如何等概率挑出大文件中的一行
 
 Amazon: 一个文件中有很多行，不能全部放到内存中，如何等概率的随机挑出其中的一行？
 
 答案：先将第一行设为候选的被选中的那一行，然后一行一行的扫描文件。假如现在是第 K 行，那么第 K 行被选中踢掉现在的候选行成为新的候选行的概率为 1/K。用一个随机函数看一下是否命中这个概率即可。命中了，就替换掉现在的候选行然后继续，没有命中就继续看下一行
 
-#### 如何等概率挑选大文件中的N行中文
+##### 如何等概率挑选大文件中的N行中文
 
 问题：给你一个 Google 搜索日志记录，存有上亿挑搜索记录（Query）。这些搜索记录包含不同的语言。随机挑选出其中的 100 万条中文搜索记录。假设判断一条 Query 是不是中文的工具已经写好了。
 
@@ -9475,7 +9450,6 @@ Query，按照如下步骤执行你的算法：
 
 - 如果输入随机数发生器的范围要比输出随机数发生器的范围大，比如rand7构造rand5，那么很简单，当产生6或7时，**重新**产生随机数，直到输出1~5中的某个数。
 - 这个叫做rejection sampling，不满足则**重新取样**。
-- 当然，如果两个范围差得很大，可以先取余，比如。
 - 重新取样的可行性是可以证明的，输出随机数发生器下次生成1的概率=第一次产生1的概率+第一次产生6or7*第二次产生1的概率+....=1/5
 
     `P(x=1) = 1/7 + (2/7)*(1/7) + (2/7)^2*(1/7) + (2/7)^3*(1/7) + ... = 1/5`
@@ -10591,7 +10565,7 @@ Hibernate是一个持久层框架，轻量级(性能好)，orm映射灵活，对
 
 Kubenetes容器平台
 
-### 缓存与Redis
+### 缓存一致性
 
 缓存在计算机系统是无处不在，在CPU层面有L1-L3的Cache，在Linux中有TLB加速虚拟地址和物理地址的转换，在浏览器有本地缓存、手机有本地缓存等。缓存在计算机系统中有非常重要的地位，其主要作用是提高响应速度、减少磁盘访问等，本文主要讨论在高并发系统中的缓存系统。
 
