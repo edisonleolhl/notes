@@ -8730,15 +8730,139 @@ T2 = "it is a banana"
 
 跳表(skip list)类似于单链表的二分查找，有些情况甚至可以代替红黑树，因为跳表还支持**范围查找**，Redis中的有序集合就是基于跳表实现的（但有些扩展）。很多编程语言的map类型都是用红黑树实现的，跳表在标准库中还没有广泛应用。
 
-假设单链表有n个节点，那么首先第1级索引构造一个步长为2的链表，其中每个节点除了指向后面步长为2的那个节点，也指向向下“down”的原始链表，第2级索引构造一个步长为4的链表，其中每个节点除了指向后面步长为4的那个节点，也指向向下“down”的第1级索引
+思路：
 
 ![20200317221654.png](https://raw.githubusercontent.com/edisonleolhl/PicBed/master/20200317221654.png)
 
-跳表可以加快查询速率，查询任意数据的时间复杂度就是O(logn)，但是索引是需要空间，对于长度为n的单链表，需要再消耗O(n)的空间构造跳表，但是实际上索引只是一些指针而已，如果数据是很大的对象的话，用空间换时间还是很划算的
+- 假设单链表有n个节点，那么首先第1级索引构造一个步长为2的链表，其中每个节点除了指向后面步长为2的那个节点，也指向向下“down”的原始链表，第2级索引构造一个步长为4的链表，其中每个节点除了指向后面步长为4的那个节点，也指向向下“down”的第1级索引
+- 跳表可以加快查询速率，查询任意数据的时间复杂度就是O(logn)，但是索引是需要空间，对于长度为n的单链表，需要再消耗O(n)的空间构造跳表，但是实际上索引只是一些指针而已，如果数据是很大的对象的话，用空间换时间还是很划算的
+- 而且跳表的插入、删除操作的时间复杂度也是O(logn)，跳表可以用O(logn)找到待插入/删除的位置，然后用O(1)完成插入/删除
+- 可以想象，往跳表中不断地插入/删除，跳表可能会退化为单链表，所以无法直接用这种朴素的思路
 
-而且跳表的插入、删除操作的时间复杂度也是O(logn)，跳表可以用O(logn)找到待插入/删除的位置，然后用O(1)完成插入/删除
+跳表是通过**随机函数**来维护“平衡性”。往跳表中插入数据的时候，可以选择同时将这个数据插入到某个索引层中，随机函数决定每层索引层是否插入该元素。它不要求上下相邻两层链表之间的节点个数有严格的对应关系，而是为每个节点随机出一个层数(level)。比如，一个节点随机出的层数是3，那么就把它链入到第1层到第3层这三层链表中
 
-可以想象，往跳表中不断地插入/删除，跳表可能会退化为单链表，所以要及时**更新索引**。类似红黑树/AVL树的平衡操作，更新索引就是维护索引和原始链表大小之间的平衡。跳表是通过**随机函数**来维护“平衡性”。往跳表中插入数据的时候，可以选择同时将这个数据插入到某个索引层中，随机函数决定到底是哪个索引层
+![skiplist_insertions](http://zhangtielei.com/assets/photos_redis/skiplist/skiplist_insertions.png)
+
+> Redis中跳表层数是32，概率是0.25
+
+
+实现一个跳表
+
+https://leetcode.cn/problems/design-skiplist/solution/by-tonngw-ls2k/
+
+```c++
+// 各个节点是如何相连接(关联)的？
+
+// 通过每个节点的forward数组，forward数组存储当前节点，在每一层的下一个节点。
+// 以头节点为例，头结点的forward存储的是每一层的第一个节点。然后通过第一个节点的forward[level],拿到该层的后面元素...... 以次类推，即可遍历该层所有节点。
+// 与普通单链表的区别，我们可以大概理解为，上面多了几层简化的结果，如上面动画所示。
+// update存的是什么?
+
+// 每层中最后一个key小于要插入节点key的节点。
+// 节点生成的level是多少，该节点就从0层到level层一直都出现。
+constexpr int MAX_LEVEL = 32;
+constexpr double P_FACTOR = 0.25;
+
+struct SkiplistNode {
+    int val;
+    vector<SkiplistNode *> forward; // 存储当前节点，在每一层的下一个节点。
+    SkiplistNode(int _val, int _maxLevel = MAX_LEVEL) : 
+        val(_val),
+        forward(_maxLevel, nullptr) {}
+};
+
+class Skiplist {
+private:
+    SkiplistNode * head;
+    int level;
+    mt19937 gen{random_device{}()};
+    uniform_real_distribution<double> dis;
+
+public:
+    Skiplist(): head(new SkiplistNode(-1)), level(0), dis(0, 1) {
+    }
+
+    bool search(int target) {
+        SkiplistNode *curr = this->head;
+        for (int i = level - 1; i >= 0; i--) {
+            /* 找到第 i 层小于且最接近 target 的元素*/
+            while (curr->forward[i] && curr->forward[i]->val < target) {
+                curr = curr->forward[i]; //提示: forward存储该节点在当前层的下一个节点
+            }
+        }
+        curr = curr->forward[0];
+        /* 检测当前元素的值是否等于 target */
+        if (curr && curr->val == target) {
+            return true;
+        } 
+        return false;
+    }
+
+    void add(int num) {
+        vector<SkiplistNode *> update(MAX_LEVEL, head);
+        SkiplistNode *curr = this->head;
+        for (int i = level - 1; i >= 0; i--) {
+            /* 找到第 i 层小于且最接近 num 的元素*/
+            while (curr->forward[i] && curr->forward[i]->val < num) {
+                curr = curr->forward[i];
+            }
+            update[i] = curr;
+        }
+        int lv = randomLevel(); // 根据一定概率，创建索引，层数越高概率越小
+        level = max(level, lv);
+        SkiplistNode *newNode = new SkiplistNode(num, lv);
+        for (int i = 0; i < lv; i++) {
+            /* 对第 i 层的状态进行更新，将当前元素的 forward 指向新的节点 */
+            newNode->forward[i] = update[i]->forward[i];
+            update[i]->forward[i] = newNode;
+        }
+    }
+
+    bool erase(int num) {
+        vector<SkiplistNode *> update(MAX_LEVEL, nullptr);
+        SkiplistNode *curr = this->head;
+        for (int i = level - 1; i >= 0; i--) {
+            /* 找到第 i 层小于且最接近 num 的元素*/
+            while (curr->forward[i] && curr->forward[i]->val < num) {
+                curr = curr->forward[i];
+            }
+            update[i] = curr;
+        }
+        curr = curr->forward[0];
+        /* 如果值不存在则返回 false */
+        if (!curr || curr->val != num) {
+            return false;
+        }
+        for (int i = 0; i < level; i++) {
+            if (update[i]->forward[i] != curr) { // 该节点在第i层没有索引，因为是从下到上遍历，可直接break
+                break;
+            }
+            /* 对第 i 层的状态进行更新，将 forward 指向被删除节点的下一跳 */
+            update[i]->forward[i] = curr->forward[i];
+        }
+        delete curr;
+        /* 更新当前的 level */
+        while (level > 1 && head->forward[level - 1] == nullptr) {
+            level--;
+        }
+        return true;
+    }
+
+    int randomLevel() {
+        int lv = 1;
+        /* 随机生成 lv */
+        while (dis(gen) < P_FACTOR && lv < MAX_LEVEL) {
+            lv++;
+        }
+        return lv;
+    }
+};
+
+作者：LeetCode-Solution
+链接：https://leetcode.cn/problems/design-skiplist/solution/she-ji-tiao-biao-by-leetcode-solution-e8yh/
+来源：力扣（LeetCode）
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+```
 
 ### 线索二叉树
 
@@ -9540,7 +9664,7 @@ public:
 private:
     int capacity;
     list<pair<int, int>> recent; // 用链表记录最近
-    unordered_map<int, list<pair<int, int>>::iterator> position; // 用哈希表记录位置
+    unordered_map<int, list<pair<int, int>>::iterator> position; // 用哈希表记录位置, key=num, value=num在list中的迭代器
 };
 
 int main(){
