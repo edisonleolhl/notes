@@ -2918,6 +2918,50 @@ TODO
 
 时间复杂度：O(M+N)
 
+```c++
+class Solution {
+public:
+    // 构建next数组：时间复杂度O(m)，next[i] 表示 P[0] ~ P[i] 这一个子串，使得 前k个字符恰等于后k个字符 的最大的k
+    vector<int> buildNext(string haystack, string needle) {
+        vector<int> next(needle.size()+1); // 因为最后会超出范围，多加一个长度，反正最后的元素不会用到
+        int i = 1; // next[0]必然是0，所以从1开始求
+        int now = 0;
+        while (i < needle.size()) {
+            if (needle[i] == needle[now]) { // 匹配，向右扩展一位
+                now++;
+                next[i] = now;
+                i++;
+            } else if (now != 0) {
+                now = next[now-1]; // 不匹配，缩小now
+            } else {
+                i++;
+                next[i] = now; // now已经为0，无法再缩小，所以next[i] = 0
+            }
+        }
+        return next;
+    }
+    int strStr(string haystack, string needle) {
+        vector<int> next = buildNext(haystack, needle);
+        int tar = 0; // 主串匹配位置
+        int pos = 0; // 模式串匹配位置
+        while (tar < haystack.size()) {
+            if (haystack[tar] == needle[pos]) {
+                tar++;
+                pos++;
+            } else if (pos != 0) { // 根据前缀数组移动标尺
+                pos = next[pos - 1];
+            } else { // 不匹配且pos=0，则直接移动标尺
+                tar++;
+            }
+            if (pos == needle.size()) {
+                return tar - pos; // 匹配成功，输出主串上匹配的起点
+            }
+        }
+        return -1;
+    }
+};
+```
+
 缺陷：现实中，中间内容与前缀相同的单词、词汇并不多见，而长句更是除了排比句之外就很少见了，因此，在花费时间空间生成了有限状态机之后，很有可能会出现一直都是重置状态而很少降价状态的情况出现。对于长句而言，状态机所占用的空间是巨大的，而并不高效，相反纯暴力解法对于短 pattern 串。而言，总体运行时间却并不比它慢
 
 参考连接： [http://www.ruanyifeng.com/blog/2013/05/Knuth%E2%80%93Morris%E2%80%93Pratt_algorithm.html](http://www.ruanyifeng.com/blog/2013/05/Knuth–Morris–Pratt_algorithm.html)
@@ -13714,6 +13758,144 @@ public:
 };
 ```
 
+### 1206. 设计跳表(Hard)
+
+不使用任何库函数，设计一个 跳表 。
+
+跳表 是在 O(log(n)) 时间内完成增加、删除、搜索操作的数据结构。跳表相比于树堆与红黑树，其功能与性能相当，并且跳表的代码长度相较下更短，其设计思想与链表相似。
+
+例如，一个跳表包含 [30, 40, 50, 60, 70, 90] ，然后增加 80、45 到跳表中，以下图的方式操作：
+
+Artyom Kalinin [CC BY-SA 3.0], via Wikimedia Commons
+
+跳表中有很多层，每一层是一个短的链表。在第一层的作用下，增加、删除和搜索操作的时间复杂度不超过 O(n)。跳表的每一个操作的平均时间复杂度是 O(log(n))，空间复杂度是 O(n)。
+
+了解更多 : https://en.wikipedia.org/wiki/Skip_list
+
+在本题中，你的设计应该要包含这些函数：
+
+bool search(int target) : 返回target是否存在于跳表中。
+void add(int num): 插入一个元素到跳表。
+bool erase(int num): 在跳表中删除一个值，如果 num 不存在，直接返回false. 如果存在多个 num ，删除其中任意一个即可。
+注意，跳表中可能存在多个相同的值，你的代码需要处理这种情况。
+
+示例 1:
+
+```shell
+输入
+["Skiplist", "add", "add", "add", "search", "add", "search", "erase", "erase", "search"]
+[[], [1], [2], [3], [0], [4], [1], [0], [1], [1]]
+输出
+[null, null, null, null, false, null, true, false, true, false]
+
+解释
+Skiplist skiplist = new Skiplist();
+skiplist.add(1);
+skiplist.add(2);
+skiplist.add(3);
+skiplist.search(0);   // 返回 false
+skiplist.add(4);
+skiplist.search(1);   // 返回 true
+skiplist.erase(0);    // 返回 false，0 不在跳表中
+skiplist.erase(1);    // 返回 true
+skiplist.search(1);   // 返回 false，1 已被擦除
+```
+
+提示:
+
+0 <= num, target <= 2 * 104
+调用search, add,  erase操作次数不大于 5 * 104 
+
+这个答案好记，用一个find辅助函数
+
+```c++
+class Skiplist {
+public:
+    static const int level = 8; // 层数，经验值 8，太大浪费空间，因为每一个节点都要存在每一层的 next，层数越多节点数越多
+
+    // 定义跳表节点
+    struct Node {
+        int val; // 节点值
+        vector<Node*> next; // 记录节点在每一层的 next，next[i] 表示当前节点第 i 层的 next
+
+        Node(int _val) : val(_val) { // 构造函数
+            next.resize(level, NULL); // 初始化 next 数组的大小和层数 level 相同，初始值都指向 NULL
+        }
+    } *head; // 定义头节点 head
+
+    Skiplist() {
+        head = new Node(-1); // 初始化一个不存在的节点值 -1
+    }
+
+    ~Skiplist() {
+        delete head; // 析构函数删除 head
+    }
+
+    // 辅助函数：找到每一层 i 小于目标值 target 的最大节点 pre[i]，最后 pre 中存的就是每一层小于 target 的最大节点
+    void find(int target, vector<Node*>& pre) {
+        auto p = head; // 从头节点开始遍历每一层
+        for (int i = level - 1; i >= 0; i -- ) { // 从上层往下层找
+            while (p->next[i] && p->next[i]->val < target) p = p->next[i]; // 如果当前层 i 的 next 不为空，且它的值小于 target，则 p 往后走指向这一层 p 的 next
+            pre[i] = p; // 退出 while 时说明找到了第 i 层小于 target 的最大节点就是 p
+        }
+    }
+    
+    // 从跳表中查找 target
+    bool search(int target) {
+        vector<Node*> pre(level);
+        find(target, pre); // 先找到每一层 i 小于目标值 target 的最大节点 pre[i]
+        
+        auto p = pre[0]->next[0]; // 因为最下层【0】的节点是全的，所以只需要判断 target 是否在第 0 层即可，而 pre[0] 正好就是小于 target 的最大节点，如果 pre[0]->next[0] 的值不是 target 说明没有这个元素
+        return p && p->val == target;
+    }
+    
+    // 向跳表中插入元素 num
+    void add(int num) {
+        vector<Node*> pre(level);
+        find(num, pre); // 先找到每一层 i 小于目标值 target 的最大节点 pre[i]
+
+        auto p = new Node(num); // 创建要插入的新节点
+        for (int i = 0; i < level; i ++ ) { // 遍历每一层，从下往上插入新节点
+            p->next[i] = pre[i]->next[i]; // 这两步就是单链表的插入
+            pre[i]->next[i] = p;
+            if (rand() % 2) break; // 每一层有 50% 的概率不插入新节点
+        }
+    }
+    
+    // 从跳表中删除 num
+    bool erase(int num) {
+        vector<Node*> pre(level);
+        find(num, pre); // 先找到每一层 i 小于目标值 target 的最大节点 pre[i]
+
+        // 先判断 num 是否存在，不存在直接返回 false
+        // 第 0 层存储的是全部节点，所以只需要判断 pre[0]->next[0]（第 0 层小于 num 的最大节点的在第 0 层的 next） 是不是 num 即可
+        auto p = pre[0]->next[0];
+        if (!p || p->val != num) return false;
+
+        // 否则删除每一层的 num，如果 pre[i]->next[i] == p 说明第 i 层存在 p
+        for (int i = 0; i < level && pre[i]->next[i] == p; i ++ ) {
+            pre[i]->next[i] = p->next[i]; // 单链表删除
+        }
+
+        delete p; // 删除节点 p，防止内存泄漏
+
+        return true;
+    }
+};
+
+/**
+ * Your Skiplist object will be instantiated and called as such:
+ * Skiplist* obj = new Skiplist();
+ * bool param_1 = obj->search(target);
+ * obj->add(num);
+ * bool param_3 = obj->erase(num);
+ */
+
+作者：tonngw
+链接：https://leetcode.cn/problems/design-skiplist/solutions/1699167/by-tonngw-ls2k/
+来源：力扣（LeetCode）
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+```
 ## 图论
 
 ### 207. 课程表(Medium) @hot100
