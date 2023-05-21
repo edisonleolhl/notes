@@ -178,6 +178,8 @@ x/s：打印ASCII字符串
 
 x/nfu addr：以f格式打印从addr开始的n个长度单元为u的内存值。n：输出单元的个数。f：是输出格式。比如x是以16进制形式输出，o是以8进制形式输出。u：标明一个单元的长度。b是一个byte，h是两个byte（halfword），w是四个byte（word），g是八个byte（giant word）。
 
+> 比如：打印内存地址0x00000001249e1000开始的725293568个字节的数据
+
 l(list) [line_num / func_name]：打印源代码以及行号，可以指定行号与函数名
 
 l -/+：指定打印源代码向前或向后打印
@@ -398,9 +400,37 @@ gdb attach pid来调试一个运行的进程，gdb将对指定进程执行ptrace
 
 ### pstack
 
-此命令可显示每个进程的栈跟踪
+此命令可显示每个进程的栈跟踪，经常用来排查死锁问题，pstack $pid即可，pstack命令须由$pid进程的属主或者root运行
 
 这个命令在排查进程问题时非常有用，比如我们发现一个服务一直处于work状态（如假死状态，好似死循环），使用这个命令就能轻松定位问题所在；可以在一段时间内，多执行几次pstack，若发现代码栈总是停在同一个位置，那个位置就需要重点关注，很可能就是出问题的地方；
+
+### strace
+
+strace常用来跟踪进程执行时的系统调用和所接收的信号。 在Linux世界，进程不能直接访问硬件设备，当进程需要访问硬件设备(比如读取磁盘文件，接收网络数据等等)时，必须由用户态模式切换至内核态模式，通过系统调用访问硬件设备。strace可以跟踪到一个进程产生的系统调用,包括参数，返回值，执行消耗的时间。
+
+#### 操作系统层面分析
+
+这里每一行都是一条系统调用，等号左边是系统调用的函数名及其参数，右边是该调用的返回值。 strace 显示这些调用的参数并返回符号形式的值。
+
+```bash
+strace cat /dev/null 
+```
+
+#### 跟踪可执行程序
+
+-f -F选项告诉strace同时跟踪fork和vfork出来的进程，-o选项把所有strace输出写到~/straceout.txt里 面，myserver是要启动和调试的程序。
+
+```bash
+strace -f -F -o ~/straceout.txt myserver 
+```
+
+#### 跟踪服务程序
+
+跟踪2313进程的所有系统调用(-e trace=all)，并统计系统调用的花费时间，以及开始时间(并以可视化的时分秒格式显示)，最后将记录结果存在output.txt文件里面。
+
+```bash
+strace -o output.txt -T -tt -e trace=all -p 2313 
+```
 
 ### ldd
 
@@ -456,3 +486,152 @@ _Z10fun_stringRKSs
  c++filt _Z10fun_stringRKSs
 fun_string(std::basic_string<char, std::char_traits<char>, std::allocator<char> > const&)
 ```
+
+### AddressAsan
+
+#### 基础检测场景
+
+-  heap/stack/global out-of-bound
+-  heap use-after-free
+-  stack use-after-return
+
+#### 使用
+
+可以使用GCC & Clang编译，可能会与tcmalloc的一些特性冲突，需关闭
+
+In order to use AddressSanitizer you will need to compile and link your program using clang with the -fsanitize=address switch. To get a reasonable performance add -O1 or higher. To get nicer stack traces in error messages add -fno-omit-frame-pointer
+
+#### 示例
+
+编写程序，并编译链接
+
+```bash
+% cat tests/use-after-free.c
+#include <stdlib.h>
+int main() {
+  char *x = (char*)malloc(10 * sizeof(char*));
+  free(x);
+  return x[5];
+}
+% ../clang_build_Linux/Release+Asserts/bin/clang -fsanitize=address -O1 -fno-omit-frame-pointer -g   tests/use-after-free.c
+```
+
+运行二进制文件，asan会报告错误
+
+```bash
+% ./a.out
+==9901==ERROR: AddressSanitizer: heap-use-after-free on address 0x60700000dfb5 at pc 0x45917b bp 0x7fff4490c700 sp 0x7fff4490c6f8
+READ of size 1 at 0x60700000dfb5 thread T0
+    #0 0x45917a in main use-after-free.c:5
+    #1 0x7fce9f25e76c in __libc_start_main /build/buildd/eglibc-2.15/csu/libc-start.c:226
+    #2 0x459074 in _start (a.out+0x459074)
+0x60700000dfb5 is located 5 bytes inside of 80-byte region [0x60700000dfb0,0x60700000e000)
+freed by thread T0 here:
+    #0 0x4441ee in __interceptor_free projects/compiler-rt/lib/asan/asan_malloc_linux.cc:64
+    #1 0x45914a in main use-after-free.c:4
+    #2 0x7fce9f25e76c in __libc_start_main /build/buildd/eglibc-2.15/csu/libc-start.c:226
+previously allocated by thread T0 here:
+    #0 0x44436e in __interceptor_malloc projects/compiler-rt/lib/asan/asan_malloc_linux.cc:74
+    #1 0x45913f in main use-after-free.c:3
+    #2 0x7fce9f25e76c in __libc_start_main /build/buildd/eglibc-2.15/csu/libc-start.c:226
+SUMMARY: AddressSanitizer: heap-use-after-free use-after-free.c:5 main
+```
+
+#### 原理
+
+-  地址毒剂法：
+    - 不可用的内存标记为被下毒的地址
+    - 访问到被下毒的地址时报告内存错误
+
+具体实现
+
+-  将每8byte的应用地址空间映射到1个byte的shadow地址空间上，记录这个8byte是否被下毒(值为负数)
+
+  ```shll
+      +--------+
+      |        |
+      | Memory | --+
+      |        |   |
+      +--------+   |
+  +-- | Shadow | <-+
+  |   +--------+
+  +-> | Bad    |
+  |   +--------+
+  +-- | Shadow | <-+
+      +--------+   |
+      |        |   |
+      | Memory | --+
+      |        |
+      +--------+
+  ```
+
+-  每次地址操作前，先检查待操作的地址是否被下毒(对应的shadow为负数)
+
+```c++
+// Before
+*addr = xxx; // or: xxx = *addr;
+
+// After:
+if (IsPoisoned(addr)) {
+    ReportError(addr);
+}
+*addr = xxx; // or: xxx = *addr;
+```
+
+#### 错误检测
+
+- malloc时，在内存前后额外申请一部分内存作为Redzone，这部分直接标记为被下毒(检测heap out-of-bound)
+
+```shell
++-----+------+-----+------+-----+
+| rz1 | mem1 | rz2 | mem2 | rz3 |
++-----+------+-----+------+-----+
+```
+
+- free时，将归还的内存全部标记为被下毒，置入隔离区（暂不归还给系统，检测heap use-ofter-free以及double free）
+
+- 在栈上内存前后额外申请内存作为Redzone，标记为被下毒(检测stack/global out-of-bound以及stack use-after-return)
+
+#### 性能影响
+
+- Slowdown: 1.93x (1.12x ~ 3.79x, 内存分配 & 小内存访问 影响较大)
+- Memory usage: 3.37x (1.4x ~ 19.84x)
+- Stack increase: 大部分低于10% (1.02x ~ 3.06x)
+- Binary size: 2.5x
+
+#### 检测不到的场景 (检测假阴性 False Negatives)
+
+- 部分越界的未对齐访问
+
+  ```c++
+  //                  buffer                 out-of-bound
+  // [-------------------------------------] [xxxxxxx]
+  // 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0xff 0xff
+  // [-----------------]           [-----------------]
+  //        int *a                        int *u
+  int *a = new int[2];
+  int *u = (int*)((char*)a + 6);
+  *u = 1; // out-of-bound
+  ```
+
+- 恰巧落在其他buffer的访问
+
+  ```c++
+  char *a = new char[100];
+  char *b = new char[500];
+  a[500] = 0; // a out-of-bound, 恰巧落在b
+  ```
+
+- 大内存分配后的heap use-after-free
+
+  ```c++
+  char *a = new char[1 << 20]; // 申请1MB
+  deleta [] a;                 // a置入隔离区
+  char *b = new char[1 << 28]; // 申请256MB
+  deleta [] b;                 // b置入隔离区，达到隔离区最大值，a从隔离区归还至系统
+  char *c = new char[1 << 20]; // 1MB
+
+  a[0] = 1;                    // a use-after-free, 恰巧落在c
+  ```
+
+> 与之对应的，asan具有的特性是：Zero false positives（检测出阳性就肯定是真实的阳性）
