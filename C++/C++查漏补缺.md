@@ -1465,11 +1465,43 @@ constexpr，constexpr表示编译期常量，const用来表示一个运行时常
 
 新增自定义字面量，以前只能是原生类型的字面值常量，现在可以用operator""后缀
 
+### C++17有什么新特性
+
+constexpr lambda表达式: C++17前lambda表达式只能在运行时使用，C++17引入了constexpr lambda表达式，可以用于在编译期进行计算。
+
+std::variant: 实现类似union的功能，但却比union更高级，举个例子union里面不能有string这种类型，但std::variant却可以，还可以支持更多复杂类型，如map等
+
+std::optional: 经常需要函数返回对象，但有时候需要返回『空』的语义，这里用std::optional更佳
+
+```c++
+std::optional<int> StoI(const std::string &s) {
+    try {
+        return std::stoi(s);
+    } catch(...) {
+        return std::nullopt;
+    }
+}
+
+void func() {
+    std::string s{"123"};
+    std::optional<int> o = StoI(s);
+    if (o) {
+        cout << *o << endl;
+    } else {
+        cout << "error" << endl;
+    }
+}
+```
+
+std::any可以存储任何类型的单个值
+
+std::string_view: 通常我们传递一个string时会触发对象的拷贝操作，大字符串的拷贝赋值操作会触发堆内存分配，很影响运行效率，有了string_view就可以避免拷贝操作，平时传递过程中传递string_view即可
+
 ### C++20有什么新特性
 
 Concepts，概念，对模板进行约束
 
-Coroutine，协程，协作式的交叉调度执行，场景：生成器、异步I/O、惰性求值、事件驱动应用
+Coroutine，协程，协作式的交叉调度执行，场景：生成器、异步I/O、惰性求值、事件驱动应用，但对开发者不友好，一般不直接适用，或分装，或使用libco等库
 
 Ranges，范围，不用begin()与end()来包围了
 
@@ -4639,7 +4671,31 @@ waitpid第一个参数指定要回收进程的PID，传入-1就和wait一样。�
 
 缺点：协程适用于IO密集型，不适用于CPU密集型
 
-libco是微信后台大规模使用的c/c++协程库。libco采用**epoll多路复用**使得一个线程处理多个socket连接，采用钩子函数hook住socket族函数，采用时间轮盘处理等待超时事件，采用协程栈保存、恢复每个协程上下文环境。
+- 有栈协程有独立的栈，无栈协程无需（预先）分配独立的栈,它只有一个帧，因此消耗更少的内存。通常无栈协程的帧是由heap上动态分配，但编译器可以将其优化掉。
+- 无栈协程与其调用者关系紧密：对无栈协程的调用将控制权转移至协程本身，从无栈协程挂起(yield)则返回至调用者。
+- 有栈协程生存周期对应于其栈的生命周期，无栈协程生命周期对应于协程对象（或帧）的生命周期。
+- 无栈协程优点：不需要为每个协程保存单独的上下文，内存占用低切换成本低，效率高，性能好
+- 无栈协程缺点：需要编译器提供语义支持，比如C#yield return语法糖
+
+开源库：libco是微信后台大规模使用的c/c++协程库。libco采用**epoll多路复用**使得一个线程处理多个socket连接，采用钩子函数hook住socket族函数，采用时间轮盘处理等待超时事件，采用协程栈保存、恢复每个协程上下文环境。这里是解析：https://www.cyhone.com/articles/analysis-of-libco/
+
+云风编写的[coroutine库](https://github.com/cloudwu/coroutine)就是用C实现的有栈协程，很容易理解上下文切换，解析在https://zhuanlan.zhihu.com/p/84935949
+
+上下文/现场一般包括：
+
+1. EIP寄存器，用来存储CPU要读取指令的地址
+
+2. ESP寄存器：指向当前线程栈的栈顶位置
+
+3. 其他通用寄存器的内容：包括代表函数参数的rdi、rsi等等。
+
+4. 线程栈中的内存内容。
+
+Linux下提供了一套函数，叫做ucontext簇函数，可以用来获取和设置当前线程的上下文内容。这也是coroutine的核心方法。
+
+libco与coroutine都是用的共享栈，提前开了一个足够大的栈空间(coroutine默认是1M)。所有的栈运行的时候，都使用这个栈空间，不会浪费。
+
+共享栈对标的是非共享栈，也就是每个协程的栈空间都是独立的，固定大小。好处是协程切换的时候，内存不用拷贝来拷贝去。坏处则是内存空间浪费.
 
 ### 进程间通信IPC
 
@@ -5365,7 +5421,7 @@ BUT，如果一个函数是线程安全的，并不能说明对**信号处理程
 #### std::thread
 
 - thread 的构造函数的第一个参数是函数(对象)，后面跟的是这个函数所需的参数。
-- thread 要求在析构之前要么 join(阻塞直到线程退出)，要么 detach(放弃对线程的管理)，否则程序会异常退出。
+- thread 要求在析构之前要么 join(阻塞直到线程退出)，要么 detach(放弃对线程的管理，使其成为守护线程)，否则程序会异常退出。
 - 只有joinable(已经join的、已经detach的或者空的线程对象都不满足joinable)的thread才可以对其调用 join 成员函数，否则会引发异常
 - c++11还提供了获取线程id，或者系统cpu个数，获取thread native_handle，使得线程休眠等功能
 
@@ -5417,12 +5473,14 @@ thread不能在析构时自动join，感觉不是很自然，但是在C++20的jt
 
 #### std::mutex
 
-std::mutex是一种线程同步的手段，用于保存多线程同时操作的共享数据。mutex分为四种：
+std::mutex（mutual exclusion，互斥）是一种线程同步的手段，用于保存多线程同时操作的共享数据。mutex分为四种：
 
 - std::mutex：独占的互斥量，不能递归使用，不带超时功能
 - std::recursive_mutex：递归互斥量，可重入，不带超时功能
 - std::timed_mutex：带超时的互斥量，不能递归
 - std::recursive_timed_mutex：带超时的互斥量，可以递归使用
+- std::shared_timed_mutex(C++14): 提供共享互斥并带有超时功能
+- std::shared_mutex(C++17)：提供共享互斥
 
 std::mutex不允许拷贝构造，初始是unlock状态
 
@@ -5487,6 +5545,12 @@ void some_func() {
 }
 ```
 
+#### shared_lock(C++14), scoped_lock(C++17)
+
+shared_lock：实现可移动的共享互斥体所有权封装器
+
+scoped_lock：用于多个互斥体的免死锁RAII封装器
+
 #### std::atomic
 
 头文件`<atomic>`定义了原子量和内存序(C++11起)，用atomic_int/atomic_bool/...代替int/bool/...，即可保证这些操作都是原子性的，比mutex对资源加锁解锁要快
@@ -5542,7 +5606,7 @@ struct NewCounter { // 使用原子变量的计数器
 };
 ```
 
-#### std::callonce
+#### std::call_once
 
 c++11提供了std::call_once来保证某一函数在多线程环境中只调用一次，它需要配合std::once_flag使用，直接看使用代码吧：
 
