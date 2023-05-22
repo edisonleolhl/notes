@@ -434,13 +434,13 @@ int main() {  
 
 ### 说一说四种cast转换
 
-1. const_cast，用于将const变量转化为非const变量
+1. const_cast，用于将const变量转化为非const变量，但都不是很安全
 
 2. static_cast，用于各种基础类型转换，如非const转const，void*转指针，不执行RTTI，所以安全性不如dynamic_cast
 
-3. dynamic_cast
+3. dynamic_cast,，要求对象有虚函
 
-    `dynamic_cast<type-id>(expression)`：动态类型转换。用于父子之间的转换，**提供了运行时类型检查RTTI**，比static_cast要安全
+    `dynamic_cast<type-id>(expression)`：动态类型转换。用于父子之间的转换，**提供了运行时类型检查RTTI（ Runtime Type Information）**，比static_cast要安全
 
     向上转换一定成功，只需用将子类的指针或引用赋给基类的指针或引用即可。
 
@@ -910,6 +910,8 @@ void MyClass::func1() {
 
 RAII，也称为**资源获取就是初始化（Resource Acquisition Is Initialization**，是c++等编程语言常用的管理资源、避免内存泄露的方法。它保证在任何情况下，使用对象时先构造对象，最后析构对象。**利用对象的生命周期来管理资源**。智能指针是最具代表的技术。std::lock_gaurd也是一个例子。
 
+利用栈上局部变量的自动析构来保证资源一定会被释放。
+
 C++没有严格的垃圾收集（GC）机制，而C语言又容易产生内存泄漏，所以用好RAII思想，可以避免内存泄漏
 
 ### 智能指针
@@ -921,7 +923,7 @@ C++没有严格的垃圾收集（GC）机制，而C语言又容易产生内存�
 - auto_ptr采取所有权模式，可以被拷贝（构造or赋值）时，原auto_ptr指为nullptr，即auto_ptr被其他auto_ptr**剥夺**（转移），所以很容易引起内存泄露（粗心的程序员可能仍然会解引用原auto_ptr）
 - unique_ptr是独占式拥有，解决了auto_ptr被剥夺的问题，**unique_ptr禁止了拷贝**（构造or赋值），保证同一时间内只有一个智能指针可以指向该对象，如果真的需要转移，可以使用**借助move实现移动构造**，原unique_ptr置为nullptr（但粗心的程序员可能仍然会解引用原来的unique_ptr）
 - shared_ptr是共享，允许拷贝（构造or赋值），允许多个智能指针可以指向相同对象，每当，每次有一个shared_ptr关联到某个对象上时（拷贝构造or拷贝赋值），计数值就加上1；相反，每次有一个shared_ptr析构时，相应的计数值就减去1。当计数值减为0的时候，就执行对象的析构函数，此时该对象才真正被析构！如果用了移动（构造or赋值），那么原shared_ptr为空，并且指向对象的引用计数不会改变（相当于-1+1=0）
-- weak_ptr是一种**弱引用**，指向shared_ptr（强引用）所管理的对象，可从一个shared_ptr或另一个weak_ptr来构造，它的构造和析构不会引起引用计数的增加或减少。weak_ptr并没有重载operator->和operator *操作符，因此**不可直接通过weak_ptr使用对象**。weak_ptr提供了expired()与lock()成员函数，前者用于判断weak_ptr指向的对象是否已被销毁，后者返回其所指对象的shared_ptr智能指针(对象销毁时返回”空”shared_ptr)
+- weak_ptr是一种**弱引用**，指向shared_ptr（强引用）所管理的对象，使用场景：一切应该不具有对象所有权，又想安全访问对象的情况。可从一个shared_ptr或另一个weak_ptr来构造，它的构造和析构不会引起引用计数的增加或减少。weak_ptr并没有重载operator->和operator *操作符，因此**不可直接通过weak_ptr使用对象**。weak_ptr提供了expired()与lock()成员函数，前者用于判断weak_ptr指向的对象是否已被销毁，后者返回其所指对象的shared_ptr智能指针(对象销毁时返回”空”shared_ptr)
 
 [话说智能指针发展之路](https://blog.csdn.net/Jacketinsysu/article/details/53343534)（为了取消歧义，把复制都改为了拷贝，并且确定了是拷贝构造还是拷贝赋值）
 
@@ -1027,6 +1029,40 @@ auto sp1 = make_shared<widge>(), sp2{ sp1 }; // 分配一次内存，异常安�
 
 - 构造函数是保护或私有时,无法使用make_shared
 - 对象的内存可能无法及时回收，用shared_ptr时，当强引用为0自动回收，用make_shared时，当强引用与弱引用都为0才自动回收
+
+#### enable_shared_from_this
+
+```c++
+// 需求
+struct SomeData;
+void SomeAPI(const std::shared_ptr<SomeData>& d) {}
+
+struct SomeData {
+    void NeedCallSomeAPI() {
+        // 需要用this调用SomeAPI
+        SomeAPI(std::shared_ptr<SomeData>{this}); // 错误用法：调用完之后引用计数降为0，导致this被意外释放
+    }
+};
+
+// 正确做法：类继承std::enable_shared_from_this模板，并在调用处使用shared_from_this函数
+struct SomeData;
+void SomeAPI(const std::shared_ptr<SomeData>& d) {}
+
+struct SomeData:std::enable_shared_from_this<SomeData> {
+    static std::shared_ptr<SomeData> Create() {
+        return std::shared_ptr<SomeData>(new SomeData);
+    }
+    void NeedCallSomeAPI() {
+        SomeAPI(shared_from_this());
+    }
+private:
+    SomeData() {}
+};
+```
+
+当你需要将this指针传递给其他函数或方法，而这些函数或方法需要一个std::shared_ptr，而不是裸指针。
+
+当你需要在类的成员函数内部创建指向当前对象的std::shared_ptr，例如在回调函数或事件处理中。
 
 #### 智能指针也会发生内存泄漏吗；如果是，有什么手段避免
 
@@ -1140,9 +1176,10 @@ sa use count:1
 kill B
 kill A
 ```
+
 #### shared_ptr的线程安全性
 
-- shared_ptr的引用计数本身是安全且无锁的，但对象的读写则不是，因为 shared_ptr 有两个数据成员，读写操作不能原子化
+- 其实 shared_ptr 线程不安全主要来自于引用计数有并发更新的风险，当然引用计数本身也可以使用原子atomic。
 - shared_ptr 的线程安全级别和内建类型、标准库容器、std::string 一样
 - 多个线程同时读同一个shared_ptr对象是线程安全的，但是如果是多个线程对同一个shared_ptr对象进行读和写，则需要加锁
 
@@ -1158,7 +1195,7 @@ template<class T>
 class SmartPtr
 {
 public:
-    SmartPtr(T *p) {
+    explicit SmartPtr(T *p) {
         ptr = p;
         use_count = new int(1);
     }
@@ -1193,6 +1230,12 @@ public:
     T& operator*(const SmartPtr<T> &rhs){ // 重载解引用操作符，注意返回引用，因为返回左值可修改
         return *ptr;
     }
+
+    // 额外操作
+    T& operator*() const { return *ptr_; }
+    T* operator->() const { return ptr_; }
+    T* get() const { return ptr_; }
+    int use_count() const { return count_ ? *count_ : 0; }
 private:
     T *ptr; // 原始指针
     int *use_count; // 为了方便对其的递增或递减操作
@@ -1831,10 +1874,6 @@ C++三大特性：封装、继承、多态，都需要C模拟
 - 虚继承一般通过**vbptr虚基类指针**和vb虚基类表实现，每个虚继承的子类都有一个虚基类指针（占用一个指针的存储空间，放在虚函数表指针的后面，如果没有虚函数表指针，那就放在类实例的头部）和虚基类表（不占用类对象的存储空间）；当虚继承的子类被当做父类继承时，虚基类指针也会被继承。
 - 解决了二义性问题，解决了钻石继承/菱形继承/重复继承问题，也节省了内存，避免了数据不一致的问题。
 
-### 为什么虚函数表中有两个析构函数
-
-虚函数表中有两个析构函数，一个标志为deleting，一个标志为complete，因为对象有两种构造方式，**栈构造和堆构造**，所以对应的实现上，对象也有两种析构方式，其中堆上对象的析构和栈上对象的析构不同之处在于，栈内存的析构不需要执行 delete 函数，会自动被回收。
-
 ### 构造函数/析构函数的执行顺序
 
 - 首先执行**虚基类的构造函数**，多个虚基类的构造函数按照被继承的顺序构造（若没有虚基类，则略过这条）；
@@ -2014,6 +2053,8 @@ DerivedClass::fun2()
 
 ### sizeof(类对象)/字节对齐
 
+如果不对数据存储进行适当的对齐，可能会导致存取效率降低，所以，各种数据类型需要按照一定的规则在内存中排列（起始地址），而不是顺序地一个接一个排放，这种排列就是字节对齐。
+
 类型对齐方式（变量存放的起始地址相对于结构的起始地址的偏移量）
 
 - Char 偏移量必须为sizeof(char)即1的倍数
@@ -2022,30 +2063,45 @@ DerivedClass::fun2()
 - double 偏移量必须为sizeof(double)即8的倍数
 - Short 偏移量必须为sizeof(short)即2的倍数
 
-各成员变量在存放的时候根据在结构中出现的顺序依次申请空间，同时按照上面的对齐方式调整位置，空缺的字节编译器会自动填充，最后在根据最大空间类型所占类型自动填充末尾的空间，比如计算完了之后是21字节，但是内部有duoble（占8字节），所以末尾填充3个字节，得到24字节。可以通过`#pragma pack(n)`告知编译器字节对齐的大小
+各成员变量在存放的时候根据在结构中出现的顺序依次申请空间，同时按照上面的对齐方式调整位置，空缺的字节编译器会自动填充，最后在根据最大空间类型所占类型自动填充末尾的空间，比如计算完了之后是21字节，但是内部有duoble（占8字节），所以末尾填充3个字节，得到24字节。
+
+可以通过`#pragma pack(n)`告知编译器字节对齐的，但可能会降低访问性能
+
+在 C++11 及更高版本中，可以使用 alignas 关键字为数据结构或变量指定对齐要求。这个命令是对某个类型或者对象生效的。例如，alignas(16) int x; 将确保 x 的地址是 16 的倍数。
 
 ```c++
-struct s
-{
-    int a;
-    double d;
-    short b; // 占两个字节
-    char c;
-}; // sizeof(s) == 24
-struct s
-{
-    int a;
-    short b;
-    char c;
-    double d;
-}; // sizeof(s) == 16
-struct s
-{
-    char c;
-    int a;
-    short b;
-    double d;
-}; // sizeof(s) == 24
+#pragma pack(push, 1) // 设置字节对齐为 1 字节，取消自动对齐
+struct UnalignedStruct {
+    char a;
+    int b;
+    short c;
+    // 总共: 1 + 4 + 2
+};
+#pragma pack(pop) // 恢复默认的字节对齐设置
+
+struct AlignedStruct {
+    char a;   // 本来1字节，padding 3 字节
+    int b;    //  4 字节
+    short c;  // 本来 short 2字节，但是整体需要按照 4 字节对齐(成员对齐边界最大的是int 4) 
+              // 所以需要padding 2
+   // 总共: 4 + 4 + 4
+};
+
+struct MyStruct {
+ double a;    // 8 个字节
+ char b;      // 本来占一个字节，但是接下来的 int 需要起始地址为4的倍数
+              //所以这里也会加3字节的padding
+ int c;       // 4 个字节
+ // 总共:  8 + 4 + 4 = 16
+};
+
+struct MyStruct1 {
+ char b;    // 本来1个字节 + 7个字节padding
+ double a;  // 8 个字节
+ int c;     // 本来 4 个字节，但是整体要按 8 字节对齐，所以 4个字节padding
+  // 总共: 8 + 8 + 8 = 24
+};
+
 struct Obj {
     char a;
     uint32_t b;
@@ -2184,7 +2240,7 @@ class B
 
 - 内联函数在编译时就会展开函数体，而虚函数在运行时才有实体，**但是使用了不会报错，只是虚函数不会有多态性**，定义在类内部的成员是自动inline的
 
-- 编译器需要在编译时确定虚函数表大小，而模板可能会有多个实例化，如果模板成员函数为虚函数，那会造成虚函数表大小不确定
+- 编译器需要在编译时确定虚函数表大小，而模板可能会有多个实例化，一个模板会被实例化成多少个函数，需要等所有编译单元都编译完才知道（编译与链接分离），如果模板成员函数为虚函数，那会造成虚函数表大小不确定
 
 ### 为什么析构函数必须是虚函数；为什么C++默认的析构函数不是虚函数
 
@@ -2401,6 +2457,23 @@ class A<int, T2>{
 };
 ```
 
+### C++类型萃取
+
+类型萃取（type_traits）是一种编译时技术，用于在编译期间获取和操作类型的信息。
+
+主要用于泛型编程以及在编译时做出决策。
+
+类型萃取可以帮我们检查和处理类型特性，从而优化代码、避免错误或提高性能。
+
+C++11 引入了 `<type_traits>` 头文件，其中包含许多内置的类型萃取。下面是一些常见的例子：
+
+`std::is_integral<T>`：判断类型 T 是否为整数类型。
+`std::is_floating_point<T>`：判断类型 T 是否为浮点数类型。
+`std::is_pointer<T>`：判断类型 T 是否为指针类型。
+`std::is_reference<T>`：判断类型 T 是否为引用类型。
+`std::is_const<T>`：判断类型 T 是否为 const 类型。
+`std::is_same<T, U>`：判断类型 T 和 U 是否相同。
+
 ### 定义一个不能被拷贝的类
 
 老派做法：拷贝构造与拷贝赋值定义为private
@@ -2577,7 +2650,7 @@ delete和free
 - free会释放内存空间，对于类类型的对象，不会调用析构函数；
 - delete会释放内存空间，而且还会调用析构函数
 
-new[]和delete[]
+`new[]`和`delete[]`
 
 - 申请数组时，`new[]`一次分配所有内存，多次调用构造函数，搭配使用`delete[]`，`delete[]`多次调用析构函数，销毁数组中的每个对象，而malloc只能接收类似`sizeof(int)*n`这样的参数形式来开辟能容纳n个int型元素的数组空间
 - `delete[]`操作符释放空间，而且会调用由`new[]`创建的一组对象的析构函数
