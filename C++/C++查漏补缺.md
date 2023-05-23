@@ -6624,6 +6624,8 @@ TCP与UDP同时发送可能会互相影响，TCP的流量控制可能会影响UD
 
 #### 三次握手
 
+![shake](https://mmbiz.qpic.cn/mmbiz_png/dxZeAlKuw4QetwXRg1lKpic1p61BRnlzEHyrd8NWMu5esUGk298932UbEB3hcKqkOoXQneMVPRibYvibGPIlbAnpw/640?wx_fmt=png&wxfrom=5&wx_lazy=1&wx_co=1)
+
 B的TCP服务器进程先创建传输控制块TCB，准备接受客户进程的连接请求。然后服务器进程就处于LISTEN状态，等待客户的连接请求。
 
 1. A首先创建传输控制块TCB，然后向B发出连接请求报文段，SYN=1，初始序号seq=x（随机，SYN=1的报文段不能携带数据，但要消耗掉一个序号），此时TCP客户进程进入**SYN-SENT**状态
@@ -6648,11 +6650,11 @@ B的TCP服务器进程先创建传输控制块TCB，准备接受客户进程的�
 
 3. B没有要向A发出的数据，B发出连接释放报文段，FIN=1，ACK=1，序号seq=w（之前最后一次传送的序号加1），确认号ack=u+1，B进入**LAST-ACK**（最后确认）状态，等待A的确认。
 
-4. A收到B的连接释放报文段后，对此发出确认报文段，ACK=1，seq=u+1，ack=w+1，A进入**TIME-WAIT**（时间等待）状态。此时TCP未释放掉，需要经过时间等待计时器设置的时间2*MSL（最长报文段寿命）后，A才进入**CLOSED**状态。B在收到确认报文段后就进入了**CLOSED**状态。
+4. A收到B的连接释放报文段后，对此发出确认报文段，ACK=1，seq=u+1，ack=w+1，A进入**TIME-WAIT**（时间等待）状态。此时TCP未释放掉，需要经过时间等待计时器设置的时间2*MSL（Maximum Segment Lifetime最长报文段寿命）后，A才进入**CLOSED**状态。B在收到确认报文段后就进入了**CLOSED**状态。
 
 #### 三次握手交换了什么数据
 
-除了序列号，第一次还包括client通告server的接收窗口大小以及本方的MSS，第二次还包括server通告client的接收窗口大小以及本方的MSS
+除了序列号，第一次还包括client通告server的接收窗口大小以及本方的MSS(Maximum Segment Size)，第二次还包括server通告client的接收窗口大小以及本方的MSS
 
 #### 三次握手为什么两次不可以，为什么四次没必要
 
@@ -6723,7 +6725,7 @@ server没有收到ACK，超时重传，一定次数还没收到则关闭连接
 
 #### close_wait状态太多如何处理
 
-在服务器与客户端通信过程中，因服务器发生了socket未关导致的closed_wait发生，致使监听port打开的句柄数到了1024个，且均处于close_wait的状态，最终造成配置的port被占满出现“Too many open files”，无法再进行通信。
+在服务器与客户端通信过程中，因服务器发生了socket未关导致的close_wait发生，致使监听port打开的句柄数到了1024个，且均处于close_wait的状态，最终造成配置的port被占满出现“Too many open files”，无法再进行通信。
 
 close_wait状态出现的原因是被动关闭方未关闭socket造成，更多是由于程序编写不当造成的，比如被动关闭方没有检测到关闭socket，或者程序忘记要关闭socket，所以需要修改程序的逻辑
 
@@ -6797,7 +6799,7 @@ DDOS，控制很多客户端向服务器发送SYN包，服务器会发送SYN+ACK
 ### TCP的序列号、确认号
 
 - 每一个包都包含一个32位序列号，用来跟踪该端发送的数据量
-- 每一个包还有一个32位的确认好，用来通知对端接收成功的数据量。
+- 每一个包还有一个32位的确认号，用来通知对端接收成功的数据量。
 - 序列号为当前端成功发送的数据位数，确认号为当前端成功接收的数据位数，SYN标志位和FIN标志位也要占1位
 - wireshark可以显示**相对**序列号/相对确认号，它们的值是相对于TCP三次握手的第一个数据报的序列号确定的，下面例子的序列号与确认号就是相对的
 
@@ -7088,8 +7090,6 @@ Nagle算法(sender端解决)。规则如下：
 
 拥塞控制定义：是防止过多的数据注入网络，使得网络中的路由器或者链路过载。流量控制是点对点的通信量控制，而拥塞控制是全局的网络流量整体性的控制。发送双方都有一个拥塞窗口——cwnd。
 
-AIMD：**线性增加乘性减少算法**是一个反馈控制算法，因其在TCP拥塞控制中的使用而广为人知，AIMD将线性增加拥塞窗口和拥塞时乘性减少窗口相结合，基于AIMD的多个连接理想状态下会达到**最终收敛**，共享相同数量的网络带宽，与其相关的乘性增乘性减MIMD策略和增性加增性减少AIAD都无法保证稳定性。
-
 拥塞窗口cwnd：
 
 1. Congestion Window (cwnd) is a TCP state variable that limits the amount of data the TCP can send into the network before receiving an ACK.
@@ -7097,6 +7097,10 @@ AIMD：**线性增加乘性减少算法**是一个反馈控制算法，因其在
 3. cwnd是在发送方维护的，cwnd和rwnd并不冲突，发送方需要结合rwnd和cwnd两个变量来发送数据，wnd_mind = min{rwnd, cwnd}
 
 四个重要阶段（Tahoe之后，BBR之前）
+
+AIMD：**线性增加乘性减少算法**是一个反馈控制算法，因其在TCP拥塞控制中的使用而广为人知，AIMD将线性增加拥塞窗口和拥塞时乘性减少窗口相结合，基于AIMD的多个连接理想状态下会达到**最终收敛**，共享相同数量的网络带宽，与其相关的乘性增乘性减MIMD策略和增性加增性减少AIAD都无法保证稳定性。
+
+![AIMD](https://mmbiz.qpic.cn/mmbiz_png/wAkAIFs11qZnFECVAqlaz8tvSsLvZTIoh9zic4x7tMaCvtKf3mBFkEtTFp9oD5icA1E2icqSGxicvvsia0CcyJ9IZHw/640?wx_fmt=png&wxfrom=5&wx_lazy=1&wx_co=1)
 
 1. 慢开始：最开始发送方的拥塞窗口为1，每经过一个传输伦次，cwnd加倍，当cwnd超过慢开始门限ssthresh，进入拥塞避免
 2. 拥塞避免：每经过一个传输轮次，cwnd加1。一旦发现网络拥塞（超时），就把ssthresh降为原来的一半，从cwnd=1开始慢开始（加法增大乘法减小,AIMD）
@@ -7125,8 +7129,7 @@ BBR是Google2016年开源的拥塞控制算法，已在Linux 4.9内核中支持
 
 为什么p2p用udp/为什么p2p的tunnel用udp？（转自知乎车大）
 
-- UDP隧道，所有底层封装都不对用户的数据进行控制，所有的控制都留给用户控制，这样可以给用
-  户最大的灵活空间。.
+- UDP隧道，所有底层封装都不对用户的数据进行控制，所有的控制都留给用户控制，这样可以给用户最大的灵活空间。.
   - 用户用UDP隧道来传输UDP报文，呈现的是UDP特征。
   - 用户用UDP隧道来传输TCP报文，呈现的是TCP特征。
 - 如果用TCP隧道，底层的TCP封装会对用户数据进行控制，用户将失去了灵活的空间。
@@ -7134,7 +7137,7 @@ BBR是Google2016年开源的拥塞控制算法，已在Linux 4.9内核中支持
   - 用户用TCP隧道来传输TCP报文，呈现的还是TCP特征。
 - 如果用TCP，一旦发生丢包，不知道上层TCP丢还是下层TCP丢，TCP over TCP没有任何优点，还会导致网路不稳定
 
-分布式哈希表（DHT）
+分布式哈希表（DHT）解决了p2p网络中搜索资源所在节点需泛洪的问题
 
 [分布式哈希表(DHT)和P2P技术](https://luyuhuang.github.io/2020/03/06/dht-and-p2p.html)
 
@@ -7319,7 +7322,7 @@ Quic（Quick UDP Internet Connection）是**基于UDP**实现的支持**多路�
   - QUIC默认使用了Cubic，还支持其他的拥塞控制算法如Reno、BBR
   - **单调递增的Packet Number**，解决了TCP的Sequence Number重传后的seq一样产生的歧义问题，这会导致RTO采样不准
 - **避免队头阻塞的多路复用**：
-  - HTTP/2的多路复用允许一条TCP连接发送多个请求（或Stream），而TCP不直到上层是用HTTP协议，TCP只会根据序列号顺序处理，所以有队头阻塞的问题
+  - HTTP/2的多路复用允许一条TCP连接发送多个请求（或Stream），而TCP不知道上层是用HTTP协议，TCP只会根据序列号顺序处理，所以有队头阻塞的问题
   - HTTP强制使用的TLS按照record处理数据，必须通过数据一致性校验才能加解密，也有队头阻塞的问题
   - QUIC是通过packet传输的，不会超过MTU，加密和认证过程都是基于Packet的，不会跨越多个Packet，所以没有队头阻塞
   - QUIC各Stream之间独立，所以没有队头阻塞
@@ -7363,7 +7366,11 @@ Quic（Quick UDP Internet Connection）是**基于UDP**实现的支持**多路�
 6. 客户端的浏览器得到HTML文档，**解析**CSS、Javascript文件，**渲染**在浏览器上
 7. 连接断开，TCP四次挥手
 
-### RDMA
+### DMA/RDMA
+
+DMA(直接内存访问)是一种能力，允许在计算机主板上的设备直接把数据发送到内存中去，数据搬运不需要CPU的参与。
+
+传统内存访问需要通过CPU进行数据copy来移动数据，通过CPU将内存中的Buffer1移动到Buffer2中。DMA模式：可以同DMA Engine之间通过硬件将数据从Buffer1移动到Buffer2,而不需要操作系统CPU的参与，大大降低了CPU Copy的开销。
 
 - 远程直接内存访问(即RDMA)是一种直接内存访问技术，它将数据直接从一台计算机的内存传输到另一台计算机，无需双方操作系统的介入
 - 传统的 TCP/IP 软硬件架构及应用存在着网络传输和数据处理的延迟过大、存在多次数据拷贝和中断处理、复杂的 TCP/IP 协议处理等问题。RDMA(Remote Direct Memory Access，远程直接内存访问)是一种为了解决网络传输中服务器端数据处理延迟而产生的技术。
