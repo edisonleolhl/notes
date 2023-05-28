@@ -5050,7 +5050,7 @@ Windows下的Mutex和Critical Section是可递归的。Linux下的pthread_mutex_
 - 系统调用过程通常称为特权模式切换，而不是上下文切换。系统调用属于同进程内的 CPU 上下文切换
 - 对文件进行写操作, c语言的open, write, fork, vfork，socket系列等等都是系统调用
 - strace是Linux环境下的一款程序调试工具，用来监察一个应用程序所使用的系统调用及它所接收的系统信息
-- ptrace是在Unix和一些类Unix操作系统中发现的系统调用。通过使用ptrace，一个进程可以控制另一个进程，从而使控制器能够检查和操纵其目标的内部状态
+- ptrace是在Unix和一些类Unix操作系统中发现的系统调用。通过使用ptrace，一个进程可以控制另一个进程，从而使控制器能够检查和操纵其目标的内部状态，gdb就是基于ptrace开发的
 
 #### 系统调用处理程序
 
