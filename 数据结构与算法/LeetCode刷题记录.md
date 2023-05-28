@@ -13896,6 +13896,7 @@ public:
 来源：力扣（LeetCode）
 著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
 ```
+
 ## 图论
 
 ### 207. 课程表(Medium) @hot100
@@ -18478,6 +18479,71 @@ public:
 };
 ```
 
+并查集，路径压缩加速union（merge）操作，平衡化可做可不做
+
+```c++
+class Solution {
+public:
+    vector<int> fa;
+    vector<int> size; // 每个节点作为根节点时连通分量中的节点数
+    int find(int x) {
+        if (x != fa[x]) {
+            fa[x] = find(fa[x]); // 路径压缩
+        }
+        return fa[x];
+    }
+
+    void merge(int p, int q) {
+        int a = find(p);
+        int b = find(q);
+        if (a == b) return;
+        if (size[a] <= size[b]) { // 平衡化
+            fa[a] = b;
+            size[b] += size[a];
+        } else {
+            fa[b] = a;
+            size[a] += size[b];
+        }
+    }
+
+    int getMaxConnected() {
+        int ans = INT_MIN;
+        for (int i = 0; i < fa.size(); ++i) {
+            if (i == fa[i]) {
+                ans = max(ans, size[i]);
+            }
+        }
+        return ans;
+    }
+    
+    int longestConsecutive(vector<int>& nums) {
+        if (nums.empty()) return 0;
+        // 初始化UF
+        int n = nums.size();
+        fa.resize(n);
+        size.resize(n);
+        for (int i = 0; i < n; ++i) {
+            fa[i] = i;
+            size[i] = 1;
+        }
+
+        unordered_map<int, int> hashmap;
+        for (int i = 0; i < n; ++i) {
+            if (hashmap.count(nums[i])) continue; // 当前值已经计算
+            if (hashmap.count(nums[i] - 1)) {
+                merge(i, hashmap[nums[i] - 1]); // 将当前值与-1值连通
+            }
+            if (hashmap.count(nums[i] + 1)) {
+                merge(i, hashmap[nums[i] + 1]); // 将当前值与+1值连通
+            }
+            hashmap[nums[i]] = i;
+        }
+        return getMaxConnected();
+    }
+};
+```
+
+
 ## 贪心with闫学灿
 
 贪心的证明比较复杂多变，可能需要数学归纳法等等
@@ -19427,6 +19493,58 @@ public:
         }
         return res;
 
+    }
+};
+```
+
+### 1167. 连接棒材的最低费用  （哈夫曼编码）
+
+题目描述
+
+为了装修新房，你需要加工一些长度为正整数的棒材sticks。
+如果要将长度分别为X和Y的两根棒材连接在一起，你需要支付X+Y的费用。由于施工需要，你必须将所有棒材连
+接成一根。
+
+返回你把所有棒材sticks连成一根所需要的最低费用。注意你可以任意选择棒材连接的顺序。
+
+示例1：
+
+输入：sticks=[2,4,3]
+输出：14
+解释：先将2和3连接成5，花费5；再将5和4连接成9；总花费为14。
+
+示例2：
+
+输入：sticks=[1,8,3,5]
+输出：30
+提示：
+
+```bash
+1 < sticks.length <1044
+1 <= sticks[i] <=10^4
+```
+
+题意：直接贪心就好了，每次找最便宜的两根木头，注意stl的运用
+
+```c++
+//贪心+哈夫曼编码
+//时间复杂度0(nlongn)空间复杂度0(n)
+class Solution {
+public:
+    int connectsticks(vector<int>&sticks){
+        multiset<int, less<int>> m; // 最小堆
+        for(int n : sticks) m.insert(n);
+        int ret 0;
+        while (m.size() > 1){
+            //取出当前最小的两个数
+            int a = *m.begin();
+            m.erase(m.begin());
+            int b = *m.begin();
+            m.erase(m.begin());
+            ret += a + b;
+            m.insert(a+b);
+        }
+        return ret;
     }
 };
 ```

@@ -6341,6 +6341,24 @@ Linux epoll机制是通过**红黑树和双向链表**实现的。
   - select、poll用的是**轮询**，每次调用要扫描整个注册fd集合，返回其中就绪的fd。所以，**索引就绪fd需要O(n)**
   - epoll_wait则不同，采用的是**回调**，直接将就绪事件拷贝到用户空间，**索引就绪fd只需要O(1)**
 
+#### select 应用场景
+
+select 的 timeout 参数精度为微秒，而 poll 和 epoll 为毫秒，因此 select 更加适用于实时性要求比较高的场景，比如核反应堆的控制。
+
+select 可移植性更好，几乎被所有主流平台所支持。
+
+#### poll 应用场景
+
+poll 没有最大描述符数量的限制，如果平台支持并且对实时性要求不高，应该使用 poll 而不是 select。
+
+#### epoll 应用场景
+
+只需要运行在 Linux 平台上，有大量的描述符需要同时轮询，并且这些连接最好是长连接。
+
+需要同时监控小于 1000 个描述符，就没有必要使用 epoll，因为这个应用场景下并不能体现 epoll 的优势。
+
+需要监控的描述符状态变化多，而且都是非常短暂的，也没有必要使用 epoll。因为 epoll 中的所有描述符都存储在内核中，造成每次需要对描述符的状态改变都需要通过 epoll_ctl() 进行系统调用，频繁系统调用降低效率。并且 epoll 的描述符存储在内核，不容易调试。
+
 ### epoll的LT和ET模式（非常重要，笔记已结合网上资料）
 
 epoll对文件描述符的操作有两种模式，根据数字电子电路的电平触发与边沿触发区分：
@@ -6517,7 +6535,8 @@ IGMP：IGMP是因特网组管理协议，工作在主机（组播成员）和最
 
 ### IP
 
-### IP分类
+
+#### IP分类阶段
 
 IP地址由两部分组成，即网络地址/网络号（属于互联网的哪一个网络）和主机地址/主机号（属于该网络中的哪一台主机）
 
@@ -6563,6 +6582,12 @@ IP分类
 
 [不为人知的网络编程(十三)：深入操作系统，彻底搞懂127.0.0.1本机网络通信](http://www.52im.net/thread-3600-1-1.html)
 
+#### 子网
+
+通过在主机号字段中拿一部分作为子网号，把两级 IP 地址划分为三级 IP 地址。
+
+IP 地址 ::= {< 网络号 >, < 子网号 >, < 主机号 >}
+
 #### 无分类地址CIDR与子网掩码
 
 IP分类缺点：
@@ -6588,6 +6613,14 @@ IPv6 相比 IPv4 的首部改进：
 - 取消了首部校验和字段。 因为在数据链路层和传输层都会校验，因此 IPv6 直接取消了 IP 的校验。
 - 取消了分片/重新组装相关字段。 分片与重组是耗时的过程，IPv6 不允许在中间路由器进行分片与重组，这种操作只能在源与目标主机，这将大大提高了路由器转发的速度。
 - 取消选项字段。 选项字段不再是标准 IP 首部的一部分了，但它并没有消失，而是可能出现在IPv6 首部中的「下一个首部」指出的位置上。删除该选项字段使的 IPv6 的首部成为固定长度的40 字节。
+
+#### 路由选择协议
+
+内部网关协议 RIP，RIP 是一种基于距离向量的路由选择协议。距离是指跳数
+
+内部网关协议 OSPF，开放最短路径优先 OSPF，是为了克服 RIP 的缺点而开发出来的。开放表示 OSPF 不受某一家厂商控制，而是公开发表的；最短路径优先表示使用了 Dijkstra 提出的最短路径算法 SPF。
+
+外部网关协议 BGP，BGP（Border Gateway Protocol，边界网关协议），不同网络之间用该协议，由两个网络的BGP发言人建立TCP连接来交换路由信息
 
 ### TCP和UDP的区别
 
@@ -7161,6 +7194,10 @@ DNS的规范规定了2种类型的DNS服务器，一个叫主DNS服务器，一�
 
 域名解析携带的数据很少，用UDP更快
 
+DNS 是一个分布式数据库，提供了主机名和 IP 地址之间相互转换的服务。这里的分布式数据库是指，每个站点只保留它自己的那部分数据。
+
+域名具有层次结构，从上到下依次为：根域名、顶级域名、二级域名。
+
 HTTPDNS 利用 HTTP 协议与 DNS 服务器交互，代替了传统的基于 UDP 协议的 DNS 交互，绕开了运营商的 Local DNS，有效**防止域名劫持**，提高域名解析效率。另外，由于 DNS 服务器端获取的是真实客户端 IP 而非 Local DNS 的 IP，能够精确定位客户端地理位置、运营商信息，从而有效改进调度精确性。
 
 HttpDns 主要解决的问题
@@ -7374,6 +7411,7 @@ Quic（Quick UDP Internet Connection）是**基于UDP**实现的支持**多路�
 DMA(直接内存访问)是一种能力，允许在计算机主板上的设备直接把数据发送到内存中去，数据搬运不需要CPU的参与。
 
 传统内存访问需要通过CPU进行数据copy来移动数据，通过CPU将内存中的Buffer1移动到Buffer2中。DMA模式：可以同DMA Engine之间通过硬件将数据从Buffer1移动到Buffer2,而不需要操作系统CPU的参与，大大降低了CPU Copy的开销。
+
 ### 长连接与短连接
 
 长连接的优点
@@ -8559,6 +8597,8 @@ MySQL通信协议是基于TCP 传输协议的，三次握手、四次挥手都�
 
 插入排序比冒泡排序更好点，因为赋值操作更好，插入排序也有很多优化手段，比如希尔排序
 
+#### 冒泡
+
 ```c++
 vector<int> bubbleSort(vector<int> vec){
     for (int i = 0; i < vec.size(); ++i){
@@ -8570,7 +8610,11 @@ vector<int> bubbleSort(vector<int> vec){
     }
     return vec;
 }
+```
 
+#### 插入
+
+```c++
 vector<int> insertSort(vector<int> vec){
     for (int i = 1; i < vec.size(); ++i){
         int temp = vec[i];
@@ -8587,7 +8631,11 @@ vector<int> insertSort(vector<int> vec){
     }
     return vec;
 }
+```
 
+#### 选择
+
+```c++
 vector<int> selectSort(vector<int> vec){
     for (int i = 0; i < vec.size(); ++i){
         int min_index = i;
@@ -8599,6 +8647,8 @@ vector<int> selectSort(vector<int> vec){
     return vec;
 }
 ```
+
+#### 归并
 
 归并排序是稳定的，不是原地排序的，，比较次数几乎是最优的，空间复杂度O(n)，任何情况的时间复杂度都是O(nlogn)
 
@@ -8657,6 +8707,8 @@ vector<int> selectSort(vector<int> vec){
 33 }
 ```
 
+#### 快排
+
 快排是一种原地、不稳定的，最坏情况的时间复杂度从O(nlogn)退化成了O(n2)，但是概率很低，所以平均时间复杂度就是O(nlogn)
 
 快排的改进方法包括：
@@ -8692,6 +8744,8 @@ vector<int> selectSort(vector<int> vec){
     swap A[i] with A[r]
     return i
 ```
+
+#### 堆排序
 
 堆排序是非稳定的，原地排序的，时间复杂度为O(nlogn)，但是一般很少使用，因为无法利用局部性原理进行缓存
 
@@ -8755,6 +8809,8 @@ void heapSort(vector<int>& arr) {
     }
 }
 ```
+
+#### 桶、计数、基数
 
 桶排序、计数排序、基数排序时间复杂度为O(n)，非原地排序，不是基于比较的排序，对数据有一定要求
 
@@ -8927,6 +8983,90 @@ int binarySearchLastNotGreater(vector<int>& vec, int target){
 priority_queue默认最大堆，若想用最小堆，传入仿函数`greater<T>`底层用的是build_heap，push_heap，pop_heap，sort_heap的函数，底层用的容器是vector
 
 应用：定时器、合并k个有序链表、合并k个文件
+
+### 并查集
+
+解决一些元素分组的问题。它管理一系列不相交的集合，并支持两种操作：
+
+合并（Union）：把两个不相交的集合合并为一个集合。
+查询（Find）：查询两个元素是否在同一个集合中。
+
+比如给定一些亲戚关系，问任意两人是否是亲戚关系，这就可以用并查集来做
+
+思路：每个集合都有个代表元素，其实就是树的根节点，根节点的父节点是它自己。我们可以直接把它画成一棵树
+
+并查集有几种变形：
+
+- 普通并查集，当一个连通分量中节点很多时，树可能会很高，此时union与find的操作耗时O(n)
+- 路径压缩后（每个节点直接指向根节点），find和union操作都接近于1
+- 按秩合并/维护平衡性（union时，连通分量小的挂在连通分量大的上）：find和uniond操作都是logn
+
+https://zhuanlan.zhihu.com/p/93647900
+
+```c++
+// 初始化，每个元素代表一个集合，代表元素都是它本身
+int fa[MAXN];
+inline void init(int n) {
+    for (int i = 1; i <= n; ++i)
+        fa[i] = i;
+}
+
+// 查询（代表元素）
+int find(int x) {
+    if(fa[x] == x)
+        return x;
+    else
+        return find(fa[x]);
+}
+// 查询优化：路径压缩
+// 因为每次查都需要从叶子结点递归查询到集合的根节点，其实可以直接将叶子节点的父节点指向根节点，只需要在查询时顺带指向就好了
+int find(int x) {
+    if(fa[x] == x)
+        return x;
+    else {
+        fa[x] = find(fa[x]);  //当前节点x的父节点设为根节点
+        return fa[x];         //返回父节点
+    }
+}
+
+// 合并
+inline void merge(int i, int j) {
+    fa[find(i)] = find(j);
+}
+
+// 合并优化：按秩合并/维护平衡性
+// 初始化秩，秩：每个根节点对应的树的深度，初始为1
+void init(int n) {
+    for (int i = 1; i <= n; ++i) {
+        fa[i] = i;
+        rank[i] = 1;
+    }
+}
+
+// 按秩合并，将秩小的树指向秩大的树
+inline void merge(int i, int j) {
+    int x = find(i), y = find(j);    //先找到两个根节点
+    if (rank[x] <= rank[y]) // x根节点的秩更小，说明树的深度更小
+        fa[x] = y; // x根节点指向y根节点
+    else
+        fa[y] = x;
+    if (rank[x] == rank[y] && x != y)
+        rank[y]++;                   //如果深度相同且根节点不同，则新的根节点的深度+1
+}
+
+// 判断两个节点是否连通
+bool connected(int p, int q) {
+    int rootP = find(p);
+    int rootQ = find(q);
+    return rootP == rootQ;
+}
+
+// 记录连通分量，调用merge()后才可能改变连通分量的数量
+// 初始化连通分量是n个元素，每次调用merge后，连通分量-1，维护一个全局变量
+int count() {
+    return count_;
+}
+```
 
 ### TopK/海量数据下的TopK
 
@@ -9549,6 +9689,79 @@ int main() {
 }
 ```
 
+### 哈夫曼编码
+
+根据数据出现的频率对数据进行编码，从而压缩原始数据。用短的编码表示出现频率高的字符，用长的编码来表示出现频率低的字符
+
+首先生成一颗哈夫曼树，每次生成过程中选取频率最少的两个节点，生成一个新节点作为它们的父节点，并且新节点的频率为两个节点的和。选取频率最少的原因是，生成过程使得先选取的节点位于树的更低层，那么需要的编码长度更长，频率更少可以使得总编码长度更少。
+
+生成编码时，从根节点出发，向左遍历则添加二进制位 0，向右则添加二进制位 1，直到遍历到叶子节点，叶子节点代表的字符的编码就是这个路径编码。
+
+真正执行编码的时候，类似字典树，节点不用来编码，节点的路径用来编码.
+
+> 如果计算机使用三进制，而不是二进制，那么 huffman 树就应该是一个三叉树。
+
+下面是构建哈夫曼编码的示例代码，比较清晰，java代码也能看懂
+
+```java
+public class Huffman {
+
+    private class Node implements Comparable<Node> {
+        char ch;
+        int freq;
+        boolean isLeaf;
+        Node left, right;
+
+        public Node(char ch, int freq) {
+            this.ch = ch;
+            this.freq = freq;
+            isLeaf = true;
+        }
+
+        public Node(Node left, Node right, int freq) {
+            this.left = left;
+            this.right = right;
+            this.freq = freq;
+            isLeaf = false;
+        }
+
+        @Override
+        public int compareTo(Node o) {
+            return this.freq - o.freq;
+        }
+    }
+
+    public Map<Character, String> encode(Map<Character, Integer> frequencyForChar) {
+        PriorityQueue<Node> priorityQueue = new PriorityQueue<>(); // 最小堆
+        for (Character c : frequencyForChar.keySet()) {
+            priorityQueue.add(new Node(c, frequencyForChar.get(c)));
+        }
+        // 每次从最小堆中选取两个频率最低的节点，合成一个新的节点
+        while (priorityQueue.size() != 1) {
+            Node node1 = priorityQueue.poll();
+            Node node2 = priorityQueue.poll();
+            priorityQueue.add(new Node(node1, node2, node1.freq + node2.freq)); // 定义新节点，并设置左右儿子与频率和
+        }
+        return encode(priorityQueue.poll()); // 最后最小堆中只剩根节点
+    }
+
+    private Map<Character, String> encode(Node root) {
+        Map<Character, String> encodingForChar = new HashMap<>();
+        encode(root, "", encodingForChar);
+        return encodingForChar;
+    }
+
+    private void encode(Node node, String encoding, Map<Character, String> encodingForChar) {
+        if (node.isLeaf) {
+            encodingForChar.put(node.ch, encoding);
+            return;
+        }
+        encode(node.left, encoding + '0', encodingForChar);
+        encode(node.right, encoding + '1', encodingForChar);
+    }
+}
+```
+
 ### 数学算法
 
 #### 试除法判定质数
@@ -10081,6 +10294,13 @@ int main(){
 ### 图论
 
 拓扑排序，从入度为0的顶点开始，然后减少当前定点相连顶点的入度，用队列
+
+有向图判环：
+
+1. 先遍历图，将图中入度为0的结点入队列
+2. 队列非空，循环，每次出栈一个结点，进行计数。
+3. 对出栈的结点的邻接结点的度进行-1，在此过程中如果发现结点度减少之后，入度为0，则入队列
+4. 循环结束，用刚刚的计数去判断是否有n个结点，由此来判断图中是否有环
 
 dijkstra，实际上是动态规划，时间复杂度就是O(E*logV)，用斐波那契堆更快，也要用最小堆
 

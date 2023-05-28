@@ -3736,6 +3736,12 @@ public:
 
 数学归纳法，有点难以理解，书上给的解法其实并不直观，我找到一个博客写的还不错，[link](https://blog.csdn.net/yi_Afly/article/details/52012593)，round*base很好理解，若当前位为1，则需要知道former，因为base每次自乘10，所以当前位的former可以用n%base算出，时间复杂度O(logn)（以10为底）
 
+以534为例，假设现在在计算十位数出现1的个数，round为5，weight为3，former为4
+
+1. 若weight为0，则1出现次数为round*base
+2. 若weight为1，则1出现次数为round*base + former + 1
+3. 若weight大于1，则1出现次数为rount*base + base
+
 ```c++
 class Solution {
 public:
@@ -3743,16 +3749,16 @@ public:
     {
         if(n < 1) return 0;
         int count = 0;
-        int base = 1;
-        int round = n;
+        long long base = 1;
+        long long round = n;
         while(round > 0){
             int weight = round % 10;
             round /= 10;
-            count += round * base;
-            if(weight==1)
-                count += (n % base) + 1;
-            else if(weight > 1)
-                count += base;
+            count += round * base; // 1. 高位带来的round
+            if(weight == 1)
+                count += n % base + 1; // 2. 当前位为1，看former有多少个，则该位的1能出现former+1个
+            else if (weight > 1)
+                count += base; // 3. 完整的一个base
             base *= 10;
         }
         return count;
@@ -3770,6 +3776,29 @@ public:
 
 来源：力扣（LeetCode），[链接](https://leetcode-cn.com/problems/number-of-digit-one)
 著作权归领扣网络所有。商业转载请联系官方授权，非商业转载请注明出处。
+
+```c++
+class Solution {
+public:
+    int countDigitOne(int n) {
+        // mulk 表示 10^k
+        // 在下面的代码中，可以发现 k 并没有被直接使用到（都是使用 10^k）
+        // 但为了让代码看起来更加直观，这里保留了 k
+        long long mulk = 1;
+        int ans = 0;
+        for (int k = 0; n >= mulk; ++k) {
+            ans += (n / (mulk * 10)) * mulk + min(max(n % (mulk * 10) - mulk + 1, 0LL), mulk);
+            mulk *= 10;
+        }
+        return ans;
+    }
+};
+
+作者：力扣官方题解
+链接：https://leetcode.cn/problems/1nzheng-shu-zhong-1chu-xian-de-ci-shu-lcof/solutions/934769/1n-zheng-shu-zhong-1-chu-xian-de-ci-shu-umaj8/
+来源：力扣（LeetCode）
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
+```
 
 ### 44：数字序列中某一位的数字
 
