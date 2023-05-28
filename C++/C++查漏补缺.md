@@ -5125,6 +5125,12 @@ SYSCALL_DEFINE3(silly_copy，unsigned long *src, unsigned long *dst, unsigned lo
 
 - RocketMQ 选择了 mmap + write 这种零拷贝方式，适用于业务级消息这种小块文件的数据持久化和传输；而 Kafka 采用的是 sendfile 这种零拷贝方式，适用于系统日志消息这种高吞吐量的大块文件的数据持久化和传输。但是值得注意的一点是，Kafka 的索引文件使用的是 mmap + write 方式，数据文件使用的是 sendfile 方式。
 
+### RDMA
+
+- 远程直接内存访问(即RDMA)是一种直接内存访问技术，它将数据直接从一台计算机的内存传输到另一台计算机，无需双方操作系统的介入
+- 传统的 TCP/IP 软硬件架构及应用存在着网络传输和数据处理的延迟过大、存在多次数据拷贝和中断处理、复杂的 TCP/IP 协议处理等问题。RDMA(Remote Direct Memory Access，远程直接内存访问)是一种为了解决网络传输中服务器端数据处理延迟而产生的技术。
+- RDMA 无需操作系统和 TCP/IP 协议的介入，可以轻易的实现超低延时的数据处理、超高吞吐量传输，不需要远程节点 CPU 等资源的介入，不必因为数据的处理和迁移耗费过多的资源。
+
 ### 交换技术是什么
 
 把所有进程一直保存在内存需要巨大的内存，有两种处理内存超载的方法：
@@ -6539,7 +6545,7 @@ IP分类
 
 1）问题1：127.0.0.1 本机网络 IO 需要经过网卡吗？
 
-通过本文的叙述，我们确定地得出结论，不需要经过网卡。即使了把网卡拔了本机网络是否还可以正常使用的。
+不需要经过网卡。即使了把网卡拔了本机网络是否还可以正常使用的。
 
 2）问题2：数据包在内核中是个什么走向，和外网发送相比流程上有啥差别？
 
@@ -6566,17 +6572,14 @@ IP分类缺点：
 
 **无分类地址**不再有分类地址的概念，32 比特的 IP 地址被划分为两部分，前面是网络号，后面是主机号。表示形式 a.b.c.d/x ，其中 /x 表示前 x 位属于网络号， x 的范围是 0 ~ 32 ，这就使得 IP 地址更加灵活
 
-还有另一种划分网络号与主机号形式，那就是**子网掩码**，掩码的意思就是掩盖掉主机号，剩余的就是网
-络号。将子网掩码和 IP 地址按位计算 AND，就可得到网络号。
+还有另一种划分网络号与主机号形式，那就是**子网掩码**，掩码的意思就是掩盖掉主机号，剩余的就是网络号。将子网掩码和 IP 地址按位计算 AND，就可得到网络号。
 
 子网掩码还有一个作用，那就是**划分子网**。子网划分实际上是将主机地址分为两个部分：子网网络地址和子网主机地址。
 
 - 未做子网划分的 ip 地址：网络地址＋主机地址
 - 做子网划分后的 ip 地址：网络地址＋（子网网络地址＋子网主机地址
 
-假设对 C 类地址进行子网划分，网络地址 192.168.1.0，使用子网掩码 255.255.255.192 对其进行子网
-划分。C 类地址中前 24 位是网络号，最后 8 位是主机号，根据子网掩码可知从 8 位主机号中借用 2 位作为子
-网号。由于子网网络地址被划分成 2 位，那么子网地址就有 4 个，分别是 00、01、10、11。这四个子网的主机号全0用来指定网络，全1用来这个子网的广播
+假设对 C 类地址进行子网划分，网络地址 192.168.1.0，使用子网掩码 255.255.255.192 对其进行子网划分。C 类地址中前 24 位是网络号，最后 8 位是主机号，根据子网掩码可知从 8 位主机号中借用 2 位作为子网号。由于子网网络地址被划分成 2 位，那么子网地址就有 4 个，分别是 00、01、10、11。这四个子网的主机号全0用来指定网络，全1用来这个子网的广播
 
 #### IPv6
 
@@ -6593,7 +6596,7 @@ IPv6 相比 IPv4 的首部改进：
 3. 可靠性：TCP是可靠交付：无差错，不丢失，不重复，按序到达；UDP是尽最大努力交付，不保证可靠交付。
 4. 拥塞控制：TCP有慢开始、拥塞避免、快重传和快恢复；UDP没有拥塞控制，网络拥塞不会影响源主机的发送速率
 5. 首部开销：TCP首部开销20字节；UDP首部开销8字节
-6. 穿书方式：面向报文（UDP），面向字节流（TCP），TCP的消息是「没有边界」的，所以无论我们消息有多大都可以进行传输。并且消息是「有序的」，当「前一个」消息没有收到的时候，即使它先收到了后面的字节，那么也不能扔给应用层去处理，同时对「重复」的报文会自动丢弃。
+6. 传输方式：面向报文（UDP），面向字节流（TCP），TCP的消息是「没有边界」的，所以无论我们消息有多大都可以进行传输。并且消息是「有序的」，当「前一个」消息没有收到的时候，即使它先收到了后面的字节，那么也不能扔给应用层去处理，同时对「重复」的报文会自动丢弃。
 7. 分片不同：TCP 的数据大小如果大于 MSS 大小，则会在传输层进行分片，目标主机收到后，也同样在传输层组装 TCP 数据包，如果中途丢失了一个分片，只需要传输丢失的这个分片。UDP 的数据大小如果大于 MTU 大小，则会在 IP 层进行分片，目标主机收到后，在 IP 层组装完数据，接着再传给传输层，但是如果中途丢了一个分片，则就需要重传所有的数据包，这样传输效率非常差，所以通常 UDP 的报文应该小于 MTU。
 
 看重数据完整性选择TCP，看重通信实时性选择UDP
@@ -6632,7 +6635,7 @@ B的TCP服务器进程先创建传输控制块TCB，准备接受客户进程的�
 
 2. B收到连接请求报文段后，如同意建立连接，则向A发送确认，SYN=1，ACK=1，确认号ack=x+1，初始序号seq=y（随机，SYN=1的报文段不能携带数据，但要消耗掉一个序号），TCP服务器进程进入**SYN-RCVD**状态
 
-3. A收到B的确认后，要向B给出确认报文段，ACK=1，确认号ack=y+1，seq=x+1（初始为seq=x，第二个报文段所以要+1），ACK报文段可以携带数据，不携带数据则不消耗序号。TCP连接已经建立，A进入**ESTABLISHED**，B收到后也进入**ESTABLISHED**状态
+3. A收到B的确认后，要向B给出确认报文段，ACK=1，确认号ack=y+1，seq=x+1（初始为seq=x，第二个报文段所以要+1），ACK报文段可以携带数据，不携带数据则不消耗序号。TCP连接已经建立，A进入**ESTABLISHED** **ESTABLISHED**状态
 
 -----------数据传输阶段----------
 
@@ -7371,10 +7374,41 @@ Quic（Quick UDP Internet Connection）是**基于UDP**实现的支持**多路�
 DMA(直接内存访问)是一种能力，允许在计算机主板上的设备直接把数据发送到内存中去，数据搬运不需要CPU的参与。
 
 传统内存访问需要通过CPU进行数据copy来移动数据，通过CPU将内存中的Buffer1移动到Buffer2中。DMA模式：可以同DMA Engine之间通过硬件将数据从Buffer1移动到Buffer2,而不需要操作系统CPU的参与，大大降低了CPU Copy的开销。
+### 长连接与短连接
 
-- 远程直接内存访问(即RDMA)是一种直接内存访问技术，它将数据直接从一台计算机的内存传输到另一台计算机，无需双方操作系统的介入
-- 传统的 TCP/IP 软硬件架构及应用存在着网络传输和数据处理的延迟过大、存在多次数据拷贝和中断处理、复杂的 TCP/IP 协议处理等问题。RDMA(Remote Direct Memory Access，远程直接内存访问)是一种为了解决网络传输中服务器端数据处理延迟而产生的技术。
-- RDMA 无需操作系统和 TCP/IP 协议的介入，可以轻易的实现超低延时的数据处理、超高吞吐量传输，不需要远程节点 CPU 等资源的介入，不必因为数据的处理和迁移耗费过多的资源。
+长连接的优点
+
+1. 支持主动推送：对于M、VolP、在线游戏等重度依赖Server Push的场景，长连接基本是刚需了，不太可能通过短连接轮询来解决。另外，通过主动推送，还可以实现灰度开关等配置变更实时生效
+2. 降低延迟：网络稳定的情况下，复用已经存在的长连接，可以在发起RPC请求时候，不用等待TCP和TLS漫长的握手过程，从而大幅降低请求延迟
+3. 减少TLS握手的资源开销：TLS握手过程中非对称的密钥交换过程是极其消耗资源的，否则也不会在交换密钥后转为对称加密来传输数据。甚至一些高并发系统中，会采用硬件加密卡来解决这个CPU开销
+4. 减少OAuth鉴权开销：传统的短连接中，将OAuth的Access Token识别为用户身份的接口会被频繁调用。采用长连接的话，只需要在连接建立时候做一次鉴权即可
+
+缺点：
+1. 技术复杂度高：多端适配、智能心跳管理、状态管理、安全防控、大规模闪断重连等都是不小的技术挑战
+2. TCP拥塞控制瓶颈：在高丢包的网络环境下，传统的TCP拥塞控制算法会导致内核中SRTT和DevRTT持续恶化，最终重传的RTO变大，导致重试间隔大，请求极易超时。这个问题可以通过升级BBR等拥塞控制算法来优化，但是不能彻底解决。短连接的建立其实相当于一次RTO的重置。但是TCP下，短连接体验要大幅度提升还是要做好TLS的O-RTT优化，否则TLS握手开销在弱网下仍是一个比较大的考验。
+
+短连接的优点
+
+1. 简单易实现
+
+缺点：
+1. 高延迟：交互次数多，TCP和TLS握手过程极大的增加了请求延迟。详见本文图1
+2. TLS握手的资源开销：每次连接建立后的TLS握手中非对称密钥协商，上面已有介绍，不再重复
+3. OAuth的鉴权开销：短连接下请求无状态，导致每次请求都需要重新调用OAuth做身份识别
+
+#### 选择？
+
+1. 针对浏览器访问的网页场景，在Nginx等WebServer上开启HTTP/2即可启用长连接，大幅提升性能和体验
+2. 针对有更强自定义能力的App
+    1. 如果网络交互不多，短连接即可，简单易实现
+    2. 网络交互较多，但是大量长连接资源开销大，可以建立长连接，并在长时间空闲的时候释放掉
+    3. IM、VoIP等重度依赖推送的App,长时间保持长连接，甚至在后台尽量保活
+
+#### 针对弱网
+
+1. 渐进式多连接策略：低延迟时候采用一个连接减少服务端开销，检测到网络恶化后开启2、3个甚至更多的连接，通过新建连接来降低TCP内核中的RTO,加速重传来降低延迟、提升成功率（适合高带宽网络场景，2G3G等低带宽网络下串行重试比并行重试更合适)
+2. UDP/QUIC技术：绕开TCP拥塞控制，在UDP上可以自定义拥塞控制的策略，采用相对更激进的重传策略来提升体验
+3. 多端协同：同一个用户有多个设备的话，可以在近场采用Wi-Fi Direct和蓝牙技术建立P2P通道，采用多个设备之间Relay来建立新的传输通道
 
 ## 数据库
 
@@ -8568,9 +8602,159 @@ vector<int> selectSort(vector<int> vec){
 
 归并排序是稳定的，不是原地排序的，，比较次数几乎是最优的，空间复杂度O(n)，任何情况的时间复杂度都是O(nlogn)
 
+```c++
+  // 归并排序算法, A是数组，n表示数组大小
+  merge_sort(A, n) {
+    merge_sort_c(A, 0, n-1)
+  }
+  
+  // 递归调用函数
+  merge_sort_c(A, p, r) {
+    // 递归终止条件
+    if p >= r  then return
+  
+    // 取p到r之间的中间位置q
+    q = (p+r) / 2
+    // 分治递归
+    merge_sort_c(A, p, q)
+    merge_sort_c(A, q+1, r)
+    // 将A[p...q]和A[q+1...r]合并为A[p...r]
+    merge(A[p...r], A[p...q], A[q+1...r])
+  }
+
+1 /**
+2 * Internal method that merges two sorted halves of a subarray.
+3 * a is an array of Comparable items.
+4 * tmpArray is an array to place the merged result.
+5 * leftPos is the left-most index of the subarray.
+6 * rightPos is the index of the start of the second half.
+7 * rightEnd is the right-most index of the subarray.
+8 */
+9 template <typename Comparable>
+10 void merge( vector<Comparable> & a, vector<Comparable> & tmpArray,
+11 int leftPos, int rightPos, int rightEnd )
+12 {
+13  int leftEnd = rightPos - 1;
+14  int tmpPos = leftPos;
+15  int numElements = rightEnd - leftPos + 1;
+16
+17  // Main loop
+18  while( leftPos <= leftEnd && rightPos <= rightEnd )
+19      if( a[ leftPos ] <= a[ rightPos ] )
+20          tmpArray[ tmpPos++ ] = std::move( a[ leftPos++ ] );
+21      else
+22          tmpArray[ tmpPos++ ] = std::move( a[ rightPos++ ] );
+23
+24  while( leftPos <= leftEnd ) // Copy rest of first half
+25      tmpArray[ tmpPos++ ] = std::move( a[ leftPos++ ] );
+26
+27  while( rightPos <= rightEnd ) // Copy rest of right half
+28      tmpArray[ tmpPos++ ] = std::move( a[ rightPos++ ] );
+29
+30  // Copy tmpArray back
+31  for( int i = 0; i < numElements; ++i, --rightEnd )
+32      a[ rightEnd ] = std::move( tmpArray[ rightEnd ] );
+33 }
+```
+
 快排是一种原地、不稳定的，最坏情况的时间复杂度从O(nlogn)退化成了O(n2)，但是概率很低，所以平均时间复杂度就是O(nlogn)
 
-堆排序是非稳定的，原地排序的，时间复杂度为O(nlogn)
+快排的改进方法包括：
+
+1. 切换到插入排序: 因为快速排序在小数组中也会递归调用自己，对于小数组，插入排序比快速排序的性能更好，因此在小数组中可以切换到插入排序。
+2. 三数取中: 最好的情况下是每次都能取数组的中位数作为切分元素，但是计算中位数的代价很高。一种折中方法是取 3 个元素，并将大小居中的元素作为切分元素。
+3. 三向切分: 对于有大量重复元素的数组，可以将数组切分为三部分，分别对应小于、等于和大于切分元素。三向切分快速排序对于有大量重复元素的随机数组可以在线性时间内完成排序。
+
+```c++
+  // 快速排序，A是数组，n表示数组的大小
+  quick_sort(A, n) {
+    quick_sort_c(A, 0, n-1)
+  }
+  
+  // 快速排序递归函数，p,r为下标
+  quick_sort_c(A, p, r) {
+    if p >= r then return
+    
+    q = partition(A, p, r) // 获取分区点
+    quick_sort_c(A, p, q-1)
+    quick_sort_c(A, q+1, r)
+  }
+
+  partition(A, p, r) {
+    pivot := A[r] // 选择最后一个元素作为pivot
+    i := p
+    for j := p to r-1 do {
+      if A[j] < pivot {
+        swap A[i] with A[j]
+        i := i+1
+      }
+    }
+    swap A[i] with A[r]
+    return i
+```
+
+堆排序是非稳定的，原地排序的，时间复杂度为O(nlogn)，但是一般很少使用，因为无法利用局部性原理进行缓存
+
+```c++
+class MaxHeap {
+private:
+    vector<int> heap;
+
+public:
+    void insert(int value) {
+        heap.push_back(value);
+
+        // Move the new element up the tree until it is in the correct position
+        int index = heap.size() - 1;
+        while (index > 0 && heap[(index - 1) / 2] < heap[index]) {
+            swap(heap[index], heap[(index - 1) / 2]);
+            index = (index - 1) / 2;
+        }
+    }
+
+    void deleteMax() {
+        if (heap.empty()) {
+            throw runtime_error("Heap is empty");
+        }
+
+        // Move the last element in the heap to the root position
+        heap[0] = heap.back();
+        heap.pop_back();
+
+        // Move the new element down the tree until it is in the correct position
+        int index = 0;
+        while (true) {
+            int leftChild = 2 * index + 1;
+            int rightChild = 2 * index + 2;
+            int largestChild = index;
+            if (leftChild < heap.size() && heap[leftChild] > heap[largestChild]) {
+                largestChild = leftChild;
+            }
+            if (rightChild < heap.size() && heap[rightChild] > heap[largestChild]) {
+                largestChild = rightChild;
+            }
+            if (largestChild == index) {
+                break;
+            }
+            swap(heap[index], heap[largestChild]);
+            index = largestChild;
+        }
+    }
+};
+
+// 首先建立了一个空的最大堆，然后将数组中的元素插入到堆中。
+// 在堆中，最大元素总是位于根节点，我们将其移到数组的末尾，并删除堆中的最大元素。重复这个过程，直到整个数组有序。
+void heapSort(vector<int>& arr) {
+    MaxHeap heap;
+    for (int i = 0; i < arr.size(); i++) {
+        heap.insert(arr[i]);
+    }
+    for (int i = arr.size() - 1; i >= 0; i--) {
+        arr[i] = heap.front();
+        heap.deleteMax();
+    }
+}
+```
 
 桶排序、计数排序、基数排序时间复杂度为O(n)，非原地排序，不是基于比较的排序，对数据有一定要求
 
@@ -10292,7 +10476,7 @@ public:
     ~Singleton(){
         cout << "d-tor called" << endl;
     }
-    static Singleton& getInstance(){ // 注意返回引用！
+    static Singleton& getInstance(){ // 注意返回引用！也有的实现是返回指针，但是这样用户就能调用delete提前销毁对象（ddim是这样做的）
         static Singleton t;
         return t;
     }
