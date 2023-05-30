@@ -1248,11 +1248,14 @@ std::move原理
 
 - C++11引入的std::move并不能移动任何东西（可理解为“使其可移动movable”），它唯一的功能是**将一个左值引用强制转化为右值引用**，继而可以通过右值引用使用该值，以用于移动语义
 - std::move是将对象的状态或者所有权从一个对象转移到另一个对象，只是**转移**，没有内存的搬迁或者内存拷贝，所以可以提高利用效率
+- move 就是做类型转换的，把指代对象的左值表达式变成亡值
 - std::move实现如下
 
 ```c++
-T&& move(T& a){
-    return  (T&&)a;
+template<typename T>
+typename remove_reference<T>::type&& move(T&& t)
+{
+    return static_cast<typename remove_reference<T>::type &&>(t);
 }
 ```
 
@@ -1313,6 +1316,8 @@ void bar(T&& s){
 ```
 
 因为在 T 是模板参数时，T&& 的作用主要是保持值类别进行转发，它有个名字就叫“转发引用”(forwarding reference)。因为既可以是左值引用，也可以是右值引用，它也曾经被叫做“万能引用”(universal reference)。
+
+实际上move与forward都可以被static_cast代替，也是为了可读性考虑
 
 ### 返回值优化NRVO
 
@@ -1768,7 +1773,7 @@ public:
             delete[] m_data;
             m_data = rhs.m_data;
             rhs.m_data = nullptr;
-        })
+        }
     }
 
     String operator+(const String &rhs){ // 返回的是值！
@@ -2488,6 +2493,23 @@ class A<int, T2>{
     ...
 };
 ```
+
+### std::enable_if
+
+std::enable_if 顾名思义，满足条件时类型有效。作为选择类型的小工具，其广泛的应用在 C++ 的模板元编程（meta programming）中。它的定义也异常的简单：
+
+```c++
+template <bool, typename T=void>
+struct enable_if {
+};
+
+template <typename T>
+struct enable_if<true, T> {
+  using type = T;
+};
+```
+
+由上可知，只有当第一个模板参数为 true 时，type 才有定义，否则使用 type 会产生编译错误，并且默认模板参数可以让你不必指定类型
 
 ### C++类型萃取
 
