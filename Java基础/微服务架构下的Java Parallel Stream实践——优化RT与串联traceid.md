@@ -122,4 +122,147 @@ https://stackoverflow.com/questions/45460577/default-forkjoinpool-executor-takin
 
 串联traceid：
 
+## 后记——优化
+
+parallelStream默认使用全局的ForkJoinPool，这可能会影响其他任务，最好是一个业务自己维护一个ForkJoinPool
+
+在spring boot框架中，可以通过bean注入很方便地管理ForkJoinPool的生命周期
+
+```java
+@Configuration
+class BeanConfiguration {
+    // 通过bean管理，自动销毁，forJoinPool默认线程池数量为CPU数量-1
+    @Bean
+    public ForkJoinPool customForkJoinPool() {
+        return new ForkJoinPool();
+    }
+};
+
+class MyService {
+    @Autowired
+    private ForkJoinPool customForkJoinPool;
+
+        private MediaCopyResponse concurrentCopyMedia(..., Map<String, String> ext, List<String> validMediaIds) {
+        MediaCopyResponse resp = new MediaCopyResponse();
+        int mediaIdBatchSize = xxx
+        Object ctx = EagleEye.getRpcContext();
+        try {
+            customForkJoinPool.submit(() -> {
+                List<MediaIdModel> mediaIdModels = Lists.partition(validMediaIds, mediaIdBatchSize)
+                        .stream()
+                        .parallel()
+                        .map(subList -> {
+                            EagleEye.setRpcContext(ctx);
+                            try {
+                                MediaCopyRequest req = new MediaCopyRequest();
+                                req.setMediaIds(subList);
+                                req.setxxx
+                                final ServiceResult<MediaCopyResponse> sr = fileService.copyMedia(req, null, null);
+                            
+                                return sr.getResult().getModels();
+                            } finally {
+                                // 务必清理 ThreadLocal 的上下文，避免异步线程复用时出现上下文互串的问题
+                                EagleEye.clearRpcContext();
+                            }
+                        })
+                        .flatMap(List::stream)
+                        .collect(Collectors.toList());
+                resp.setModels(mediaIdModels);
+            });
+        } finally {
+            // forkjoin线程池可能复用主线程，在主线程中执行EagleEye.clearRpcContext()，所以这里需要恢复
+            EagleEye.setRpcContext(ctx);
+        }
+        return resp;
+    }
+}
+
+如果想设置超时时间，可以调用在submit后调用get(time, timeunit)
+
+```java
+        try {
+            customForkJoinPool.submit(() -> {
+
+            }).get(3, TimeUnit.SECONDS);
+        } catch (ExecutionException | InterruptedException | TimeoutException e) {
+            log.error("customForkJoinPool error", e);
+        } finally {
+            // forkjoin线程池可能复用主线程，在主线程中执行EagleEye.clearRpcContext()，所以这里需要恢复
+            EagleEye.setRpcContext(ctx);
+        }
+```
+
+更特别地，如果在内部的业务代码中有自定义的业务异常需要向上层抛出，这种写法是抛不出去的，因为内层的ServiceException被包裹在了ExecutionException中，需要单独判断
+
+Exception包裹有两种方法：
+1. 要么是通过RuntimeException中包裹进来，再特殊判断（下文ChatGPT的做法）
+2. 或者如果业务代码中有实现SneakyThrow注解，就不需要用RuntimeException包裹，代码如下
+
+```java
+        try {
+            customForkJoinPool.submit(() -> {
+
+            }).get(3, TimeUnit.SECONDS);
+        } catch (ExecutionException | InterruptedException | TimeoutException e) {
+            // 捕获线程池相关exception，内部的业务异常ServiceException被包裹在了ExcutionException，仍然按原逻辑往上层抛出
+            Throwable cause = e.getCause();
+            if (cause instanceof ServiceException) {
+                throw (ServiceException) cause;
+            } else {
+                log.error(getLogMsg("customForkJoinPool error"), e);
+            }
+        } finally {
+            // forkjoin线程池可能复用主线程，在主线程中执行EagleEye.clearRpcContext()，所以这里需要恢复
+            EagleEye.setRpcContext(ctx);
+        }
+```
+
+附：询问ChatGPT的回答
+
+Q:
+
+what about using my self-defined forkjoinpool?
+
+ChatGPT3.5:
+
+If you're using a custom ForkJoinPool, you can still propagate a ServiceException from a parallel stream operation by using a similar approach. Here's an example:
+
+```java
+ForkJoinPool customPool = new ForkJoinPool(4); // create a custom pool with 4 threads
+List<MyObject> myList = ...; // your list of objects
+try {
+    customPool.submit(() -> {
+        myList.parallelStream().forEach(obj -> {
+            try {
+                // your parallel stream operation here
+                if (obj.someCondition()) {
+                    throw new ServiceException("Some error occurred."); // throw a ServiceException if needed
+                }
+            } catch (ServiceException e) {
+                throw new RuntimeException(e); // wrap the ServiceException in a RuntimeException and throw it
+            }
+        });
+    }).get(); // wait for the task to complete
+    // handle successful completion
+} catch (InterruptedException | ExecutionException e) {
+    Throwable cause = e.getCause();
+    if (cause instanceof RuntimeException && cause.getCause() instanceof ServiceException) {
+        throw (ServiceException) cause.getCause(); // propagate the ServiceException to the calling method
+    } else {
+        // handle other exceptions
+    }
+} finally {
+    customPool.shutdown(); // shutdown the pool
+}
+```
+
+In this example, we create a custom ForkJoinPool object with 4 threads, and submit a Runnable task to it that executes a parallel stream operation on the myList collection. Inside the lambda expression, we handle any ServiceException that may be thrown by the operation by wrapping it in a RuntimeException and re-throwing it.
+
+We then use the get() method of the Future returned by the submit() method to wait for the task to complete. If any exception was thrown during processing, the get() method will throw an ExecutionException that wraps the original exception.
+
+We handle the ExecutionException by getting the cause of the exception using the getCause() method. If it is an instance of RuntimeException and its cause is an instance of ServiceException, we propagate the ServiceException to the calling method using the throw statement. Otherwise, we handle it as an other exception.
+
+Finally, we shutdown the custom pool in the finally block to release resources.
+
+
 > 原文发表于 2023-02-19
