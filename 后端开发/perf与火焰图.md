@@ -52,4 +52,41 @@ scp拷贝svg火焰图到本机，方便用Chrome查看
 
 scp xx.xx.xx.xx:~/.out.svg Downloads
 
+## L1 cache miss
+
+Perf可以基于各种Event对目标进行测样。如基于时间点(tick)采样，可以得到程序运行时间的分布，即程序中哪些函数最耗时。基于cache miss采样，可以得到程序的cache miss分布，即cache失效经常发生在哪些代码中。通过perf list可以Perf支持的各种Event:
+
+```shell
+$ sudo perf list                                                                                                                                                             List of pre-defined events (to be used in -e):
+
+ cpu-cycles OR cycles                       [Hardware event]
+ instructions                               [Hardware event]
+ cache-references                           [Hardware event]
+ cache-misses                               [Hardware event]
+ branch-instructions OR branches            [Hardware event]
+ branch-misses                              [Hardware event]
+ bus-cycles                                 [Hardware event]
+
+ cpu-clock                                  [Software event]
+ task-clock                                 [Software event]
+ page-faults OR faults                      [Software event]
+ minor-faults                               [Software event]
+ major-faults                               [Software event]
+ context-switches OR cs                     [Software event]
+ cpu-migrations OR migrations               [Software event]
+ alignment-faults                           [Software event]
+ emulation-faults                           [Software event]
+
+ [...]
+
+ sched:sched_stat_runtime                   [Tracepoint event]
+ sched:sched_pi_setprio                     [Tracepoint event]
+ syscalls:sys_enter_socket                  [Tracepoint event]
+ syscalls:sys_exit_socket                   [Tracepoint event]
+
+ [...]
+ ```
+
+ 可以用于分析代码的局部性缓存友好性
+
 > 本文落笔于2021-09-09

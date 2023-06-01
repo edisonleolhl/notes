@@ -499,6 +499,8 @@ fun_string(std::basic_string<char, std::char_traits<char>, std::allocator<char> 
 
 可以使用GCC & Clang编译，可能会与tcmalloc的一些特性冲突，需关闭
 
+通过编译时hook内存分配释放函数来做到内存错误检测，而OSS的代码库使用了tcmalloc 作为默认内存分配器，使用AddressSanitizer时就不能再链接tcmalloc 了
+
 In order to use AddressSanitizer you will need to compile and link your program using clang with the -fsanitize=address switch. To get a reasonable performance add -O1 or higher. To get nicer stack traces in error messages add -fno-omit-frame-pointer
 
 #### 示例
