@@ -487,6 +487,12 @@ _Z10fun_stringRKSs
 fun_string(std::basic_string<char, std::char_traits<char>, std::allocator<char> > const&)
 ```
 
+### tcmalloc
+
+- ThreadCache：小对象(<256KB)分配，直接通过ThreadCache（每个线程一个），无锁分配内存。内存不足时，需要对CentralCache加锁，并获取内存片。
+- CentralCache：为所有ThreadCache提供内存片
+- PageHeap：大对象（>=256KB）内存分配走PageCache
+
 ### AddressAsan
 
 #### 基础检测场景
