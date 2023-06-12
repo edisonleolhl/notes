@@ -10480,6 +10480,22 @@ int main(){
 
 ### 鹰蛋问题
 
+```c++
+    // k个鸡蛋，n层楼，问最坏情况需要多少次尝试
+    int superEggDrop(int k, int n) {
+        vector<vector<int>> f(n+1, vector<int>(k+1, 0));
+        for (int i = 1; i <= n; i ++ ) {
+            for (int j = 1; j <= k; j ++ )
+                f[i][j] = f[i - 1][j] + f[i - 1][j - 1] + 1;    // 没碎 + 碎了 + 1（第k层）
+            if (f[i][k] >= n) {                                 // 已经能测量出n层了，可以提前终止
+                return i;
+            }
+        }
+        // never runs here
+        return k;
+    }
+```
+
 ### 背包问题
 
 [额，没想到，背包问题解题也有套路。。。](https://mp.weixin.qq.com/s/FQ0LCROtEQu3iBZiJb0VBw)

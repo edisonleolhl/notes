@@ -12979,9 +12979,9 @@ int main() {
 }
 ```
 
-(第二种状态定义) O(nm)
+(第二种状态定义) O(nm)，反向求解
 
-f[i, j]表示用j个鸡蛋测量i次能测量的区间长度的最大值
+f[i, j]表示用j个鸡蛋测量i次能测量的高度的最大值
 
 f[n][m]一定大于等于n，所以一定是有解的
 
@@ -13010,6 +13010,27 @@ int main() {
     }
     return 0;
 }
+```
+
+leetcode ac
+
+```c++
+class Solution {
+public:
+    // k个鸡蛋，n层楼，问最坏情况需要多少次尝试
+    int superEggDrop(int k, int n) {
+        vector<vector<int>> f(n+1, vector<int>(k+1, 0));
+        for (int i = 1; i <= n; i ++ ) {
+            for (int j = 1; j <= k; j ++ )
+                f[i][j] = f[i - 1][j] + f[i - 1][j - 1] + 1;    // 没碎 + 碎了 + 1（第k层）
+            if (f[i][k] >= n) {                                 // 已经能测量出n层了，可以提前终止
+                return i;
+            }
+        }
+        // never runs here
+        return k;
+    }
+};
 ```
 
 ### 阿里巴巴2020.3.20实习生笔试
